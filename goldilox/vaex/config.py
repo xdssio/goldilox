@@ -1,0 +1,19 @@
+# Constants
+STATE = 'state'
+CREATED = 'created'
+UPDATED = 'updated'
+NO_SELECTIONS = {'__filter__': None}
+CONSTANTS = [str, int, float, bool]
+COLUMNS = 'columns'
+VIRTUAL = 'virtual'
+OUTPUT_TYPE = 'output_type'
+NOT_IMPLEMENTED_ERROR = 'Not implemented'
+JSON = 'json'
+PANDAS = 'pandas'
+VAEX = 'vaex'
+NUMPY = 'numpy'
+SELECTIONS = 'selections'
+SELECTIONS_FILTER = '__filter__'
+VARIABLES = 'variables'
+VALID_VAEX_HEADERS = ['*.csv', '*.hdf5', '*.parquet', '*.arrow']
+AWS_PROFILE = 'xdss'

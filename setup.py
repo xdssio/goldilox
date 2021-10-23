@@ -5,7 +5,8 @@ setup(
     packages=['goldilox'],
     install_requires=['sklearn', 'pandas', 'vaex', 'numpy'],
     version='0.0.1',
-    url="git@github.com:xdssio/goldilox.git",
+    url="https://github.com/xdssio/goldilox",
     description='A tool for deploying machine learning',
-    author="Yonatan Alexander"
+    author="Yonatan Alexander",
+    author_email="jonathan@xdss.io"
 )

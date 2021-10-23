@@ -1,0 +1,1 @@
+from goldilox.pipeline import Pipeline
