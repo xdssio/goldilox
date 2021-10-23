@@ -154,3 +154,5 @@ pyvenv.cfg
 pip-selfcheck.json
 
 /.idea
+/data
+/dist

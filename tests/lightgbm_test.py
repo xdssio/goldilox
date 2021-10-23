@@ -1,9 +1,10 @@
 import vaex
 
-from goldilox.vaex.pipeline import Pipeline
+from goldilox.vaex.pipeline import Pipeline as VaexPipeline
+from goldilox.sklearn.pipeline import Pipeline as SklearnPipeline
 
 
-def test_lightgbm():
+def test_vaex_lightgbm():
     import vaex
     import numpy as np
     from vaex.ml.lightgbm import LightGBMModel
@@ -29,7 +30,7 @@ def test_lightgbm():
 
     train.add_function('argmax', argmax)
     train['prediction'] = train['lgm_predictions'].argmax()
-    pipeline = Pipeline.from_dataframe(train)
+    pipeline = VaexPipeline.from_dataframe(train)
     pipeline.set_variable('accuracy',
                           accuracy_score(pipeline.inference(test[features])['prediction'].values, test[target].values))
 
@@ -42,7 +43,7 @@ def test_lightgbm():
     assert pipeline.inference({'sepal_length': 5.9, 'petal_length': 4.2, 'Y': 'new column'}).head(1).shape == (1, 9)
 
 
-def test_lightgbm_fit():
+def test_lightgbm_vaex_fit():
     def fit(df):
         import vaex
         import numpy as np
@@ -69,7 +70,7 @@ def test_lightgbm_fit():
         train.add_function('argmax', argmax)
         train['prediction'] = train['lgm_predictions'].argmax()
 
-        pipeline = Pipeline.from_dataframe(train)
+        pipeline = VaexPipeline.from_dataframe(train)
         accuracy = accuracy_score(pipeline.inference(test[features])['prediction'].values,
                                   test[target].values)
         booster = LightGBMModel(features=features,
@@ -86,7 +87,7 @@ def test_lightgbm_fit():
         return df
 
     df = vaex.ml.datasets.load_iris_1e5()
-    pipeline = Pipeline.from_dataframe(df, fit=fit)
+    pipeline = VaexPipeline.from_dataframe(df, fit=fit)
     data = df.head(1).to_records()
     assert pipeline.inference(data).shape == df.head(1).shape
     pipeline.fit(df)
@@ -96,3 +97,23 @@ def test_lightgbm_fit():
     assert pipeline.raw == data[0]
     assert list(pipeline.example.keys()) == ['sepal_length', 'sepal_width', 'petal_length', 'petal_width', 'class_',
                                              'lgm_predictions', 'prediction']
+
+
+def test_lightgbm_sklearn():
+    from lightgbm.sklearn import LGBMClassifier
+    from sklearn.pipeline import Pipeline as SkPipeline
+
+    df = vaex.ml.datasets.load_iris().to_pandas_df()
+    features = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
+    target = 'class_'
+    sk_pipeline = SkPipeline([('classifier', LGBMClassifier())])
+    X = df[features]
+    y = df[target]
+    sk_pipeline.fit(X, y)
+    self = pipeline = SklearnPipeline.from_pandas(sk_pipeline, X, y)
+
+    assert pipeline.inference(X).head(10).shape == (10,5)
+    assert pipeline.inference(X.values[:10]).shape == (10,5)
+    assert pipeline.inference(self.example).shape == (1,5)
+
+

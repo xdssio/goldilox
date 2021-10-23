@@ -3,7 +3,6 @@ from hashlib import sha256
 
 
 class Pipeline:
-
     pipeline_type: str
     example: dict
 
@@ -27,9 +26,10 @@ class Pipeline:
         return VaexPipeline.from_dataframe(df=df, fit=fit, warnings=warnings)
 
     @classmethod
-    def from_sklearn(cls, pipeline, example, fit=None, warnings=True):
-        from goldilox.sklearn.pipeline import Pipeline as SKlearnPipeline
-        return SKlearnPipeline.from_dataframe(pipeline=pipeline, example=example, fit=fit, warnings=warnings)
+    def from_sklearn(cls, pipeline, X=None, y=None, example=None, columns=None, output_column=None):
+        from goldilox.sklearn.pipeline import Pipeline as SKlearnPipeline,DEFAULT_OUTPUT_COLUMN
+        output_column = output_column or DEFAULT_OUTPUT_COLUMN
+        return SKlearnPipeline.from_sklearn(pipeline=pipeline, X=X, y=y, example=example,columns=columns,output_column=output_column)
 
     @classmethod
     def _from_koalas(cls, df, **kwargs):
@@ -37,16 +37,17 @@ class Pipeline:
         return deepcopy(df.pipeline)
 
     def fit(self, df, **kwargs):
-        pass
+
+        return self
 
     def transform(self, df, **kwargs):
-        pass
+        raise RuntimeError(f"Not implemented for {self.pipeline_type}")
 
     def predict(self, df, **kwargs):
-        pass
+        raise RuntimeError(f"Not implemented for {self.pipeline_type}")
 
     def inference(self, df, **kwargs):
-        pass
+        raise RuntimeError(f"Not implemented for {self.pipeline_type}")
 
     def infer(self, df):
         raise RuntimeError(f"Not implemented for {self.pipeline_type}")

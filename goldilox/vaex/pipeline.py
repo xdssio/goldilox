@@ -2,7 +2,7 @@ import inspect
 import json
 import logging
 import os
-import time
+from time import time
 from collections import OrderedDict
 from copy import deepcopy, copy as _copy
 from glob import glob
@@ -36,7 +36,7 @@ def _is_s3_url(path):
 
 class Pipeline(HasState, Pipeline):
     pipeline_type = 'vaex'
-    current_time = int(time.time())
+    current_time = int(time())
     created = traitlets.Int(default_value=current_time, allow_none=False, help='Created time')
     updated = traitlets.Int(default_value=current_time, allow_none=False, help='Updated time')
     example = traitlets.Any(default_value=None, allow_none=True, help='An example of the transformed dataset').tag(
@@ -203,25 +203,6 @@ class Pipeline(HasState, Pipeline):
             length = len(df)
         df[name] = np.array([value] * length)
         return df
-
-    def get_columns_to_add(self, df, columns=None):
-        columns_to_add = set([])
-        if any([column not in df for column in self.values]):
-            example = self.transform_state(self.infer(self.example.copy()))
-            if columns is None:
-                columns = list(self.values.keys())
-
-            queue = _copy(columns)
-            while len(queue) > 0:
-                column = queue.pop()
-                variables = example[column].variables(include_virtual=True, expand_virtual=True)
-                if len(variables) == 0:
-                    columns_to_add.add(column)
-                elif len(variables) == 1 and variables.pop() in self._original_columns:
-                    columns_to_add.add(column)
-                else:
-                    queue.extend(variables)
-        return columns_to_add
 
     def na_column(self, length, dtype):
         return pa.array([None] * length)
@@ -400,6 +381,7 @@ class Pipeline(HasState, Pipeline):
             else:
                 raise ValueError("'fit_func' should return a vaex dataset or a state, got {}".format(type(trained)))
         self.updated = int(time.time())
+        return self
 
     def get_function_model(self, name):
         tmp = self.state['functions'][name]
