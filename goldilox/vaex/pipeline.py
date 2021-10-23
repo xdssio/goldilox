@@ -390,7 +390,7 @@ class Pipeline(HasState, Pipeline):
         if fit_func is None:
             raise RuntimeError("'fit()' was not set for this pipeline")
         trained = fit_func(copy)
-        self.example = self.sample_first(trained)
+        self.sample_first(trained)
         if Pipeline.is_vaex_dataset(trained):
             trained.add_function(PIPELINE_FIT, fit_func)
             self.state = trained.state_get()

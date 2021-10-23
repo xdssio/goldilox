@@ -60,14 +60,15 @@ def test_lightgbm_fit():
                                                              'objective': 'multiclass',
                                                              'num_class': 3})
         booster.fit(df)
-        train = booster.transform(df)
 
         @vaex.register_function()
         def argmax(ar, axis=1):
             return np.argmax(ar, axis=axis)
 
+        train = booster.transform(df)
         train.add_function('argmax', argmax)
         train['prediction'] = train['lgm_predictions'].argmax()
+
         pipeline = Pipeline.from_dataframe(train)
         accuracy = accuracy_score(pipeline.inference(test[features])['prediction'].values,
                                   test[target].values)
@@ -79,6 +80,8 @@ def test_lightgbm_fit():
                                                              'num_class': 3})
         booster.fit(df)
         df = booster.transform(df)
+        df.add_function('argmax', argmax)
+        df['prediction'] = df['lgm_predictions'].argmax()
         df.variables['accuracy'] = accuracy
         return df
 
@@ -88,5 +91,8 @@ def test_lightgbm_fit():
     assert pipeline.inference(data).shape == df.head(1).shape
     pipeline.fit(df)
 
-    assert pipeline.inference(data).shape == (1, 6)
+    assert pipeline.inference(data).shape == (1, 7)
     assert pipeline.get_variable('accuracy')
+    assert pipeline.raw == data[0]
+    assert list(pipeline.example.keys()) == ['sepal_length', 'sepal_width', 'petal_length', 'petal_width', 'class_',
+                                             'lgm_predictions', 'prediction']
