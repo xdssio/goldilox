@@ -3,14 +3,14 @@ from time import time
 import numpy as np
 import pandas as pd
 import traitlets
-from vaex.ml.state import HasState
+
 
 from goldilox import Pipeline
 
 DEFAULT_OUTPUT_COLUMN = 'prediction'
 
 
-class Pipeline(HasState, Pipeline):
+class Pipeline(traitlets.HasTraits, Pipeline):
     pipeline_type = 'sklearn'
     current_time = int(time())
     created = traitlets.Int(default_value=current_time, allow_none=False, help='Created time')
@@ -60,9 +60,11 @@ class Pipeline(HasState, Pipeline):
 
         raise RuntimeError(f"could not infer type:{type(df)}")
 
-
-    def fit(self, df, **kwargs):
-        self.pipeline = self.pipeline.fit(df[self.features], df[self.target])
+    def fit(self, df, y=None, **kwargs):
+        if y is None:
+            y = df[self.target] if self.target else None
+        X = df[self.features]
+        self.pipeline = self.pipeline.fit(X=X, y=y)
         return self
 
     def inference(self, df, columns=None, **kwargs):
@@ -72,7 +74,16 @@ class Pipeline(HasState, Pipeline):
             copy[self.output_column] = self.pipeline.predict(copy[features])
         else:
             copy = self.pipeline.transform(copy[features])
+            if isinstance(copy, np.ndarray) and copy.shape[1] == len(features):
+                copy = pd.DataFrame(copy, columns=features)
         return copy
 
     def preprocess(self, df):
         pass
+
+    def validate(self):
+        try:
+            self.inference(self.example)
+        except Exception as e:
+            return e
+        return True

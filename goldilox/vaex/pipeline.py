@@ -2,11 +2,11 @@ import inspect
 import json
 import logging
 import os
-from time import time
 from collections import OrderedDict
 from copy import deepcopy, copy as _copy
 from glob import glob
 from numbers import Number
+from time import time
 
 import numpy as np
 import pandas as pd
@@ -43,35 +43,35 @@ class Pipeline(HasState, Pipeline):
         **serialize_pickle)
     raw = traitlets.Any(default_value=None, allow_none=True, help='An example of the raw dataset').tag(
         **serialize_pickle)
-    _original_dtypes = traitlets.Dict(default_value={},
-                                      help='original columns which were not virtual expressions')
+    # _original_dtypes = traitlets.Dict(default_value={},
+    #                                   help='original columns which were not virtual expressions')
+    _original_columns = traitlets.List(default_value=[], help='original columns which were not virtual expressions')
     state = traitlets.Dict(default_value=None, allow_none=True, help='The state to apply on inference')
-    warnings = traitlets.Bool(default_value=True, help='Raise warnings')
 
     @classmethod
     def _get_original_columns(cls, df):
         return list(df.dataset._columns.keys())
 
     @classmethod
-    def _get_original_dtypes(cls, df):
-        columns = df.head(1).dataset._columns
+    def _data_type(cls, data):
 
-        def data_type(data):
-            if isinstance(data, np.ndarray):
-                data_type = data.dtype
-            elif isinstance(data, Column):
-                data = data.to_arrow()
-                data_type = data.type
+        if isinstance(data, np.ndarray):
+            data_type = data.dtype
+        elif isinstance(data, Column):
+            data = pa.array(data.tolist())
+            data_type = data.type.to_pandas_dtype()
+        else:
+            # when we eval constants, let arrow find it out
+
+            if isinstance(data, Number):
+                data_type = pa.array([data]).type.to_pandas_dtype()
             else:
-                # when we eval constants, let arrow find it out
+                data_type = data.type.to_pandas_dtype()  # assuming arrow
+        return data_type
 
-                if isinstance(data, Number):
-                    data_type = pa.array([data]).type
-                else:
-                    data_type = data.type  # assuming arrow
-            return data_type
-
-        return {column: data_type(data) for column, data in columns.items()}
+    @classmethod
+    def _get_original_dtypes(cls, df):
+        return {column: cls._data_type(data) for column, data in df.head(1).dataset._columns.items()}
 
     def state_set(self, state):
         HasState.state_set(self, state)
@@ -108,7 +108,7 @@ class Pipeline(HasState, Pipeline):
             raise RuntimeError("cannot sample from empty dataframe")
         try:
             sample = df[0:1]
-            self._original_dtypes = self._get_original_dtypes(df)
+            self._original_columns = self._get_original_columns(df)
             self.raw = {key: values[0] for key, values in sample.dataset._columns.items()}
             self.example = sample.to_records()[0]
             return True
@@ -117,16 +117,18 @@ class Pipeline(HasState, Pipeline):
         return False
 
     @classmethod
-    def from_dataframe(cls, df, fit=None, warnings=True):
+    def from_dataframe(cls, df, fit=None):
         copy = Pipeline.verify_vaex_dataset(df)
         if fit is not None:
             copy.add_function(PIPELINE_FIT, fit)
         sample = copy[0:1]
-        raw = {key: values[0] for key, values in sample.dataset._columns.items()}
+        state = copy.state_get()
+        renamed = {x[1]: x[0] for x in state['renamed_columns']}
+        raw = {renamed.get(key, key): value.tolist()[0] for key,value in sample.dataset._columns.items( )}
+        original_columns = Pipeline._get_original_columns(sample)
         example = sample.to_records()[0]
-        pipeline = Pipeline(state=copy.state_get(),
-                            warnings=warnings,
-                            _original_dtypes=Pipeline._get_original_dtypes(df),
+        pipeline = Pipeline(state=state,
+                            _original_columns=original_columns,
                             raw=raw,
                             example=example)
 
@@ -204,19 +206,19 @@ class Pipeline(HasState, Pipeline):
         df[name] = np.array([value] * length)
         return df
 
-    def na_column(self, length, dtype):
+    def na_column(self, length):
         return pa.array([None] * length)
 
     def preprocess_transform(self, df, columns, fillna=True):
         copy = self.infer(df)
         length = len(copy)
-        values = self._original_dtypes
+        # values = self._original_dtypes
         renamed = {x[1]: x[0] for x in self.state['renamed_columns']}
-        for key, dtype in values.items():
+        for key in self._original_columns:
             if key in renamed:
                 key = renamed.get(key)
             if key not in copy:
-                copy[key] = self.na_column(length, dtype)
+                copy[key] = self.na_column(length)
         return copy
 
     def transform_state(self, df, keep_columns=None, state=None, set_filter=False):
@@ -367,11 +369,12 @@ class Pipeline(HasState, Pipeline):
     def fit(self, df):
         copy = df.copy()
         self.verify_vaex_dataset(copy)
+        self.sample_first(copy)
         fit_func = self.get_function(PIPELINE_FIT)
         if fit_func is None:
             raise RuntimeError("'fit()' was not set for this pipeline")
         trained = fit_func(copy)
-        self.sample_first(trained)
+        self.example = trained.head(1).to_records()[0]
         if Pipeline.is_vaex_dataset(trained):
             trained.add_function(PIPELINE_FIT, fit_func)
             self.state = trained.state_get()
@@ -388,3 +391,10 @@ class Pipeline(HasState, Pipeline):
         model = eval(tmp['cls'])()
         model.state_set(state=tmp['state'])
         return model
+
+    def validate(self):
+        try:
+            self.inference(self.example).shape == (1, len(self.example))
+        except Exception as e:
+            return e
+        return True

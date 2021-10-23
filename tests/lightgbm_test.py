@@ -1,7 +1,7 @@
 import vaex
 
-from goldilox.vaex.pipeline import Pipeline as VaexPipeline
 from goldilox.sklearn.pipeline import Pipeline as SklearnPipeline
+from goldilox.vaex.pipeline import Pipeline as VaexPipeline
 
 
 def test_vaex_lightgbm():
@@ -101,19 +101,22 @@ def test_lightgbm_vaex_fit():
 
 def test_lightgbm_sklearn():
     from lightgbm.sklearn import LGBMClassifier
-    from sklearn.pipeline import Pipeline as SkPipeline
+    import sklearn.pipeline
 
     df = vaex.ml.datasets.load_iris().to_pandas_df()
     features = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
     target = 'class_'
-    sk_pipeline = SkPipeline([('classifier', LGBMClassifier())])
+    sk_pipeline = sklearn.pipeline.Pipeline([('classifier', LGBMClassifier())])
     X = df[features]
     y = df[target]
-    sk_pipeline.fit(X, y)
-    self = pipeline = SklearnPipeline.from_pandas(sk_pipeline, X, y)
+    self = pipeline = SklearnPipeline.from_sklearn(sk_pipeline, X, y)
+    pipeline.fit(X, y)
+    assert pipeline.inference(X).head(10).shape == (10, 5)
+    assert pipeline.inference(X.values[:10]).shape == (10, 5)
+    assert pipeline.inference(self.example).shape == (1, 5)
 
-    assert pipeline.inference(X).head(10).shape == (10,5)
-    assert pipeline.inference(X.values[:10]).shape == (10,5)
-    assert pipeline.inference(self.example).shape == (1,5)
-
+    pipeline.fit(df)
+    assert pipeline.inference(X).head(10).shape == (10, 5)
+    assert pipeline.inference(X.values[:10]).shape == (10, 5)
+    assert pipeline.inference(self.example).shape == (1, 5)
 

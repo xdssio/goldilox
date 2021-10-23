@@ -2,18 +2,53 @@ import warnings
 
 import numpy as np
 import pandas as pd
+import sklearn.pipeline
+import vaex
 from lightgbm.sklearn import LGBMClassifier
 from sklearn.base import TransformerMixin, BaseEstimator
+from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.model_selection import train_test_split
-from sklearn.pipeline import Pipeline as SkleranPipeline
 from sklearn.preprocessing import OrdinalEncoder
-
-from goldilox import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 warnings.filterwarnings('ignore')
 
+from goldilox.sklearn.pipeline import Pipeline
 
-def test_advance_skleran():
+
+def test_sklrean_transform():
+    X = vaex.ml.datasets.load_iris().to_pandas_df()[['petal_length', 'petal_width', 'sepal_length', 'sepal_width']]
+    pipeline = Pipeline.from_sklearn(sklearn.pipeline.Pipeline([('standard', StandardScaler())]), X).fit(X)
+    assert pipeline.inference(X).shape == X.shape
+
+
+def test_sklrean_predict_classification():
+    df = vaex.ml.datasets.load_iris().to_pandas_df()
+    X = df[['petal_length', 'petal_width', 'sepal_length', 'sepal_width']]
+    y = df['class_']
+    pipeline = Pipeline.from_sklearn(sklearn.pipeline.Pipeline([('regression', LogisticRegression())]), X, y)
+    pipeline.fit(df)
+    assert pipeline.output_column in pipeline.inference(X)
+
+    pipeline = Pipeline.from_sklearn(sklearn.pipeline.Pipeline([('regression', LogisticRegression())]), X, y)
+    pipeline.fit(X, y)
+    assert pipeline.output_column in pipeline.inference(X)
+
+
+def test_sklrean_predict_regression():
+    df = vaex.ml.datasets.load_iris().to_pandas_df()
+    X = df[['petal_length', 'petal_width', 'sepal_length', 'sepal_width']]
+    y = df['class_']
+    pipeline = Pipeline.from_sklearn(sklearn.pipeline.Pipeline([('regression', LinearRegression())]), X, y)
+    pipeline.fit(df)
+    assert pipeline.output_column in pipeline.inference(X)
+
+    pipeline = Pipeline.from_sklearn(sklearn.pipeline.Pipeline([('regression', LinearRegression())]), X, y)
+    pipeline.fit(X, y)
+    assert pipeline.output_column in pipeline.inference(X)
+
+
+def test_skleran_advance():
     df = pd.read_csv('data/titanic.csv')
     train, test = train_test_split(df)
 
@@ -133,11 +168,6 @@ def test_advance_skleran():
             self.model = LGBMClassifier(**self.params).fit(X[self.features], X[self.target])
             return self
 
-        def predict(self, X):
-            if self.model is None:
-                raise RuntimeError("Model is not trained")
-            return self.model.predict(X[self.features])
-
         def transform(self, df, **transform_params):
             if self.model is None:
                 raise RuntimeError("Model is not trained")
@@ -158,7 +188,7 @@ def test_advance_skleran():
         def transform(self, df, **transform_params):
             return df[df[self.column].str.contains(' ') != True]
 
-    pipeline = SkleranPipeline([
+    sk_pipeline = sklearn.pipeline.Pipeline([
         ('cleaning', CleaningTransformer('Cabin')),
         ('FamilySizeTransformer', FamilySizeTransformer(['Parch', 'SibSp'])),
         ('InitialsTransformer', InitialsTransformer('Name')),
@@ -169,12 +199,13 @@ def test_advance_skleran():
         ('model', LGBMTransformer(target='Survived', features=['PassengerId', 'Pclass', 'Age', 'SibSp',
                                                                'Parch', 'Fare', 'le_Embarked', 'le_Sex',
                                                                'le_FamilyBin'], verbose=-1)),
-    ]).fit(train)
+    ])
 
+    pipeline = Pipeline.from_sklearn(sk_pipeline, train).fit(train)
 
-    pipeline = self = Pipeline.from_sklearn(pipeline, X)
-    pipeline.inference(pipeline.example)
-    assert pipeline.inference(test).head().shape == ()
-    
-    pipeline.fit(train)
+    assert pipeline.inference(test).head().shape == (5, 22)
+    assert isinstance(pipeline.validate(), Exception)
 
+    pipeline = Pipeline.from_sklearn(sk_pipeline[1:], train).fit(train)
+    assert pipeline.validate()
+    assert pipeline.inference(test).shape == (len(test), 22)
