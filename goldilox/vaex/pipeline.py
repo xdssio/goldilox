@@ -2,23 +2,23 @@ import inspect
 import json
 import logging
 import os
-import re
 import time
 from collections import OrderedDict
 from copy import deepcopy, copy as _copy
 from glob import glob
-from uuid import uuid4
+from numbers import Number
 
 import numpy as np
 import pandas as pd
+import pyarrow as pa
 import s3fs
 import traitlets
 import vaex
+from vaex.column import Column
 from vaex.ml.state import HasState, serialize_pickle
 
 from goldilox.pipeline import Pipeline
 from goldilox.vaex.config import *
-from goldilox.vaex.transformers import Imputer
 
 logging.basicConfig()
 logger = logging.getLogger(__name__)
@@ -39,16 +39,39 @@ class Pipeline(HasState, Pipeline):
     current_time = int(time.time())
     created = traitlets.Int(default_value=current_time, allow_none=False, help='Created time')
     updated = traitlets.Int(default_value=current_time, allow_none=False, help='Updated time')
-    example = traitlets.Any(default_value=None, allow_none=True, help='An example of the dataset to infer').tag(
+    example = traitlets.Any(default_value=None, allow_none=True, help='An example of the transformed dataset').tag(
         **serialize_pickle)
-    _original_columns = traitlets.List(traitlets.Unicode(), default_value=[],
-                                       help='original columns which were not virtual include h')
-    input_columns = traitlets.List(traitlets.Unicode(), default_value=[],
-                                   help='original columns which were not virtual or hidden')
-
+    raw = traitlets.Any(default_value=None, allow_none=True, help='An example of the raw dataset').tag(
+        **serialize_pickle)
+    _original_dtypes = traitlets.Dict(default_value={},
+                                      help='original columns which were not virtual expressions')
     state = traitlets.Dict(default_value=None, allow_none=True, help='The state to apply on inference')
-    values = traitlets.Dict(default_value={}, help='The value to fill in each feature if missing')
     warnings = traitlets.Bool(default_value=True, help='Raise warnings')
+
+    @classmethod
+    def _get_original_columns(cls, df):
+        return list(df.dataset._columns.keys())
+
+    @classmethod
+    def _get_original_dtypes(cls, df):
+        columns = df.head(1).dataset._columns
+
+        def data_type(data):
+            if isinstance(data, np.ndarray):
+                data_type = data.dtype
+            elif isinstance(data, Column):
+                data = data.to_arrow()
+                data_type = data.type
+            else:
+                # when we eval constants, let arrow find it out
+
+                if isinstance(data, Number):
+                    data_type = pa.array([data]).type
+                else:
+                    data_type = data.type  # assuming arrow
+            return data_type
+
+        return {column: data_type(data) for column, data in columns.items()}
 
     def state_set(self, state):
         HasState.state_set(self, state)
@@ -85,22 +108,27 @@ class Pipeline(HasState, Pipeline):
             raise RuntimeError("cannot sample from empty dataframe")
         try:
             sample = df[0:1]
-            self._original_columns = list(sample.columns.keys())
-            imputer = Imputer(features=list(self._original_columns), warnings=self.warnings).fit(sample)
-            self.values = imputer.values
-            self.example = self.transform_state(self.infer(imputer.transform(sample).gl.to_records(0)))
-            self.input_columns = self._get_input_columns()
+            self._original_dtypes = self._get_original_dtypes(df)
+            self.raw = {key: values[0] for key, values in sample.dataset._columns.items()}
+            self.example = sample.to_records()[0]
+            return True
         except Exception as e:
             logger.error(f"could not sample first: {e}")
-        return self.example
+        return False
 
     @classmethod
-    def from_dataframe(cls, df, example=None, fit=None, warnings=True):
-        copy = cls.verify_vaex_dataset(df)
+    def from_dataframe(cls, df, fit=None, warnings=True):
+        copy = Pipeline.verify_vaex_dataset(df)
         if fit is not None:
             copy.add_function(PIPELINE_FIT, fit)
-        pipeline = Pipeline(state=copy.state_get(), warnings=warnings)
-        pipeline.example = example or pipeline.sample_first(copy)
+        sample = copy[0:1]
+        raw = {key: values[0] for key, values in sample.dataset._columns.items()}
+        example = sample.to_records()[0]
+        pipeline = Pipeline(state=copy.state_get(),
+                            warnings=warnings,
+                            _original_dtypes=Pipeline._get_original_dtypes(df),
+                            raw=raw,
+                            example=example)
 
         return pipeline
 
@@ -109,18 +137,6 @@ class Pipeline(HasState, Pipeline):
         pipeline.state_set(deepcopy(self.state_get()))
         pipeline.updated = int(time.time())
         return pipeline
-
-    def _get_input_columns(self):
-        """
-        :param regex: regex for filtering the results
-        :return: List of columns that provided in the original dataset
-        """
-        example = self.infer({str(uuid4()): ''})
-
-        def fix_hiddens(text):
-            return re.sub(r'^{0}'.format(re.escape('__')), '', text)
-
-        return [fix_hiddens(col) for col in self.get_columns_to_add(example)]
 
     @classmethod
     def from_file(cls, path):
@@ -207,18 +223,19 @@ class Pipeline(HasState, Pipeline):
                     queue.extend(variables)
         return columns_to_add
 
+    def na_column(self, length, dtype):
+        return pa.array([None] * length)
+
     def preprocess_transform(self, df, columns, fillna=True):
         copy = self.infer(df)
         length = len(copy)
-        values = self.values
+        values = self._original_dtypes
         renamed = {x[1]: x[0] for x in self.state['renamed_columns']}
-        for key, value in values.items():
+        for key, dtype in values.items():
             if key in renamed:
                 key = renamed.get(key)
             if key not in copy:
-                self.add_memmory_column(copy, key, value, length)
-            if copy[key].dtype.is_string and fillna:
-                copy[key] = copy[key].fillna(str(value))
+                copy[key] = self.na_column(length, dtype)
         return copy
 
     def transform_state(self, df, keep_columns=None, state=None, set_filter=False):
@@ -332,6 +349,10 @@ class Pipeline(HasState, Pipeline):
 
     def set_variable(self, key, value):
         self.state[VARIABLES][key] = value
+        return value
+
+    def get_variable(self, key, default=None):
+        return self.state[VARIABLES].get(key, default)
 
     @property
     def variables(self):
@@ -343,12 +364,9 @@ class Pipeline(HasState, Pipeline):
             return None
         return self.state[VARIABLES].get(variable)
 
-    def get_example(self):
-        return self.example.gl.to_records(0)
-
     def get_columns_names(self, virtual=True, strings=True, hidden=False, regex=None):
-        return self.example.get_column_names(virtual=virtual, strings=strings, hidden=hidden,
-                                             regex=regex)
+        return self.inference(self.example).get_column_names(virtual=virtual, strings=strings, hidden=hidden,
+                                                             regex=regex)
 
     def fit_transform(self, data):
         self.fit(data)

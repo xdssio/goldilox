@@ -21,13 +21,15 @@ class Pipeline:
 
         return h.hexdigest()
 
-    def from_vaex(self, df, example=None, fit=None, warnings=True):
+    @classmethod
+    def from_vaex(cls, df, fit=None, warnings=True):
         from goldilox.vaex.pipeline import Pipeline as VaexPipeline
-        return VaexPipeline.from_dataframe(df=df, example=example, fit=fit, warnings=warnings)
-
-    def from_sklearn(self, df, fit=None, warnings=True):
-        from goldilox.sklearn.pipeline import Pipeline as VaexPipeline
         return VaexPipeline.from_dataframe(df=df, fit=fit, warnings=warnings)
+
+    @classmethod
+    def from_sklearn(cls, pipeline, example, fit=None, warnings=True):
+        from goldilox.sklearn.pipeline import Pipeline as SKlearnPipeline
+        return SKlearnPipeline.from_dataframe(pipeline=pipeline, example=example, fit=fit, warnings=warnings)
 
     @classmethod
     def _from_koalas(cls, df, **kwargs):
