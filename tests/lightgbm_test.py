@@ -2,15 +2,22 @@ import vaex
 
 from goldilox.sklearn.pipeline import Pipeline as SklearnPipeline
 from goldilox.vaex.pipeline import Pipeline as VaexPipeline
+from vaex.ml.datasets import load_iris_1e5
+import pytest
+
+@pytest.fixture()
+def iris():
+    # iris = load_iris_1e5()
+    return load_iris_1e5()
 
 
-def test_vaex_lightgbm():
+def test_vaex_lightgbm(iris):
     import vaex
     import numpy as np
     from vaex.ml.lightgbm import LightGBMModel
     from sklearn.metrics import accuracy_score
 
-    train, test = vaex.ml.datasets.load_iris_1e5().ml.train_test_split(test_size=0.2, verbose=False)
+    train, test = iris.ml.train_test_split(test_size=0.2, verbose=False)
     features = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
     target = 'class_'
     train['X'] = train['petal_length'] / train['petal_width']
@@ -43,7 +50,8 @@ def test_vaex_lightgbm():
     assert pipeline.inference({'sepal_length': 5.9, 'petal_length': 4.2, 'Y': 'new column'}).head(1).shape == (1, 9)
 
 
-def test_lightgbm_vaex_fit():
+def test_lightgbm_vaex_fit(iris):
+
     def fit(df):
         import vaex
         import numpy as np
@@ -86,7 +94,7 @@ def test_lightgbm_vaex_fit():
         df.variables['accuracy'] = accuracy
         return df
 
-    df = vaex.ml.datasets.load_iris_1e5()
+    df = iris.copy()
     pipeline = VaexPipeline.from_dataframe(df, fit=fit)
     data = df.head(1).to_records()
     assert pipeline.inference(data).shape == df.head(1).shape
@@ -99,18 +107,18 @@ def test_lightgbm_vaex_fit():
                                              'lgm_predictions', 'prediction']
 
 
-def test_lightgbm_sklearn():
+def test_lightgbm_sklearn(iris):
     from lightgbm.sklearn import LGBMClassifier
     import sklearn.pipeline
 
-    df = vaex.ml.datasets.load_iris().to_pandas_df()
+    df = iris.copy()
     features = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
     target = 'class_'
     sk_pipeline = sklearn.pipeline.Pipeline([('classifier', LGBMClassifier())])
     X = df[features]
     y = df[target]
-    self = pipeline = SklearnPipeline.from_pandas(sk_pipeline, X, y)
-    pipeline.fit(X, y)
+    self = pipeline = SklearnPipeline.from_sklearn(sk_pipeline).fit(X, y)
+
     assert pipeline.inference(X).head(10).shape == (10, 5)
     assert pipeline.inference(X.values[:10]).shape == (10, 5)
     assert pipeline.inference(self.example).shape == (1, 5)

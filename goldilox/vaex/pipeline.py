@@ -383,7 +383,7 @@ class Pipeline(HasState, Pipeline):
                 self.state = trained
             else:
                 raise ValueError("'fit_func' should return a vaex dataset or a state, got {}".format(type(trained)))
-        self.updated = int(time.time())
+        self.updated = int(time())
         return self
 
     def get_function_model(self, name):
@@ -392,9 +392,12 @@ class Pipeline(HasState, Pipeline):
         model.state_set(state=tmp['state'])
         return model
 
-    def validate(self):
+    def validate(self, df=None):
+        if df is None:
+            df = self.infer(self.example)
+        #TODO checkl na
         try:
-            self.inference(self.example).shape == (1, len(self.example))
+            len(self.inference(df)) == len(df)
         except Exception as e:
             return e
         return True

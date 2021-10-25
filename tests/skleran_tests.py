@@ -2,8 +2,8 @@ import warnings
 
 import numpy as np
 import pandas as pd
+import pytest
 import sklearn.pipeline
-import vaex
 from lightgbm.sklearn import LGBMClassifier
 from sklearn.base import TransformerMixin, BaseEstimator
 from sklearn.linear_model import LogisticRegression, LinearRegression
@@ -17,10 +17,15 @@ from goldilox.sklearn.pipeline import SklearnPipeline
 from vaex.ml.datasets import load_iris
 
 
-def test_from_sklearn_transform():
+@pytest.fixture()
+def iris():
+    # iris = load_iris().to_pandas_df()
+    return load_iris().to_pandas_df()
+
+
+def test_from_sklearn_transform(iris):
     columns = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
-    X = load_iris().to_pandas_df()[columns]
-    example = X.head(1).to_dict(orient='records')[0]
+    X = iris[columns]
     values = X.values
     pipeline = SklearnPipeline.from_sklearn(sklearn.pipeline.Pipeline([('standard', StandardScaler())])).fit(values)
     assert pipeline.inference(X).shape == X.shape
@@ -30,47 +35,69 @@ def test_from_sklearn_transform():
     pipeline = SklearnPipeline.from_sklearn(sklearn.pipeline.Pipeline([('standard', StandardScaler())])).fit(X)
     assert pipeline.inference(X).shape == X.shape
     assert pipeline.inference(values).shape == X.shape
-
-
-    pipeline = SklearnPipeline.from_sklearn(sklearn.pipeline.Pipeline([('standard', StandardScaler())]), features=X.columns).fit()
+    assert pipeline.sample == pipeline._sample_df(X)
+    pipeline = SklearnPipeline.from_sklearn(sklearn.pipeline.Pipeline([('standard', StandardScaler())]),
+                                            features=X.columns).fit(X)
     assert pipeline.inference(X).shape == X.shape
+    assert pipeline.inference(values).shape == X.shape
+    assert pipeline.sample == pipeline._sample_df(X)
 
-
-    pipeline = SklearnPipeline.from_sklearn(sklearn.pipeline.Pipeline([('standard', StandardScaler())]), example=example).fit(X)
+    pipeline = SklearnPipeline.from_sklearn(sklearn.pipeline.Pipeline([('standard', StandardScaler())]).fit(X),
+                                            features=X.columns)
     assert pipeline.inference(X).shape == X.shape
+    assert pipeline.inference(values).shape == X.shape
+    assert pipeline.sample is None
+    assert pipeline.features == columns
 
-
-
-def test_sklrean_transform():
-    X = vaex.ml.datasets.load_iris().to_pandas_df()[['petal_length', 'petal_width', 'sepal_length', 'sepal_width']]
-    pipeline = SklearnPipeline.from_pandas(sklearn.pipeline.Pipeline([('standard', StandardScaler())]), X).fit(X)
+    pipeline = SklearnPipeline.from_sklearn(sklearn.pipeline.Pipeline([('standard', StandardScaler())]).fit(X),
+                                            sample=SklearnPipeline._sample_df(X))
     assert pipeline.inference(X).shape == X.shape
+    assert pipeline.inference(values).shape == X.shape
+    assert pipeline.sample == SklearnPipeline._sample_df(X)
+    assert pipeline.features == columns
+
+    with pytest.raises(Exception):
+        SklearnPipeline.from_sklearn(sklearn.pipeline.Pipeline([('standard', StandardScaler())]).fit(X))
 
 
-def test_sklrean_predict_classification():
-    df = vaex.ml.datasets.load_iris().to_pandas_df()
-    X = df[['petal_length', 'petal_width', 'sepal_length', 'sepal_width']]
-    y = df['class_']
-    pipeline = SklearnPipeline.from_pandas(sklearn.pipeline.Pipeline([('regression', LogisticRegression())]), X, y)
-    pipeline.fit(df)
+def test_sklrean_predict_classification(iris):
+    features = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
+    target = 'class_'
+    X = iris[features]
+    y = iris[target]
+    pipeline = SklearnPipeline.from_sklearn(sklearn.pipeline.Pipeline([('regression', LogisticRegression())])).fit(X, y)
     assert pipeline.output_column in pipeline.inference(X)
+    assert pipeline.sample == SklearnPipeline._sample_df(X)
+    assert pipeline.features == features
+    assert pipeline.target == target
 
-    pipeline = SklearnPipeline.from_pandas(sklearn.pipeline.Pipeline([('regression', LogisticRegression())]), X, y)
-    pipeline.fit(X, y)
+    self = pipeline = SklearnPipeline.from_sklearn(sklearn.pipeline.Pipeline([('regression', LogisticRegression())]),
+                                            features=features, target=target).fit(iris)
+    assert pipeline.validate(X, check_na=False)
+
     assert pipeline.output_column in pipeline.inference(X)
+    assert pipeline.sample == SklearnPipeline._sample_df(X)
+    assert pipeline.features == features
+    assert pipeline.target == target
 
 
-def test_sklrean_predict_regression():
-    df = vaex.ml.datasets.load_iris().to_pandas_df()
-    X = df[['petal_length', 'petal_width', 'sepal_length', 'sepal_width']]
-    y = df['class_']
-    pipeline = SklearnPipeline.from_pandas(sklearn.pipeline.Pipeline([('regression', LinearRegression())]), X, y)
-    pipeline.fit(df)
+def test_sklrean_predict_regression(iris):
+    features = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
+    target = 'class_'
+    X = iris[features]
+    y = iris[target]
+    pipeline = SklearnPipeline.from_sklearn(sklearn.pipeline.Pipeline([('regression', LinearRegression())])).fit(X, y)
     assert pipeline.output_column in pipeline.inference(X)
+    assert pipeline.sample == SklearnPipeline._sample_df(X)
+    assert pipeline.features == features
+    assert pipeline.target == target
 
-    pipeline = SklearnPipeline.from_pandas(sklearn.pipeline.Pipeline([('regression', LinearRegression())]), X, y)
-    pipeline.fit(X, y)
+    pipeline = SklearnPipeline.from_sklearn(sklearn.pipeline.Pipeline([('regression', LinearRegression())]),
+                                            features=features, target=target).fit(iris)
     assert pipeline.output_column in pipeline.inference(X)
+    assert pipeline.sample == SklearnPipeline._sample_df(X)
+    assert pipeline.features == features
+    assert pipeline.target == target
 
 
 def test_skleran_advance():
@@ -226,11 +253,37 @@ def test_skleran_advance():
                                                                'le_FamilyBin'], verbose=-1)),
     ])
 
-    pipeline = SklearnPipeline.from_pandas(sk_pipeline, train).fit(train)
+    pipeline = SklearnPipeline.from_sklearn(sk_pipeline).fit(train)
 
-    assert pipeline.inference(test).head().shape == (5, 22)
-    assert isinstance(pipeline.validate(), Exception)
+    assert pipeline.inference(test).head(5).shape == (5, 22)
+    assert len(pipeline.inference(test)) != len(test)
 
-    pipeline = SklearnPipeline.from_pandas(sk_pipeline[1:], train).fit(train)
+    with pytest.raises(Exception):
+        pipeline.validate(test)
+
+    with pytest.raises(Exception):
+        pipeline.validate()
+
+    with pytest.raises(Exception):
+        SklearnPipeline.from_sklearn(pipeline.pipeline[1:]).fit(train)
+
+    sk_pipeline = sklearn.pipeline.Pipeline([
+        ('cleaning', CleaningTransformer('Cabin')),
+        ('FamilySizeTransformer', FamilySizeTransformer(['Parch', 'SibSp'])),
+        ('InitialsTransformer', InitialsTransformer('Name')),
+        ('AgeImputer', AgeImputer('Age')),
+        ('AgeGroupTransformer', AgeGroupTransformer('Age')),
+        ('BinTransformer', BinTransformer('FamilySize')),
+        ('MultiColumnLabelEncoder', MultiColumnLabelEncoder(columns=['Embarked', 'Sex', 'FamilyBin'])),
+        ('model', LGBMTransformer(target='Survived', features=['PassengerId', 'Pclass', 'Age', 'SibSp',
+                                                               'Parch', 'Fare', 'le_Embarked', 'le_Sex',
+                                                               'le_FamilyBin'], verbose=-1)),
+    ])
+
+    pipeline = SklearnPipeline.from_sklearn(sk_pipeline[1:]).fit(train)
     assert pipeline.validate()
     assert pipeline.inference(test).shape == (len(test), 22)
+
+    sample = SklearnPipeline._sample_df(train)
+    sample.pop(target)
+    assert pipeline.inference(sample).shape == (1, 22)

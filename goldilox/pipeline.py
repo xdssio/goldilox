@@ -33,10 +33,10 @@ class Pipeline:
                                            output_column=output_column)
 
     @classmethod
-    def from_sklearn(cls, pipeline, X=None, target=None, example=None, features=None, output_column=None):
+    def from_sklearn(cls, pipeline, X=None, target=None, sample=None, features=None, output_column=None):
         from goldilox.sklearn.pipeline import SklearnPipeline, DEFAULT_OUTPUT_COLUMN
         output_column = output_column or DEFAULT_OUTPUT_COLUMN
-        return SklearnPipeline.from_sklearn(pipeline=pipeline, features=features, target=target, example=example,
+        return SklearnPipeline.from_sklearn(pipeline=pipeline, features=features, target=target, sample=sample,
                                             output_column=output_column)
 
     @classmethod

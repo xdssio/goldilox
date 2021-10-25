@@ -3,7 +3,7 @@ from time import time
 import numpy as np
 import pandas as pd
 import traitlets
-
+import warnings
 from goldilox import Pipeline
 
 DEFAULT_OUTPUT_COLUMN = 'prediction'
@@ -14,7 +14,6 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
     current_time = int(time())
     created = traitlets.Int(default_value=current_time, allow_none=False, help='Created time')
     updated = traitlets.Int(default_value=current_time, allow_none=False, help='Updated time')
-    warnings = traitlets.Bool(default_value=True, help='Raise warnings')
     sample = traitlets.Any(default_value=None, allow_none=True, help='An example of the transformed dataset')
     pipeline = traitlets.Any(allow_none=False, help='A sklearn pipeline')
     features = traitlets.List(allow_none=True, help="A list of features")
@@ -71,7 +70,7 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
         elif isinstance(y, str):
             self.target = y
             y = df[y]
-
+        
         if isinstance(df, pd.DataFrame):
             if self.features is None:
                 self.features = list(df.columns)
@@ -79,7 +78,7 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
                     self.features.remove(self.target)
             X = df[self.features]
             self.sample = self._sample_df(X)
-        if isinstance(df, np.ndarray):
+        elif isinstance(df, np.ndarray):
             self.sample = list(df[0])
             X = df
         self.pipeline = self.pipeline.fit(X=X, y=y)
@@ -104,9 +103,23 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
     def preprocess(self, df):
         pass
 
-    def validate(self):
-        try:
-            self.inference(self.example)
-        except Exception as e:
-            return e
+    def _validate_na(self, df):
+
+        for column in df:
+            tmp = df.copy()
+            tmp[column] = None
+            try:
+                self.inference(tmp)
+            except :
+                print(f"Pipeline doesn't handle na for {column}")
+
+    def validate(self, df=None, check_na=True):
+        if df is None:
+            df = self.infer(self.example)
+
+        results = self.inference(df)
+        assert len(results) == len(df)
+        if check_na:
+            self._validate_na(df)
+
         return True
