@@ -109,7 +109,7 @@ def test_lightgbm_sklearn():
     sk_pipeline = sklearn.pipeline.Pipeline([('classifier', LGBMClassifier())])
     X = df[features]
     y = df[target]
-    self = pipeline = SklearnPipeline.from_sklearn(sk_pipeline, X, y)
+    self = pipeline = SklearnPipeline.from_pandas(sk_pipeline, X, y)
     pipeline.fit(X, y)
     assert pipeline.inference(X).head(10).shape == (10, 5)
     assert pipeline.inference(X.values[:10]).shape == (10, 5)

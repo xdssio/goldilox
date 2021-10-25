@@ -26,10 +26,18 @@ class Pipeline:
         return VaexPipeline.from_dataframe(df=df, fit=fit, warnings=warnings)
 
     @classmethod
-    def from_sklearn(cls, pipeline, X=None, y=None, example=None, columns=None, output_column=None):
-        from goldilox.sklearn.pipeline import Pipeline as SKlearnPipeline,DEFAULT_OUTPUT_COLUMN
+    def from_pandas(cls, pipeline, X=None, y=None, example=None, features=None, target=None, output_column=None):
+        from goldilox.sklearn.pipeline import SklearnPipeline, DEFAULT_OUTPUT_COLUMN
         output_column = output_column or DEFAULT_OUTPUT_COLUMN
-        return SKlearnPipeline.from_sklearn(pipeline=pipeline, X=X, y=y, example=example,columns=columns,output_column=output_column)
+        return SklearnPipeline.from_pandas(pipeline=pipeline, X=X, example=example, features=features, target=target,
+                                           output_column=output_column)
+
+    @classmethod
+    def from_sklearn(cls, pipeline, X=None, target=None, example=None, features=None, output_column=None):
+        from goldilox.sklearn.pipeline import SklearnPipeline, DEFAULT_OUTPUT_COLUMN
+        output_column = output_column or DEFAULT_OUTPUT_COLUMN
+        return SklearnPipeline.from_sklearn(pipeline=pipeline, features=features, target=target, example=example,
+                                            output_column=output_column)
 
     @classmethod
     def _from_koalas(cls, df, **kwargs):

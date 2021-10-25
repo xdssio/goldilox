@@ -13,12 +13,37 @@ from sklearn.preprocessing import StandardScaler
 
 warnings.filterwarnings('ignore')
 
-from goldilox.sklearn.pipeline import Pipeline
+from goldilox.sklearn.pipeline import SklearnPipeline
+from vaex.ml.datasets import load_iris
+
+
+def test_from_sklearn_transform():
+    columns = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
+    X = load_iris().to_pandas_df()[columns]
+    example = X.head(1).to_dict(orient='records')[0]
+    values = X.values
+    pipeline = SklearnPipeline.from_sklearn(sklearn.pipeline.Pipeline([('standard', StandardScaler())])).fit(values)
+    assert pipeline.inference(X).shape == X.shape
+    assert pipeline.inference(values).shape == X.shape
+    assert pipeline.sample == list(values[0])
+
+    pipeline = SklearnPipeline.from_sklearn(sklearn.pipeline.Pipeline([('standard', StandardScaler())])).fit(X)
+    assert pipeline.inference(X).shape == X.shape
+    assert pipeline.inference(values).shape == X.shape
+
+
+    pipeline = SklearnPipeline.from_sklearn(sklearn.pipeline.Pipeline([('standard', StandardScaler())]), features=X.columns).fit()
+    assert pipeline.inference(X).shape == X.shape
+
+
+    pipeline = SklearnPipeline.from_sklearn(sklearn.pipeline.Pipeline([('standard', StandardScaler())]), example=example).fit(X)
+    assert pipeline.inference(X).shape == X.shape
+
 
 
 def test_sklrean_transform():
     X = vaex.ml.datasets.load_iris().to_pandas_df()[['petal_length', 'petal_width', 'sepal_length', 'sepal_width']]
-    pipeline = Pipeline.from_sklearn(sklearn.pipeline.Pipeline([('standard', StandardScaler())]), X).fit(X)
+    pipeline = SklearnPipeline.from_pandas(sklearn.pipeline.Pipeline([('standard', StandardScaler())]), X).fit(X)
     assert pipeline.inference(X).shape == X.shape
 
 
@@ -26,11 +51,11 @@ def test_sklrean_predict_classification():
     df = vaex.ml.datasets.load_iris().to_pandas_df()
     X = df[['petal_length', 'petal_width', 'sepal_length', 'sepal_width']]
     y = df['class_']
-    pipeline = Pipeline.from_sklearn(sklearn.pipeline.Pipeline([('regression', LogisticRegression())]), X, y)
+    pipeline = SklearnPipeline.from_pandas(sklearn.pipeline.Pipeline([('regression', LogisticRegression())]), X, y)
     pipeline.fit(df)
     assert pipeline.output_column in pipeline.inference(X)
 
-    pipeline = Pipeline.from_sklearn(sklearn.pipeline.Pipeline([('regression', LogisticRegression())]), X, y)
+    pipeline = SklearnPipeline.from_pandas(sklearn.pipeline.Pipeline([('regression', LogisticRegression())]), X, y)
     pipeline.fit(X, y)
     assert pipeline.output_column in pipeline.inference(X)
 
@@ -39,11 +64,11 @@ def test_sklrean_predict_regression():
     df = vaex.ml.datasets.load_iris().to_pandas_df()
     X = df[['petal_length', 'petal_width', 'sepal_length', 'sepal_width']]
     y = df['class_']
-    pipeline = Pipeline.from_sklearn(sklearn.pipeline.Pipeline([('regression', LinearRegression())]), X, y)
+    pipeline = SklearnPipeline.from_pandas(sklearn.pipeline.Pipeline([('regression', LinearRegression())]), X, y)
     pipeline.fit(df)
     assert pipeline.output_column in pipeline.inference(X)
 
-    pipeline = Pipeline.from_sklearn(sklearn.pipeline.Pipeline([('regression', LinearRegression())]), X, y)
+    pipeline = SklearnPipeline.from_pandas(sklearn.pipeline.Pipeline([('regression', LinearRegression())]), X, y)
     pipeline.fit(X, y)
     assert pipeline.output_column in pipeline.inference(X)
 
@@ -201,11 +226,11 @@ def test_skleran_advance():
                                                                'le_FamilyBin'], verbose=-1)),
     ])
 
-    pipeline = Pipeline.from_sklearn(sk_pipeline, train).fit(train)
+    pipeline = SklearnPipeline.from_pandas(sk_pipeline, train).fit(train)
 
     assert pipeline.inference(test).head().shape == (5, 22)
     assert isinstance(pipeline.validate(), Exception)
 
-    pipeline = Pipeline.from_sklearn(sk_pipeline[1:], train).fit(train)
+    pipeline = SklearnPipeline.from_pandas(sk_pipeline[1:], train).fit(train)
     assert pipeline.validate()
     assert pipeline.inference(test).shape == (len(test), 22)
