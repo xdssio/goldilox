@@ -20,42 +20,49 @@ class Pipeline:
 
         return h.hexdigest()
 
-    @classmethod
-    def from_vaex(cls, df, fit=None, warnings=True):
-        from goldilox.vaex.pipeline import Pipeline as VaexPipeline
-        return VaexPipeline.from_dataframe(df=df, fit=fit, warnings=warnings)
+    @staticmethod
+    def _sample_df(df):
+        if hasattr(df, 'to_pandas_df'):
+            return df.head(1).to_records()[0]
+        return df.iloc[0].to_dict()
 
     @classmethod
-    def from_pandas(cls, pipeline, X=None, y=None, example=None, features=None, target=None, output_column=None):
-        from goldilox.sklearn.pipeline import SklearnPipeline, DEFAULT_OUTPUT_COLUMN
-        output_column = output_column or DEFAULT_OUTPUT_COLUMN
-        return SklearnPipeline.from_pandas(pipeline=pipeline, X=X, example=example, features=features, target=target,
-                                           output_column=output_column)
+    def from_vaex(cls, df, fit=None):
+        from goldilox.vaex.pipeline import VaexPipeline as VaexPipeline
+        return VaexPipeline.from_dataframe(df=df, fit=fit)
 
     @classmethod
-    def from_sklearn(cls, pipeline, X=None, target=None, sample=None, features=None, output_column=None):
+    def from_sklearn(cls, pipeline, sample=None, target=None, features=None, output_column=None):
         from goldilox.sklearn.pipeline import SklearnPipeline, DEFAULT_OUTPUT_COLUMN
         output_column = output_column or DEFAULT_OUTPUT_COLUMN
         return SklearnPipeline.from_sklearn(pipeline=pipeline, features=features, target=target, sample=sample,
                                             output_column=output_column)
 
+    # TODO
     @classmethod
     def _from_koalas(cls, df, **kwargs):
         # from goldilocks.koalas.pipeline import Pipeline as KoalasPipeline
         return deepcopy(df.pipeline)
 
-    def fit(self, df, **kwargs):
+    # TODO
+    @classmethod
+    def _from_onnx(self, pipeline, **kwargs):
+        raise NotImplementedError(f"Not implemented for {self.pipeline_type}")
 
+    def fit(self, df, **kwargs):
         return self
 
+    def validate(self, df=None, check_na=True):
+        raise NotImplementedError(f"Not implemented for {self.pipeline_type}")
+
     def transform(self, df, **kwargs):
-        raise RuntimeError(f"Not implemented for {self.pipeline_type}")
+        raise NotImplementedError(f"Not implemented for {self.pipeline_type}")
 
     def predict(self, df, **kwargs):
-        raise RuntimeError(f"Not implemented for {self.pipeline_type}")
+        raise NotImplementedError(f"Not implemented for {self.pipeline_type}")
 
     def inference(self, df, **kwargs):
-        raise RuntimeError(f"Not implemented for {self.pipeline_type}")
+        raise NotImplementedError(f"Not implemented for {self.pipeline_type}")
 
     def infer(self, df):
-        raise RuntimeError(f"Not implemented for {self.pipeline_type}")
+        raise NotImplementedError(f"Not implemented for {self.pipeline_type}")

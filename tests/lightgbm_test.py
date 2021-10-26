@@ -1,7 +1,7 @@
 import vaex
 
 from goldilox.sklearn.pipeline import Pipeline as SklearnPipeline
-from goldilox.vaex.pipeline import Pipeline as VaexPipeline
+from goldilox.vaex.pipeline import VaexPipeline as VaexPipeline
 from vaex.ml.datasets import load_iris_1e5
 import pytest
 

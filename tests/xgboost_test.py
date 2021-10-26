@@ -6,7 +6,7 @@ from vaex.ml.xgboost import XGBoostModel
 from xgboost.sklearn import XGBClassifier
 
 from goldilox.sklearn.pipeline import Pipeline as SklearnPipeline
-from goldilox.vaex.pipeline import Pipeline as VaexPipeline
+from goldilox.vaex.pipeline import VaexPipeline as VaexPipeline
 
 
 @pytest.fixture()

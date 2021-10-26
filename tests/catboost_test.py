@@ -6,7 +6,7 @@ from sklearn.metrics import accuracy_score
 from vaex.ml.datasets import load_iris_1e5
 
 from goldilox.sklearn.pipeline import Pipeline as SklearnPipeline
-from goldilox.vaex.pipeline import Pipeline as VaexPipeline
+from goldilox.vaex.pipeline import VaexPipeline as VaexPipeline
 
 
 @pytest.fixture()

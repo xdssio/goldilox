@@ -105,11 +105,6 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
         self.pipeline = self.pipeline.fit(X=X, y=y)
         return self
 
-    @staticmethod
-    def _sample_df(df):
-        if hasattr(df, 'to_pandas_df'):
-           return df.head(1).to_records()[0]
-        return df.iloc[0].to_dict()
 
     def inference(self, df, columns=None, **kwargs):
         copy = self.infer(df)

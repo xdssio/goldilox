@@ -1,4 +1,4 @@
-from goldilox.vaex import Pipeline
+from goldilox.vaex import VaexPipeline
 import vaex
 
 
@@ -63,7 +63,7 @@ def test_advance_vaex():
     train = model.transform(train)
     train['prediction'] = train.func.where(train['lgm_predictions'] > 0.5, 1, 0)
     train['target_label'] = train.func.where(train['lgm_predictions'] > 0.5, 'survived', 'died')
-    pipeline = Pipeline.from_dataframe(train)
+    pipeline = VaexPipeline.from_dataframe(train)
 
     assert pipeline.inference(test).shape==(len(test),23)
     predictions = pipeline.inference(test, fillna=False)['prediction']
@@ -135,7 +135,7 @@ def test_advance_vaex_fit():
         train['prediction'] = train.func.where(train['lgm_predictions'] > 0.5, 1, 0)
         train['target_label'] = train.func.where(train['lgm_predictions'] > 0.5, 'survived', 'died')
 
-        pipeline = Pipeline.from_dataframe(train)
+        pipeline = VaexPipeline.from_dataframe(train)
         predictions = pipeline.inference(test, fillna=False)['prediction']
         accuracy = accuracy_score(test[target].values, predictions.values)
         all_data = pipeline.inference(df, columns=features+[target])
