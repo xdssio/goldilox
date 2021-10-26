@@ -3,7 +3,7 @@ from time import time
 import numpy as np
 import pandas as pd
 import traitlets
-import warnings
+
 from goldilox import Pipeline
 
 DEFAULT_OUTPUT_COLUMN = 'prediction'
@@ -60,7 +60,27 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
             df = [df.copy()]
         if isinstance(df, list):
             return pd.DataFrame(df, columns=self.features)
+        try:
+            import vaex
+            if isinstance(df, vaex.dataframe.DataFrame):
+                return df.to_pandas_df()
+        except:
+            pass
         raise RuntimeError(f"could not infer type:{type(df)}")
+
+    def _from_vaex(self, X, y):
+        try:
+            import vaex
+            if isinstance(X, vaex.dataframe.DataFrame):
+                X = X.to_pandas_df()
+                if hasattr(y,'expression') and self.target is None:
+                    self.target = y.expression
+                if hasattr(y, 'values'):
+                    y = y.values
+        except:
+            pass
+        return X,y
+
 
     def fit(self, df, y=None, **kwargs):
         if y is None:
@@ -70,22 +90,25 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
         elif isinstance(y, str):
             self.target = y
             y = df[y]
-        
-        if isinstance(df, pd.DataFrame):
+        X, y = self._from_vaex(df, y)
+
+        if isinstance(X, pd.DataFrame):
             if self.features is None:
-                self.features = list(df.columns)
+                self.features = list(X.columns)
                 if self.target in self.features:
                     self.features.remove(self.target)
-            X = df[self.features]
+            X = X[self.features]
             self.sample = self._sample_df(X)
         elif isinstance(df, np.ndarray):
-            self.sample = list(df[0])
-            X = df
+            self.sample = list(X[0])
+
         self.pipeline = self.pipeline.fit(X=X, y=y)
         return self
 
     @staticmethod
     def _sample_df(df):
+        if hasattr(df, 'to_pandas_df'):
+           return df.head(1).to_records()[0]
         return df.iloc[0].to_dict()
 
     def inference(self, df, columns=None, **kwargs):
@@ -110,7 +133,7 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
             tmp[column] = None
             try:
                 self.inference(tmp)
-            except :
+            except:
                 print(f"Pipeline doesn't handle na for {column}")
 
     def validate(self, df=None, check_na=True):

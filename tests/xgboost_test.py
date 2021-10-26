@@ -1,9 +1,13 @@
-import vaex
+import pytest
+import sklearn.pipeline
+from sklearn.metrics import accuracy_score
+from vaex.ml.datasets import load_iris_1e5
+from vaex.ml.xgboost import XGBoostModel
+from xgboost.sklearn import XGBClassifier
 
 from goldilox.sklearn.pipeline import Pipeline as SklearnPipeline
 from goldilox.vaex.pipeline import Pipeline as VaexPipeline
-from vaex.ml.datasets import load_iris_1e5
-import pytest
+
 
 @pytest.fixture()
 def iris():
@@ -11,23 +15,21 @@ def iris():
     return load_iris_1e5()
 
 
-def test_vaex_lightgbm(iris):
+def test_vaex_xgboost(iris):
     import vaex
     import numpy as np
-    from vaex.ml.lightgbm import LightGBMModel
-    from sklearn.metrics import accuracy_score
 
     train, test = iris.ml.train_test_split(test_size=0.2, verbose=False)
     features = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
     target = 'class_'
     train['X'] = train['petal_length'] / train['petal_width']
 
-    booster = LightGBMModel(features=features,
-                            target=target,
-                            prediction_name='lgm_predictions',
-                            num_boost_round=500, params={'verbose': -1,
-                                                         'objective': 'multiclass',
-                                                         'num_class': 3})
+    booster = XGBoostModel(features=features,
+                           target=target,
+                           prediction_name='lgm_predictions',
+                           num_boost_round=500, params={'verbose': -1,
+                                                        'objective': 'multiclass',
+                                                        'num_class': 3})
     booster.fit(train)
     train = booster.transform(train)
 
@@ -50,24 +52,23 @@ def test_vaex_lightgbm(iris):
     assert pipeline.inference({'sepal_length': 5.9, 'petal_length': 4.2, 'Y': 'new column'}).head(1).shape == (1, 9)
 
 
-def test_lightgbm_vaex_fit(iris):
-
+def test_xgboost_vaex_fit(iris):
     def fit(df):
         import vaex
         import numpy as np
-        from vaex.ml.lightgbm import LightGBMModel
+        from vaex.ml.xgboost import XGBoostModel
         from sklearn.metrics import accuracy_score
         train, test = df.ml.train_test_split(test_size=0.2, verbose=False)
 
         features = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
         target = 'class_'
 
-        booster = LightGBMModel(features=features,
-                                target=target,
-                                prediction_name='lgm_predictions',
-                                num_boost_round=500, params={'verbose': -1,
-                                                             'objective': 'multiclass',
-                                                             'num_class': 3})
+        booster = XGBoostModel(features=features,
+                               target=target,
+                               prediction_name='lgm_predictions',
+                               num_boost_round=500, params={'verbose': -1,
+                                                            'objective': 'multiclass',
+                                                            'num_class': 3})
         booster.fit(df)
 
         @vaex.register_function()
@@ -81,12 +82,12 @@ def test_lightgbm_vaex_fit(iris):
         pipeline = VaexPipeline.from_dataframe(train)
         accuracy = accuracy_score(pipeline.inference(test[features])['prediction'].values,
                                   test[target].values)
-        booster = LightGBMModel(features=features,
-                                target=target,
-                                prediction_name='lgm_predictions',
-                                num_boost_round=500, params={'verbose': -1,
-                                                             'objective': 'multiclass',
-                                                             'num_class': 3})
+        booster = XGBoostModel(features=features,
+                               target=target,
+                               prediction_name='lgm_predictions',
+                               num_boost_round=500, params={'verbose': -1,
+                                                            'objective': 'multiclass',
+                                                            'num_class': 3})
         booster.fit(df)
         df = booster.transform(df)
         df.add_function('argmax', argmax)
@@ -107,14 +108,11 @@ def test_lightgbm_vaex_fit(iris):
                                              'lgm_predictions', 'prediction']
 
 
-def test_lightgbm_sklearn(iris):
-    from lightgbm.sklearn import LGBMClassifier
-    import sklearn.pipeline
-
+def test_xgboost_sklearn(iris):
     df = iris.copy()
     features = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
     target = 'class_'
-    sk_pipeline = sklearn.pipeline.Pipeline([('classifier', LGBMClassifier())])
+    sk_pipeline = sklearn.pipeline.Pipeline([('classifier', XGBClassifier())])
     X = df[features]
     y = df[target]
     self = pipeline = SklearnPipeline.from_sklearn(sk_pipeline).fit(X, y)
@@ -134,4 +132,3 @@ def test_lightgbm_sklearn(iris):
     assert pipeline.inference(X).head(10).shape == (10, 5)
     assert pipeline.inference(X.values[:10]).shape == (10, 5)
     assert pipeline.inference(self.sample).shape == (1, 5)
-
