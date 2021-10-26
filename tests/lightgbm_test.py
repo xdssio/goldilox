@@ -24,7 +24,7 @@ def test_vaex_lightgbm(iris):
 
     booster = LightGBMModel(features=features,
                             target=target,
-                            prediction_name='lgm_predictions',
+                            prediction_name='predictions',
                             num_boost_round=500, params={'verbose': -1,
                                                          'objective': 'multiclass',
                                                          'num_class': 3})
@@ -36,7 +36,7 @@ def test_vaex_lightgbm(iris):
         return np.argmax(ar, axis=axis)
 
     train.add_function('argmax', argmax)
-    train['prediction'] = train['lgm_predictions'].argmax()
+    train['prediction'] = train['predictions'].argmax()
     pipeline = VaexPipeline.from_dataframe(train)
     pipeline.set_variable('accuracy',
                           accuracy_score(pipeline.inference(test[features])['prediction'].values, test[target].values))
@@ -64,7 +64,7 @@ def test_lightgbm_vaex_fit(iris):
 
         booster = LightGBMModel(features=features,
                                 target=target,
-                                prediction_name='lgm_predictions',
+                                prediction_name='predictions',
                                 num_boost_round=500, params={'verbose': -1,
                                                              'objective': 'multiclass',
                                                              'num_class': 3})
@@ -76,21 +76,21 @@ def test_lightgbm_vaex_fit(iris):
 
         train = booster.transform(df)
         train.add_function('argmax', argmax)
-        train['prediction'] = train['lgm_predictions'].argmax()
+        train['prediction'] = train['predictions'].argmax()
 
         pipeline = VaexPipeline.from_dataframe(train)
         accuracy = accuracy_score(pipeline.inference(test[features])['prediction'].values,
                                   test[target].values)
         booster = LightGBMModel(features=features,
                                 target=target,
-                                prediction_name='lgm_predictions',
+                                prediction_name='predictions',
                                 num_boost_round=500, params={'verbose': -1,
                                                              'objective': 'multiclass',
                                                              'num_class': 3})
         booster.fit(df)
         df = booster.transform(df)
         df.add_function('argmax', argmax)
-        df['prediction'] = df['lgm_predictions'].argmax()
+        df['prediction'] = df['predictions'].argmax()
         df.variables['accuracy'] = accuracy
         return df
 
@@ -104,7 +104,7 @@ def test_lightgbm_vaex_fit(iris):
     assert pipeline.get_variable('accuracy')
     assert pipeline.raw == data[0]
     assert list(pipeline.example.keys()) == ['sepal_length', 'sepal_width', 'petal_length', 'petal_width', 'class_',
-                                             'lgm_predictions', 'prediction']
+                                             'predictions', 'prediction']
 
 
 def test_lightgbm_sklearn(iris):
