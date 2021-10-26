@@ -156,3 +156,4 @@ pip-selfcheck.json
 /.idea
 /data
 /dist
+/catboost_info
