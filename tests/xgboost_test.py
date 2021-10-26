@@ -24,9 +24,9 @@ def test_vaex_xgboost(iris):
     booster = XGBoostModel(features=features,
                            target=target,
                            prediction_name='prediction',
-                           num_boost_round=10, params={'verbose': -1,
-                                                        'objective': 'multi:softmax',
-                                                        'num_class': 3})
+                           num_boost_round=10, params={'verbosity': 0,
+                                                       'objective': 'multi:softmax',
+                                                       'num_class': 3})
     booster.fit(train)
     train = booster.transform(train)
 
@@ -55,9 +55,9 @@ def test_xgboost_vaex_fit(iris):
         booster = XGBoostModel(features=features,
                                target=target,
                                prediction_name='prediction',
-                               num_boost_round=10, params={'verbose': -1,
-                                                            'objective': 'multi:softmax',
-                                                            'num_class': 3})
+                               num_boost_round=10, params={'verbosity': 0,
+                                                           'objective': 'multi:softmax',
+                                                           'num_class': 3})
         booster.fit(train)
         train = booster.transform(train)
         pipeline = VaexPipeline.from_dataframe(train)
@@ -66,9 +66,9 @@ def test_xgboost_vaex_fit(iris):
         booster = XGBoostModel(features=features,
                                target=target,
                                prediction_name='predictions',
-                               num_boost_round=10, params={'verbose': -1,
-                                                            'objective': 'multi:softmax',
-                                                            'num_class': 3})
+                               num_boost_round=10, params={'verbosity': 0,
+                                                           'objective': 'multi:softmax',
+                                                           'num_class': 3})
         booster.fit(df)
         df = booster.transform(df)
         df.variables['accuracy'] = accuracy
@@ -85,14 +85,14 @@ def test_xgboost_vaex_fit(iris):
     assert pipeline.get_variable('accuracy')
     assert pipeline.raw == df.head(1).to_records()[0]
     assert list(pipeline.example.keys()) == ['sepal_length', 'sepal_width', 'petal_length', 'petal_width', 'class_',
-                                             'prediction']
+                                             'predictions']
 
 
 def test_xgboost_sklearn(iris):
     df = iris.copy()
     features = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
     target = 'class_'
-    sk_pipeline = sklearn.pipeline.Pipeline([('classifier', XGBClassifier(n_estimators=10))])
+    sk_pipeline = sklearn.pipeline.Pipeline([('classifier', XGBClassifier(n_estimators=10, verbosity=0))])
     X = df[features]
     y = df[target]
     self = pipeline = SklearnPipeline.from_sklearn(sk_pipeline).fit(X, y)
