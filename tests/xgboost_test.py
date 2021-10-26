@@ -83,7 +83,7 @@ def test_xgboost_vaex_fit(iris):
 
     assert pipeline.inference(data).shape == (1, 6)
     assert pipeline.get_variable('accuracy')
-    assert pipeline.raw == df.head(1).to_records()[0]
+    assert pipeline.sample == df.head(1).to_records(0)
     assert list(pipeline.example.keys()) == ['sepal_length', 'sepal_width', 'petal_length', 'petal_width', 'class_',
                                              'predictions']
 
