@@ -155,4 +155,5 @@ cython_debug/
 
 data/
 dist/
+tests
 
