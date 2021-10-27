@@ -3,18 +3,26 @@ import logging
 import os
 from pathlib import Path
 
-import boto3
 import numpy as np
 import pandas as pd
 import vaex
+from goldilox.config import DEFAULT_SUFFIX
 
-from config import DEFAULT_SUFFIX
+
+def _is_s3_url(path):
+    if hasattr(path, 'dirname'):
+        path = path.dirname
+    return path.startswith('s3://')
+
 
 logger = logging.getLogger()
-s3_client = boto3.client('s3')
+
+
+# s3_client = boto3.client('s3')
 
 
 def open_many(paths):
+    import vaex
     dfs = [vaex.open(path) for path in paths]
     valid_eips = set()
     info_columns = set()

@@ -61,6 +61,7 @@ def test_from_sklearn_transform(iris):
 
 
 def test_sklrean_predict_classification(iris):
+    iris = load_iris().to_pandas_df()
     features = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
     target = 'class_'
     X = iris[features]

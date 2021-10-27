@@ -9,6 +9,7 @@ from sklearn.base import TransformerMixin, BaseEstimator
 
 from goldilox import Pipeline
 
+
 features = ['x', 'y', 'z', 'vx', 'vy', 'vz', 'E', 'L', 'Lz', 'FeH']
 
 
@@ -114,6 +115,8 @@ def test_nmslib_vaex(df):
     pipeline = Pipeline.from_vaex(df)
     assert pipeline.sample
     assert pipeline.inference(pipeline.sample).shape == (1, 13)
+    pipeline.save('tests/models/nmslib.pkl')
+    from goldilox.vaex.pipeline import VaexPipeline
 
 
 @pytest.mark.skip("Annoy-Process finished with exit code 132 (interrupted by signal 4: SIGILL)")
@@ -235,7 +238,9 @@ def test_nmslib_sklearn(df):
 
     sample = X.to_records(0)
     pipeline = Pipeline.from_sklearn(NMSlibTransformer()).fit(X)
-    pipeline.inference(X)
+    self = self
+    self.state_get().keys()
 
     assert pipeline.inference(sample).shape == (n, 11)
-    pipeline._validate_na(X)
+
+

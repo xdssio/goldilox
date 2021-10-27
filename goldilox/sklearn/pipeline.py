@@ -1,12 +1,17 @@
 from time import time
 
+import cloudpickle
 import numpy as np
 import pandas as pd
 import traitlets
 
+import goldilox
 from goldilox import Pipeline
+from goldilox.config import AWS_PROFILE, PIPELINE, STATE, PIPELINE_TYPE, VERSION
+from goldilox.utils import _is_s3_url
 
 DEFAULT_OUTPUT_COLUMN = 'prediction'
+TRAITS = '_trait_values'
 
 
 class SklearnPipeline(traitlets.HasTraits, Pipeline):
@@ -41,7 +46,8 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
             features = list(sample.keys())
         elif sample is None and isinstance(features, list):
             sample = {key: 0 for key in features}
-        if hasattr(pipeline,'__sklearn_is_fitted__') and pipeline.__sklearn_is_fitted__() and sample is None and features is None:
+        if hasattr(pipeline,
+                   '__sklearn_is_fitted__') and pipeline.__sklearn_is_fitted__() and sample is None and features is None:
             raise RuntimeError("For a fitted pipeline, please provide either the 'features' or 'sample'")
 
         return SklearnPipeline(pipeline=pipeline, features=features, target=target, sample=sample,
@@ -68,19 +74,50 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
             pass
         raise RuntimeError(f"could not infer type:{type(df)}")
 
+    def json_get(self):
+        state = {STATE: cloudpickle.dumps(self),
+                 PIPELINE_TYPE: self.pipeline_type,
+                 VERSION: goldilox.__version__}
+
+        return state
+
+    @classmethod
+    def loads(cls, state):
+        if STATE in state:
+            state = state[STATE]
+        return cloudpickle.loads(state)
+
+    def save(self, path):
+        state_to_write = cloudpickle.dumps(self.json_get())
+        if _is_s3_url(path):
+            import s3fs
+            fs = s3fs.S3FileSystem(profile=AWS_PROFILE)
+            with fs.open(path, 'wb') as f:
+                f.write(state_to_write)
+        else:
+            try:
+                import os
+                os.makedirs('/'.join(path.split('/')[:-1]), exist_ok=True)
+            except AttributeError as e:
+                pass
+
+            with open(path, 'wb') as outfile:
+                outfile.write(state_to_write)
+        # self.reload_fit_func()
+        return path
+
     def _from_vaex(self, X, y):
         try:
             import vaex
             if isinstance(X, vaex.dataframe.DataFrame):
                 X = X.to_pandas_df()
-                if hasattr(y,'expression') and self.target is None:
+                if hasattr(y, 'expression') and self.target is None:
                     self.target = y.expression
                 if hasattr(y, 'values'):
                     y = y.values
         except:
             pass
-        return X,y
-
+        return X, y
 
     def fit(self, df, y=None, **kwargs):
         if y is None:

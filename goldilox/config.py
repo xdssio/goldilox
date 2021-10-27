@@ -1,3 +1,6 @@
+import os
+AWS_PROFILE = os.environ.get('AWS_PROFILE')
+
 # Constants
 STATE = 'state'
 CREATED = 'created'
@@ -15,5 +18,9 @@ NUMPY = 'numpy'
 SELECTIONS = 'selections'
 SELECTIONS_FILTER = '__filter__'
 VARIABLES = 'variables'
+PIPELINE = 'pipeline'
+PIPELINE_TYPE = 'pipeline_type'
+STATE = 'state'
+VERSION = 'version'
 VALID_VAEX_HEADERS = ['*.csv', '*.hdf5', '*.parquet', '*.arrow']
-AWS_PROFILE = 'xdss'
+DEFAULT_SUFFIX = '.parquet'

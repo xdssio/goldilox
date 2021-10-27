@@ -1,6 +1,9 @@
 from copy import deepcopy
 from hashlib import sha256
 
+from goldilox.config import AWS_PROFILE, PIPELINE_TYPE, STATE
+from goldilox.utils import _is_s3_url
+
 
 class Pipeline:
     pipeline_type: str
@@ -37,6 +40,27 @@ class Pipeline:
         output_column = output_column or DEFAULT_OUTPUT_COLUMN
         return SklearnPipeline.from_sklearn(pipeline=pipeline, features=features, target=target, sample=sample,
                                             output_column=output_column)
+
+
+
+    @classmethod
+    def from_file(self, path):
+        import cloudpickle
+        if _is_s3_url(path):
+            import s3fs
+            fs = s3fs.S3FileSystem(profile=AWS_PROFILE)
+            with fs.open(path, 'r') as f:
+                state = cloudpickle.loads(f.read())
+        else:
+            with open(path, 'rb') as f:
+                state = cloudpickle.loads(f.read())
+        if state[PIPELINE_TYPE] == 'sklearn':
+            from goldilox.sklearn.pipeline import SklearnPipeline
+            return SklearnPipeline.loads(state)
+        elif state[PIPELINE_TYPE] == 'vaex':
+            from goldilox.vaex.pipeline import VaexPipeline
+            return VaexPipeline.load_state(state)
+
 
     # TODO
     @classmethod

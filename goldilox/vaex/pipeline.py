@@ -16,9 +16,11 @@ import traitlets
 import vaex
 from vaex.column import Column
 from vaex.ml.state import HasState, serialize_pickle
-
+import goldilox
 from goldilox.pipeline import Pipeline
-from goldilox.vaex.config import *
+from goldilox.config import *
+from goldilox.utils import _is_s3_url
+import cloudpickle
 
 logging.basicConfig()
 logger = logging.getLogger(__name__)
@@ -28,10 +30,6 @@ PIPELINE_FIT = '_PIPELINE_FIT'
 FUNCTIONS = 'functions'
 
 
-def _is_s3_url(path):
-    if hasattr(path, 'dirname'):
-        path = path.dirname
-    return path.startswith('s3://')
 
 
 class VaexPipeline(HasState, Pipeline):
@@ -75,7 +73,7 @@ class VaexPipeline(HasState, Pipeline):
 
     def state_set(self, state):
         HasState.state_set(self, state)
-        self.updated = int(time.time())
+        self.updated = int(time())
         return self
 
     def not_implemented(self):
@@ -135,18 +133,18 @@ class VaexPipeline(HasState, Pipeline):
     def copy(self):
         pipeline = VaexPipeline(state={})
         pipeline.state_set(deepcopy(self.state_get()))
-        pipeline.updated = int(time.time())
+        pipeline.updated = int(time())
         return pipeline
 
     @classmethod
     def from_file(cls, path):
         if _is_s3_url(path):
             fs = s3fs.S3FileSystem(profile=AWS_PROFILE)
-            with fs.open(path, 'r') as f:
-                state = cls.json_load(f.read())
+            with fs.open(path, 'rb') as f:
+                state = cls.json_load(cloudpickle.loads(f.read())[STATE])
         else:
-            with open(path, 'r') as f:
-                state = cls.json_load(f.read())
+            with open(path, 'rb') as f:
+                state = cls.json_load(cloudpickle.loads(f.read())[STATE])
         ret = VaexPipeline.from_dict(state)
         # ret.reload_fit_func()
         return ret
@@ -160,21 +158,25 @@ class VaexPipeline(HasState, Pipeline):
         from vaex.json import VaexJsonDecoder
         return json.loads(state, cls=VaexJsonDecoder)
 
+    def json_get(self):
+        return {STATE: self.json_dumps(),
+                 PIPELINE_TYPE: self.pipeline_type,
+                 VERSION: goldilox.__version__}
+
     def save(self, path):
         if self.state is None:
             raise RuntimeError("Pipeline has no state to save")
-
-        state_to_write = self.json_dumps()
+        state_to_write = cloudpickle.dumps(self.json_get())
         if _is_s3_url(path):
             fs = s3fs.S3FileSystem(profile=AWS_PROFILE)
-            with fs.open(path, 'w') as f:
+            with fs.open(path, 'wb') as f:
                 f.write(state_to_write)
         else:
             try:
                 os.makedirs('/'.join(path.split('/')[:-1]), exist_ok=True)
             except AttributeError as e:
                 pass
-            with open(path, 'w') as outfile:
+            with open(path, 'wb') as outfile:
                 outfile.write(state_to_write)
         # self.reload_fit_func()
         return path
@@ -398,7 +400,7 @@ class VaexPipeline(HasState, Pipeline):
             try:
                 self.inference(tmp)
             except:
-                print(f"Pipeline doesn't handle na for {column}")
+                print(f"Pipeline doesn't handle NA for {column}")
 
     def validate(self, df=None, check_na=True):
         if df is None:
