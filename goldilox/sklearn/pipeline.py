@@ -41,7 +41,7 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
             features = list(sample.keys())
         elif sample is None and isinstance(features, list):
             sample = {key: 0 for key in features}
-        if pipeline.__sklearn_is_fitted__() and sample is None and features is None:
+        if hasattr(pipeline,'__sklearn_is_fitted__') and pipeline.__sklearn_is_fitted__() and sample is None and features is None:
             raise RuntimeError("For a fitted pipeline, please provide either the 'features' or 'sample'")
 
         return SklearnPipeline(pipeline=pipeline, features=features, target=target, sample=sample,
@@ -101,8 +101,7 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
             self.sample = self._sample_df(X)
         elif isinstance(df, np.ndarray):
             self.sample = list(X[0])
-
-        self.pipeline = self.pipeline.fit(X=X, y=y)
+        self.pipeline = self.pipeline.fit(X=X, y=y, **kwargs)
         return self
 
     def transform(self, df, **kwargs):
