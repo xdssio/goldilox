@@ -96,13 +96,13 @@ def test_lightgbm_vaex_fit(iris):
 
     df = iris.copy()
     pipeline = VaexPipeline.from_dataframe(df, fit=fit)
-    data = df.head(1).to_records()
+    data = df.to_records(0)
     assert pipeline.inference(data).shape == df.head(1).shape
     pipeline.fit(df)
 
     assert pipeline.inference(data).shape == (1, 7)
     assert pipeline.get_variable('accuracy')
-    assert pipeline.sample == data.to_records(0)
+    assert pipeline.sample == data
     assert list(pipeline.example.keys()) == ['sepal_length', 'sepal_width', 'petal_length', 'petal_width', 'class_',
                                              'predictions', 'prediction']
 

@@ -46,7 +46,7 @@ class VaexPipeline(HasState, Pipeline):
 
     @property
     def example(self):
-        return self.inference(self.sample)
+        return self.inference(self.sample).to_records(0)
 
     @classmethod
     def _get_original_columns(cls, df):
@@ -371,8 +371,8 @@ class VaexPipeline(HasState, Pipeline):
         fit_func = self.get_function(PIPELINE_FIT)
         if fit_func is None:
             raise RuntimeError("'fit()' was not set for this pipeline")
+        self.sample = copy.to_records(0)
         trained = fit_func(copy)
-        self.sample = trained.head(1).to_records()[0]
         if VaexPipeline.is_vaex_dataset(trained):
             trained.add_function(PIPELINE_FIT, fit_func)
             self.state = trained.state_get()
