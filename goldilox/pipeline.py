@@ -3,7 +3,7 @@ from hashlib import sha256
 
 from goldilox.config import AWS_PROFILE, PIPELINE_TYPE, STATE
 from goldilox.utils import _is_s3_url
-
+import cloudpickle
 
 class Pipeline:
     pipeline_type: str
@@ -45,7 +45,6 @@ class Pipeline:
 
     @classmethod
     def from_file(self, path):
-        import cloudpickle
         if _is_s3_url(path):
             import s3fs
             fs = s3fs.S3FileSystem(profile=AWS_PROFILE)
@@ -54,12 +53,14 @@ class Pipeline:
         else:
             with open(path, 'rb') as f:
                 state = cloudpickle.loads(f.read())
-        if state[PIPELINE_TYPE] == 'sklearn':
+        pipeline_type = state.get(PIPELINE_TYPE)
+        if pipeline_type == 'sklearn':
             from goldilox.sklearn.pipeline import SklearnPipeline
             return SklearnPipeline.loads(state)
-        elif state[PIPELINE_TYPE] == 'vaex':
+        elif pipeline_type == 'vaex':
             from goldilox.vaex.pipeline import VaexPipeline
             return VaexPipeline.load_state(state)
+        raise RuntimeError(f"Cannot load pipeline of type {pipeline_type} from {path}")
 
 
     # TODO

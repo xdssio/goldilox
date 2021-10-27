@@ -188,6 +188,10 @@ class VaexPipeline(HasState, Pipeline):
     @classmethod
     def load_state(cls, state):
         instance = VaexPipeline()
+        if STATE in state:
+            state = state[STATE]
+        if not isinstance(state,dict):
+            state = VaexPipeline.json_load(state)
         instance.state_set(state)
         return instance
 
