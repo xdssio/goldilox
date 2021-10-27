@@ -105,6 +105,13 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
         self.pipeline = self.pipeline.fit(X=X, y=y)
         return self
 
+    def transform(self, df, **kwargs):
+        copy = self.infer(df)
+        features = self.features or copy.columns
+        copy = self.pipeline.transform(copy[features])
+        if isinstance(copy, np.ndarray) and copy.shape[1] == len(features):
+            copy = pd.DataFrame(copy, columns=features)
+        return copy
 
     def inference(self, df, columns=None, **kwargs):
         copy = self.infer(df)

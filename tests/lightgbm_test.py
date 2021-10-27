@@ -11,7 +11,7 @@ def iris():
     return load_iris_1e5()
 
 
-def test_vaex_lightgbm(iris):
+def test_lightgbm_vaex(iris):
     import vaex
     import numpy as np
     from vaex.ml.lightgbm import LightGBMModel
