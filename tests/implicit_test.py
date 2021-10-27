@@ -98,8 +98,6 @@ def test_implicit_als():
     df['explanation'] = df.func.explain(df[userid], df[itemid])
 
     pipeline = Pipeline.from_vaex(df)
-    sample = {userid: [1, 2, 3], itemid:[2,2,2]}
-    pipeline.sample = sample
 
-    assert pipeline.inference({userid:[1,2,3]}, columns=[userid, 'als', 'tfidf']).shape == (3, 3)
-    assert pipeline.inference(sample, columns=[userid, 'als', 'tfidf','explanation']).shape == (3, 4) #TODO
+    assert pipeline.inference({userid: [1, 2, 3]}, columns=[userid, 'als', 'tfidf']).shape == (3, 3)
+    assert pipeline.inference({userid: [1, 2, 3], itemid: [2, 2, 2]}, columns=[userid, 'als', 'tfidf', 'explanation']).shape == (3, 4)  # TODO

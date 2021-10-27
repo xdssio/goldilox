@@ -154,6 +154,5 @@ dmypy.json
 cython_debug/
 
 data/
-dist/
 tests
 
