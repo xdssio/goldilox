@@ -157,3 +157,4 @@ pip-selfcheck.json
 /data
 /dist
 /catboost_info
+/tests/models
