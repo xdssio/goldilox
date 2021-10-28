@@ -1,13 +1,16 @@
 from copy import deepcopy
 from hashlib import sha256
 
-from goldilox.config import AWS_PROFILE, PIPELINE_TYPE, STATE
-from goldilox.utils import _is_s3_url
 import cloudpickle
+import numpy as np
+import pandas as pd
+
+from goldilox.config import AWS_PROFILE, PIPELINE_TYPE
+from goldilox.utils import _is_s3_url
+
 
 class Pipeline:
     pipeline_type: str
-    example: dict
 
     @classmethod
     def check_hash(cls, file_path):
@@ -24,10 +27,14 @@ class Pipeline:
         return h.hexdigest()
 
     @staticmethod
-    def _sample_df(df):
-        if hasattr(df, 'to_pandas_df'):
-            return df.head(1).to_records()[0]
-        return df.iloc[0].to_dict()
+    def _sample(df):
+        if hasattr(df, 'to_pandas_df'):  # vaex
+            return df.to_records(0)
+        elif isinstance(df, np.ndarray):  # numpy
+            return list(df[0])
+        elif isinstance(df, pd.Series):  # pandas Series
+            return {df.name: df[0]}
+        return df.iloc[0].to_dict()  # pandas
 
     @classmethod
     def from_vaex(cls, df, fit=None):
@@ -35,13 +42,11 @@ class Pipeline:
         return VaexPipeline.from_dataframe(df=df, fit=fit)
 
     @classmethod
-    def from_sklearn(cls, pipeline, sample=None, target=None, features=None, output_column=None):
+    def from_sklearn(cls, pipeline, sample=None, target=None, features=None, output_column=None, fit_params=None):
         from goldilox.sklearn.pipeline import SklearnPipeline, DEFAULT_OUTPUT_COLUMN
         output_column = output_column or DEFAULT_OUTPUT_COLUMN
         return SklearnPipeline.from_sklearn(pipeline=pipeline, features=features, target=target, sample=sample,
-                                            output_column=output_column)
-
-
+                                            output_column=output_column, fit_params=fit_params)
 
     @classmethod
     def from_file(self, path):
@@ -61,7 +66,6 @@ class Pipeline:
             from goldilox.vaex.pipeline import VaexPipeline
             return VaexPipeline.load_state(state)
         raise RuntimeError(f"Cannot load pipeline of type {pipeline_type} from {path}")
-
 
     # TODO
     @classmethod

@@ -1,15 +1,17 @@
 import numpy as np
-import vaex
-from vaex.ml.sklearn import Predictor
-
-from goldilox import Pipeline
-from vaex.ml.datasets import load_iris_1e5
 import pytest
 import sklearn.pipeline
+import vaex
+from vaex.ml.datasets import load_iris_1e5
+
+from goldilox import Pipeline
+
+
 @pytest.fixture()
 def df():
     # df = load_iris_1e5()
     return load_iris_1e5()
+
 
 def test_flaml_vaex(df):
     features = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
@@ -34,7 +36,7 @@ def test_flaml_vaex(df):
     df['predictions'] = df.func.automl(*tuple([df[col] for col in features]))
 
     pipeline = Pipeline.from_vaex(df)
-    assert pipeline.inference(pipeline.sample).shape == (1, 6)
+    assert pipeline.inference(pipeline.raw).shape == (1, 6)
 
 
 def test_flaml_sklearn(df):
@@ -48,7 +50,7 @@ def test_flaml_sklearn(df):
         "automl__metric": 'accuracy',
         "automl__task": 'classification'
     }
-    sk_pipeline = sklearn.pipeline.Pipeline([('automl', AutoML())])
-    pipeline = Pipeline.from_sklearn(sk_pipeline, features=features, target=target).fit(df, **automl_settings)
+    pipeline = Pipeline.from_sklearn(sklearn.pipeline.Pipeline([('automl', AutoML())]),
+                                     features=features, target=target, fit_params=automl_settings).fit(df)
 
-    assert pipeline.inference(pipeline.sample).shape == (1, 5)
+    assert pipeline.inference(pipeline.raw).shape == (1, 5)

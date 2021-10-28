@@ -7,7 +7,7 @@ import traitlets
 
 import goldilox
 from goldilox import Pipeline
-from goldilox.config import AWS_PROFILE, PIPELINE, STATE, PIPELINE_TYPE, VERSION
+from goldilox.config import AWS_PROFILE, STATE, PIPELINE_TYPE, VERSION
 from goldilox.utils import _is_s3_url
 
 DEFAULT_OUTPUT_COLUMN = 'prediction'
@@ -19,18 +19,19 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
     current_time = int(time())
     created = traitlets.Int(default_value=current_time, allow_none=False, help='Created time')
     updated = traitlets.Int(default_value=current_time, allow_none=False, help='Updated time')
-    sample = traitlets.Any(default_value=None, allow_none=True, help='An example of the transformed dataset')
+    raw = traitlets.Any(default_value=None, allow_none=True, help='An example of the transformed dataset')
     pipeline = traitlets.Any(allow_none=False, help='A sklearn pipeline')
     features = traitlets.List(allow_none=True, help="A list of features")
     target = traitlets.Unicode(allow_none=True, help="A column to learn on fit")
     output_column = traitlets.Unicode(default_value=DEFAULT_OUTPUT_COLUMN, help="A column to learn on fit")
+    fit_params = traitlets.Dict(allow_none=True, default_value={}, help="params to use on fit time")
 
     @property
     def example(self):
-        return self.inference(self.sample)
+        return self.inference(self.raw)
 
     @classmethod
-    def from_sklearn(cls, pipeline, sample=None, features=None, target=None, output_column=DEFAULT_OUTPUT_COLUMN):
+    def from_sklearn(cls, pipeline, sample=None, features=None, target=None, output_column=DEFAULT_OUTPUT_COLUMN, fit_params=None):
         """
         :param sklearn.preprocessing.pipeline.Pipeline pipeline: The skleran pipeline
         :param sample: dict [optional]: An example of data which will be queried in production (only the features)
@@ -51,7 +52,7 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
             raise RuntimeError("For a fitted pipeline, please provide either the 'features' or 'sample'")
 
         return SklearnPipeline(pipeline=pipeline, features=features, target=target, sample=sample,
-                               output_column=output_column)
+                               output_column=output_column, fit_params=fit_params)
 
     @property
     def fitted(self):
@@ -106,39 +107,50 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
         # self.reload_fit_func()
         return path
 
-    def _from_vaex(self, X, y):
+    def _to_pandas(self, X, y=None):
         try:
             import vaex
             if isinstance(X, vaex.dataframe.DataFrame):
                 X = X.to_pandas_df()
-                if hasattr(y, 'expression') and self.target is None:
-                    self.target = y.expression
-                if hasattr(y, 'values'):
-                    y = y.values
+            elif isinstance(X, vaex.expression.Expression):
+                name = X.expression
+                X = X.to_pandas_series()
+                X.name = name
+            if isinstance(y, vaex.expression.Expression):
+                name = y.expression
+                y = y.to_pandas_series()
+                y.name = name
+                self.target = name
         except:
             pass
-        return X, y
-
-    def fit(self, df, y=None, **kwargs):
         if y is None:
-            y = df[self.target] if self.target else None
+            y = X[self.target] if self.target else None
         elif isinstance(y, pd.Series):
             self.target = y.name
         elif isinstance(y, str):
             self.target = y
-            y = df[y]
-        X, y = self._from_vaex(df, y)
+            y = X[y]
+        return X, y
 
+    def _get_features(self, X):
         if isinstance(X, pd.DataFrame):
             if self.features is None:
                 self.features = list(X.columns)
-                if self.target in self.features:
-                    self.features.remove(self.target)
-            X = X[self.features]
-            self.sample = self._sample_df(X)
-        elif isinstance(df, np.ndarray):
-            self.sample = list(X[0])
-        self.pipeline = self.pipeline.fit(X=X, y=y, **kwargs)
+        if self.features:
+            if self.target in self.features:
+                self.features.remove(self.target)
+            if len(self.features) > 1:
+                X = X[self.features]
+            elif len(self.features) == 1:
+                X = X[self.features[0]]
+        return X
+
+    def fit(self, df, y=None):
+        X, y = self._to_pandas(df, y)
+        X = self._get_features(X)
+        self.raw = self._sample(X)
+        params = self.fit_params or {}
+        self.pipeline = self.pipeline.fit(X=X, y=y, **params)
         return self
 
     def transform(self, df, **kwargs):
@@ -152,7 +164,8 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
     def inference(self, df, columns=None, **kwargs):
         copy = self.infer(df)
         features = self.features or copy.columns
-
+        if len(features) == 1:  # for text transformers and likewise
+            features = features[0]
         if hasattr(self.pipeline, 'predict'):
             copy[self.output_column] = self.pipeline.predict(copy[features])
         else:

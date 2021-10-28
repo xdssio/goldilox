@@ -18,7 +18,7 @@ def test_skleran_save_load():
     path = 'tests/models/sk.pkl'
     pipeline.save(path)
     pipeline = SklearnPipeline.from_file(path)
-    assert pipeline.inference(pipeline.sample).shape == (1, 5)
+    assert pipeline.inference(pipeline.raw).shape == (1, 5)
 
 
 def test_vaex_save_load():
@@ -33,7 +33,7 @@ def test_vaex_save_load():
     pipeline.save(path)
 
     pipeline = VaexPipeline.from_file(path)
-    assert pipeline.inference(pipeline.sample).shape == (1, 6)
+    assert pipeline.inference(pipeline.raw).shape == (1, 6)
 
 
 def test_goldilox_save_load():
@@ -48,7 +48,7 @@ def test_goldilox_save_load():
     pipeline.save(path)
     pipeline = Pipeline.from_file(path)
     assert pipeline.pipeline_type == 'vaex'
-    pipeline.inference(pipeline.sample).shape == (1, 6)
+    pipeline.inference(pipeline.raw).shape == (1, 6)
 
     df = df.to_pandas_df()
     X = df[features]
@@ -58,4 +58,4 @@ def test_goldilox_save_load():
     pipeline.save(path)
     pipeline = Pipeline.from_file(path)
     assert pipeline.pipeline_type == 'sklearn'
-    assert pipeline.inference(pipeline.sample).shape == (1, 5)
+    assert pipeline.inference(pipeline.raw).shape == (1, 5)

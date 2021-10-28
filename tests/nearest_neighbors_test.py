@@ -31,7 +31,7 @@ def test_hnswlib_vaex(df):
         index.add_items(X, y)
 
     index.set_ef(50)  # ef should always be > k (Controlling the recall by setting ef)
-    sample = Pipeline._sample_df(df)
+    sample = Pipeline._sample(df)
 
     @vaex.register_function(on_expression=False)
     def topk(*columns, k=3):
@@ -41,7 +41,7 @@ def test_hnswlib_vaex(df):
     df['knn'] = df.func.topk(*tuple([df[col] for col in features]), k=3)
     df.add_function('topk', topk)
     pipeline = Pipeline.from_vaex(df)
-    assert pipeline.sample == sample
+    assert pipeline.raw == sample
     assert df.to_records(0)['knn'] == [0, 21, 24]
 
 
@@ -113,8 +113,8 @@ def test_nmslib_vaex(df):
     df['neighbours'] = df['knn'].results()
 
     pipeline = Pipeline.from_vaex(df)
-    assert pipeline.sample
-    assert pipeline.inference(pipeline.sample).shape == (1, 13)
+    assert pipeline.raw
+    assert pipeline.inference(pipeline.raw).shape == (1, 13)
     pipeline.save('tests/models/nmslib.pkl')
     from goldilox.vaex.pipeline import VaexPipeline
 
@@ -238,8 +238,6 @@ def test_nmslib_sklearn(df):
 
     sample = X.to_records(0)
     pipeline = Pipeline.from_sklearn(NMSlibTransformer()).fit(X)
-    self = self
-    self.state_get().keys()
 
     assert pipeline.inference(sample).shape == (n, 11)
 

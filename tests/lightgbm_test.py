@@ -102,7 +102,7 @@ def test_lightgbm_vaex_fit(iris):
 
     assert pipeline.inference(data).shape == (1, 7)
     assert pipeline.get_variable('accuracy')
-    assert pipeline.sample == data
+    assert pipeline.raw == data
     assert list(pipeline.example.keys()) == ['sepal_length', 'sepal_width', 'petal_length', 'petal_width', 'class_',
                                              'predictions', 'prediction']
 
@@ -121,17 +121,17 @@ def test_lightgbm_sklearn(iris):
 
     assert pipeline.inference(X).head(10).shape == (10, 5)
     assert pipeline.inference(X.values[:10]).shape == (10, 5)
-    assert pipeline.inference(self.sample).shape == (1, 5)
+    assert pipeline.inference(self.raw).shape == (1, 5)
 
     pipeline.fit(df)
     assert pipeline.inference(X).head(10).shape == (10, 5)
     assert pipeline.inference(X.values[:10]).shape == (10, 5)
-    assert pipeline.inference(self.sample).shape == (1, 5)
+    assert pipeline.inference(self.raw).shape == (1, 5)
 
     # with a trained sklearn pipeline
     sample = X.head(1).to_records()[0]
     self = pipeline = SklearnPipeline.from_sklearn(sk_pipeline, sample=sample).fit(X, y)
     assert pipeline.inference(X).head(10).shape == (10, 5)
     assert pipeline.inference(X.values[:10]).shape == (10, 5)
-    assert pipeline.inference(self.sample).shape == (1, 5)
+    assert pipeline.inference(self.raw).shape == (1, 5)
 

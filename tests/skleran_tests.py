@@ -30,30 +30,30 @@ def test_from_sklearn_transform(iris):
     pipeline = SklearnPipeline.from_sklearn(sklearn.pipeline.Pipeline([('standard', StandardScaler())])).fit(values)
     assert pipeline.inference(X).shape == X.shape
     assert pipeline.inference(values).shape == X.shape
-    assert pipeline.sample == list(values[0])
+    assert pipeline.raw == list(values[0])
 
     pipeline = SklearnPipeline.from_sklearn(sklearn.pipeline.Pipeline([('standard', StandardScaler())])).fit(X)
     assert pipeline.inference(X).shape == X.shape
     assert pipeline.inference(values).shape == X.shape
-    assert pipeline.sample == pipeline._sample_df(X)
+    assert pipeline.raw == pipeline._sample(X)
     pipeline = SklearnPipeline.from_sklearn(sklearn.pipeline.Pipeline([('standard', StandardScaler())]),
                                             features=X.columns).fit(X)
     assert pipeline.inference(X).shape == X.shape
     assert pipeline.inference(values).shape == X.shape
-    assert pipeline.sample == pipeline._sample_df(X)
+    assert pipeline.raw == pipeline._sample(X)
 
     pipeline = SklearnPipeline.from_sklearn(sklearn.pipeline.Pipeline([('standard', StandardScaler())]).fit(X),
                                             features=X.columns)
     assert pipeline.inference(X).shape == X.shape
     assert pipeline.inference(values).shape == X.shape
-    assert pipeline.sample is None
+    assert pipeline.raw is None
     assert pipeline.features == columns
 
     pipeline = SklearnPipeline.from_sklearn(sklearn.pipeline.Pipeline([('standard', StandardScaler())]).fit(X),
-                                            sample=SklearnPipeline._sample_df(X))
+                                            sample=SklearnPipeline._sample(X))
     assert pipeline.inference(X).shape == X.shape
     assert pipeline.inference(values).shape == X.shape
-    assert pipeline.sample == SklearnPipeline._sample_df(X)
+    assert pipeline.raw == SklearnPipeline._sample(X)
     assert pipeline.features == columns
 
     with pytest.raises(Exception):
@@ -61,23 +61,23 @@ def test_from_sklearn_transform(iris):
 
 
 def test_sklrean_predict_classification(iris):
-    iris = load_iris().to_pandas_df()
+    df = iris.to_pandas_df()
     features = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
     target = 'class_'
-    X = iris[features]
-    y = iris[target]
+    X = df[features]
+    y = df[target]
     pipeline = SklearnPipeline.from_sklearn(sklearn.pipeline.Pipeline([('regression', LogisticRegression())])).fit(X, y)
     assert pipeline.output_column in pipeline.inference(X)
-    assert pipeline.sample == SklearnPipeline._sample_df(X)
+    assert pipeline.raw == SklearnPipeline._sample(X)
     assert pipeline.features == features
     assert pipeline.target == target
 
     self = pipeline = SklearnPipeline.from_sklearn(sklearn.pipeline.Pipeline([('regression', LogisticRegression())]),
-                                            features=features, target=target).fit(iris)
+                                            features=features, target=target).fit(df)
     assert pipeline.validate(X, check_na=False)
 
     assert pipeline.output_column in pipeline.inference(X)
-    assert pipeline.sample == SklearnPipeline._sample_df(X)
+    assert pipeline.raw == SklearnPipeline._sample(X)
     assert pipeline.features == features
     assert pipeline.target == target
 
@@ -89,14 +89,14 @@ def test_sklrean_predict_regression(iris):
     y = iris[target]
     pipeline = SklearnPipeline.from_sklearn(sklearn.pipeline.Pipeline([('regression', LinearRegression())])).fit(X, y)
     assert pipeline.output_column in pipeline.inference(X)
-    assert pipeline.sample == SklearnPipeline._sample_df(X)
+    assert pipeline.raw == SklearnPipeline._sample(X)
     assert pipeline.features == features
     assert pipeline.target == target
 
     pipeline = SklearnPipeline.from_sklearn(sklearn.pipeline.Pipeline([('regression', LinearRegression())]),
                                             features=features, target=target).fit(iris)
     assert pipeline.output_column in pipeline.inference(X)
-    assert pipeline.sample == SklearnPipeline._sample_df(X)
+    assert pipeline.raw == SklearnPipeline._sample(X)
     assert pipeline.features == features
     assert pipeline.target == target
 
@@ -285,6 +285,6 @@ def test_skleran_advance():
     assert pipeline.validate()
     assert pipeline.inference(test).shape == (len(test), 22)
 
-    sample = SklearnPipeline._sample_df(train)
+    sample = SklearnPipeline._sample(train)
     sample.pop(target)
     assert pipeline.inference(sample).shape == (1, 22)

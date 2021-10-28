@@ -1,13 +1,13 @@
 import inspect
 import json
 import logging
-import os
 from collections import OrderedDict
 from copy import deepcopy, copy as _copy
 from glob import glob
 from numbers import Number
 from time import time
 
+import cloudpickle
 import numpy as np
 import pandas as pd
 import pyarrow as pa
@@ -16,20 +16,17 @@ import traitlets
 import vaex
 from vaex.column import Column
 from vaex.ml.state import HasState, serialize_pickle
+
 import goldilox
-from goldilox.pipeline import Pipeline
 from goldilox.config import *
+from goldilox.pipeline import Pipeline
 from goldilox.utils import _is_s3_url
-import cloudpickle
 
 logging.basicConfig()
 logger = logging.getLogger(__name__)
 
-EXAMPLE = 'example'
 PIPELINE_FIT = '_PIPELINE_FIT'
 FUNCTIONS = 'functions'
-
-
 
 
 class VaexPipeline(HasState, Pipeline):
@@ -37,14 +34,14 @@ class VaexPipeline(HasState, Pipeline):
     current_time = int(time())
     created = traitlets.Int(default_value=current_time, allow_none=False, help='Created time')
     updated = traitlets.Int(default_value=current_time, allow_none=False, help='Updated time')
-    sample = traitlets.Any(default_value=None, allow_none=True, help='An example of the raw dataset').tag(
+    raw = traitlets.Any(default_value=None, allow_none=True, help='An example of the raw dataset').tag(
         **serialize_pickle)
     _original_columns = traitlets.List(default_value=[], help='original columns which were not virtual expressions')
     state = traitlets.Dict(default_value=None, allow_none=True, help='The state to apply on inference')
 
     @property
     def example(self):
-        return self.inference(self.sample).to_records(0)
+        return self.inference(self.raw).to_records(0)
 
     @classmethod
     def _get_original_columns(cls, df):
@@ -107,7 +104,7 @@ class VaexPipeline(HasState, Pipeline):
         try:
             sample = df[0:1]
             self._original_columns = self._get_original_columns(df)
-            self.sample = {key: values[0] for key, values in sample.dataset._columns.items()}
+            self.raw = {key: values[0] for key, values in sample.dataset._columns.items()}
             return True
         except Exception as e:
             logger.error(f"could not sample first: {e}")
@@ -121,12 +118,12 @@ class VaexPipeline(HasState, Pipeline):
         sample = copy[0:1]
         state = copy.state_get()
         renamed = {x[1]: x[0] for x in state['renamed_columns']}
-        raw = {renamed.get(key, key): value.tolist()[0] for key,value in sample.dataset._columns.items( )}
+        raw = {renamed.get(key, key): value.tolist()[0] for key, value in sample.dataset._columns.items()}
         original_columns = VaexPipeline._get_original_columns(sample)
 
         pipeline = VaexPipeline(state=state,
                                 _original_columns=original_columns,
-                                sample=raw)
+                                raw=raw)
 
         return pipeline
 
@@ -160,8 +157,8 @@ class VaexPipeline(HasState, Pipeline):
 
     def json_get(self):
         return {STATE: self.json_dumps(),
-                 PIPELINE_TYPE: self.pipeline_type,
-                 VERSION: goldilox.__version__}
+                PIPELINE_TYPE: self.pipeline_type,
+                VERSION: goldilox.__version__}
 
     def save(self, path):
         if self.state is None:
@@ -190,7 +187,7 @@ class VaexPipeline(HasState, Pipeline):
         instance = VaexPipeline()
         if STATE in state:
             state = state[STATE]
-        if not isinstance(state,dict):
+        if not isinstance(state, dict):
             state = VaexPipeline.json_load(state)
         instance.state_set(state)
         return instance
@@ -213,10 +210,10 @@ class VaexPipeline(HasState, Pipeline):
     def na_column(self, length):
         return pa.array([None] * length)
 
-    def preprocess_transform(self, df, columns, fillna=True):
+    def preprocess_transform(self, df, ):
         copy = self.infer(df)
         length = len(copy)
-        # values = self._original_dtypes
+
         renamed = {x[1]: x[0] for x in self.state['renamed_columns']}
         for key in self._original_columns:
             if key in renamed:
@@ -237,8 +234,8 @@ class VaexPipeline(HasState, Pipeline):
             copy.state_set(state, keep_columns=keep_columns, set_filter=set_filter)
         return copy
 
-    def transform(self, df, keep_columns=False, state=None, set_filter=True, fillna=True):
-        copy = self.preprocess_transform(df, fillna=fillna)
+    def transform(self, df, keep_columns=False, state=None, set_filter=True):
+        copy = self.preprocess_transform(df)
         copy = self.transform_state(copy, keep_columns=keep_columns, state=state, set_filter=set_filter)
         return copy
 
@@ -254,14 +251,14 @@ class VaexPipeline(HasState, Pipeline):
                     self.add_memmory_column(df, column, value, length)
         return df
 
-    def inference(self, df, columns=None, set_filter=False, keep_columns=None, fillna=True, clean=False):
+    def inference(self, df, columns=None, set_filter=False, keep_columns=None, clean=False):
         if clean:
             copy = self.infer(df)
             copy.state_set(self.state, set_filter=set_filter)
             return copy
         if isinstance(columns, str):
             columns = [columns]
-        copy = self.preprocess_transform(df, columns=columns, fillna=fillna)
+        copy = self.preprocess_transform(df)
         if columns is None and keep_columns is None:
             keep_columns = True
         ret = self.transform_state(copy, set_filter=set_filter, keep_columns=keep_columns)
@@ -352,8 +349,8 @@ class VaexPipeline(HasState, Pipeline):
         return self.state[VARIABLES].get(variable)
 
     def get_columns_names(self, virtual=True, strings=True, hidden=False, regex=None):
-        return self.inference(self.sample).get_column_names(virtual=virtual, strings=strings, hidden=hidden,
-                                                             regex=regex)
+        return self.inference(self.raw).get_column_names(virtual=virtual, strings=strings, hidden=hidden,
+                                                         regex=regex)
 
     def fit_transform(self, data):
         self.fit(data)
@@ -377,7 +374,7 @@ class VaexPipeline(HasState, Pipeline):
         fit_func = self.get_function(PIPELINE_FIT)
         if fit_func is None:
             raise RuntimeError("'fit()' was not set for this pipeline")
-        self.sample = copy.to_records(0)
+        self.raw = copy.to_records(0)
         trained = fit_func(copy)
         if VaexPipeline.is_vaex_dataset(trained):
             trained.add_function(PIPELINE_FIT, fit_func)
@@ -408,7 +405,7 @@ class VaexPipeline(HasState, Pipeline):
 
     def validate(self, df=None, check_na=True):
         if df is None:
-            df = self.infer(self.sample)
+            df = self.infer(self.raw)
         try:
             len(self.inference(df)) == len(df)
         except Exception as e:
