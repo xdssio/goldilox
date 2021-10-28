@@ -155,4 +155,6 @@ cython_debug/
 
 data/
 tests
-
+catboost_*
+flaml.log
+*.egg
