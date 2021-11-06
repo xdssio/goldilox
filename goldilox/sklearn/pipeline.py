@@ -28,7 +28,7 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
 
     @property
     def example(self):
-        return self.inference(self.raw)
+        return self.inference(self.raw).to_dict(orient='records')[0]
 
     @classmethod
     def from_sklearn(cls, pipeline, sample=None, features=None, target=None, output_column=DEFAULT_OUTPUT_COLUMN, fit_params=None):

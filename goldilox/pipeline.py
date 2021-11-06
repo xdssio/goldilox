@@ -1,3 +1,4 @@
+import json
 from copy import deepcopy
 from hashlib import sha256
 
@@ -49,11 +50,15 @@ class Pipeline:
                                             output_column=output_column, fit_params=fit_params)
 
     @classmethod
+    def load(cls, path):
+        return cls.from_file(path)
+
+    @classmethod
     def from_file(self, path):
         if _is_s3_url(path):
             import s3fs
             fs = s3fs.S3FileSystem(profile=AWS_PROFILE)
-            with fs.open(path, 'r') as f:
+            with fs.open(path, 'rb') as f:
                 state = cloudpickle.loads(f.read())
         else:
             with open(path, 'rb') as f:
@@ -95,3 +100,23 @@ class Pipeline:
 
     def infer(self, df):
         raise NotImplementedError(f"Not implemented for {self.pipeline_type}")
+
+    @classmethod
+    def dictify(cls, items):
+        if isinstance(items, pd.DataFrame):
+            return items.to_dict(orient='records')
+        elif isinstance(items, list) or isinstance(items, dict):
+            return items
+            # vaex
+        return items.to_records()
+
+
+    @classmethod
+    def jsonify(cls, items):
+        if isinstance(items, pd.DataFrame):
+            return items.to_json(orient='records')
+        elif isinstance(items, list) or isinstance(items, dict):
+            return json.dumps(items)
+
+        # vaex
+        return json.dumps(items.to_records())
