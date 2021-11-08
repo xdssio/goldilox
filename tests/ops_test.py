@@ -48,7 +48,11 @@ def lightgbm_vaex_fit():
         df = booster.transform(df)
         df.add_function('argmax', argmax)
         df['prediction'] = df['predictions'].argmax()
+        names = {0: 'setosa', 1: 'versicolor', 2: 'virginica'}
+        df['label'] = df['prediction'].map(names)
+        df['probabilities'] = df['predictions'].apply(lambda x: {names.get(i):x[i] for i in range(3)})
         df.variables['accuracy'] = accuracy
+        df.variables['names'] = names
         return df
 
     df = iris.copy()
@@ -57,15 +61,14 @@ def lightgbm_vaex_fit():
     assert pipeline.inference(data).shape == df.head(1).shape
     pipeline.fit(df)
 
-    assert pipeline.inference(data).shape == (1, 7)
+    assert pipeline.inference(data).shape == (1, 9)
     assert pipeline.get_variable('accuracy')
+    assert pipeline.get_variable('names')
     assert pipeline.raw == data
     assert list(pipeline.example.keys()) == ['sepal_length', 'sepal_width', 'petal_length', 'petal_width', 'class_',
-                                             'predictions', 'prediction']
+                                             'predictions', 'prediction','label','probabilities']
     assert 'Lightgbm' in pipeline.description
     pipeline.save('../goldilox-ops/models/pipeline.pkl')
-
-
 
 
 def test_lightgbm_sklearn():
@@ -91,9 +94,9 @@ def test_lightgbm_sklearn():
 
     # with a trained sklearn pipeline
     sample = X.head(1).to_records()[0]
-    self = pipeline = SklearnPipeline.from_sklearn(sk_pipeline, sample=sample).fit(X, y)
+    self = pipeline = SklearnPipeline.from_sklearn(sk_pipeline, sample=sample, description="Lightgbm with sklearn").fit(X, y)
     assert pipeline.inference(X).head(10).shape == (10, 5)
     assert pipeline.inference(X.values[:10]).shape == (10, 5)
     assert pipeline.inference(self.raw).shape == (1, 5)
     assert 'Lightgbm' in pipeline.description
-    pipeline.save('../goldilox-ops/models/pipeline.pkl')
+    pipeline.save('../goldilox-ops/models/sk.pkl')

@@ -25,13 +25,16 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
     target = traitlets.Unicode(allow_none=True, help="A column to learn on fit")
     output_column = traitlets.Unicode(default_value=DEFAULT_OUTPUT_COLUMN, help="A column to learn on fit")
     fit_params = traitlets.Dict(allow_none=True, default_value={}, help="params to use on fit time")
+    description = traitlets.Unicode(default_value='', help='Any notes to associate with a pipeline instance')
+    variables = traitlets.Dict(default_value={}, help='Any variables to associate with a pipeline instance')
 
     @property
     def example(self):
         return self.inference(self.raw).to_dict(orient='records')[0]
 
     @classmethod
-    def from_sklearn(cls, pipeline, sample=None, features=None, target=None, output_column=DEFAULT_OUTPUT_COLUMN, fit_params=None):
+    def from_sklearn(cls, pipeline, sample=None, features=None, target=None, output_column=DEFAULT_OUTPUT_COLUMN,
+                     variables=None, fit_params=None, description=''):
         """
         :param sklearn.preprocessing.pipeline.Pipeline pipeline: The skleran pipeline
         :param sample: dict [optional]: An example of data which will be queried in production (only the features)
@@ -39,6 +42,8 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
         :param features: list [optional]: A list of columns - if X is provided, will take it's columns
         :param target: str [optional]: The name of the target column - Used for retraining
         :param output_column: str [optional]: For sklearn estimator with 'predict' predictions a name.
+        :param variables: dict [optional]: Variables to associate with the pipeline - fit_params automatically are added
+        :param description: str [optional]: A pipeline description and notes in text
         :return: SkleranPipeline object
         """
         if isinstance(features, pd.core.indexes.base.Index):
@@ -50,9 +55,13 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
         if hasattr(pipeline,
                    '__sklearn_is_fitted__') and pipeline.__sklearn_is_fitted__() and sample is None and features is None:
             raise RuntimeError("For a fitted pipeline, please provide either the 'features' or 'sample'")
-
+        if variables is None:
+            variables = {}
+        if fit_params:
+            variables.update(fit_params)
         return SklearnPipeline(pipeline=pipeline, features=features, target=target, sample=sample,
-                               output_column=output_column, fit_params=fit_params)
+                               output_column=output_column, fit_params=fit_params, variables=variables,
+                               description=description)
 
     @property
     def fitted(self):
