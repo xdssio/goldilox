@@ -38,6 +38,7 @@ class VaexPipeline(HasState, Pipeline):
         **serialize_pickle)
     _original_columns = traitlets.List(default_value=[], help='original columns which were not virtual expressions')
     state = traitlets.Dict(default_value=None, allow_none=True, help='The state to apply on inference')
+    description = traitlets.Unicode(default_value='', help='Any notes to associate with a pipeline instance')
 
     @property
     def example(self):
@@ -111,7 +112,7 @@ class VaexPipeline(HasState, Pipeline):
         return False
 
     @classmethod
-    def from_dataframe(cls, df, fit=None):
+    def from_dataframe(cls, df, fit=None, description=''):
         copy = VaexPipeline.verify_vaex_dataset(df)
         if fit is not None:
             copy.add_function(PIPELINE_FIT, fit)
@@ -123,7 +124,7 @@ class VaexPipeline(HasState, Pipeline):
 
         pipeline = VaexPipeline(state=state,
                                 _original_columns=original_columns,
-                                raw=raw)
+                                raw=raw, description=description)
 
         return pipeline
 

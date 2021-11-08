@@ -1,4 +1,4 @@
-import vaex
+
 
 from goldilox.sklearn.pipeline import Pipeline as SklearnPipeline
 from goldilox.vaex.pipeline import VaexPipeline as VaexPipeline
@@ -52,7 +52,7 @@ def lightgbm_vaex_fit():
         return df
 
     df = iris.copy()
-    pipeline = VaexPipeline.from_dataframe(df, fit=fit)
+    pipeline = VaexPipeline.from_dataframe(df, fit=fit, description="Lightgbm with Vaex")
     data = df.to_records(0)
     assert pipeline.inference(data).shape == df.head(1).shape
     pipeline.fit(df)
@@ -62,6 +62,7 @@ def lightgbm_vaex_fit():
     assert pipeline.raw == data
     assert list(pipeline.example.keys()) == ['sepal_length', 'sepal_width', 'petal_length', 'petal_width', 'class_',
                                              'predictions', 'prediction']
+    assert 'Lightgbm' in pipeline.description
     pipeline.save('../goldilox-ops/models/pipeline.pkl')
 
 
@@ -77,7 +78,7 @@ def test_lightgbm_sklearn():
     sk_pipeline = sklearn.pipeline.Pipeline([('classifier', LGBMClassifier())])
     X = df[features]
     y = df[target]
-    self = pipeline = SklearnPipeline.from_sklearn(sk_pipeline).fit(X, y)
+    self = pipeline = SklearnPipeline.from_sklearn(sk_pipeline, description="Lightgbm with sklearn").fit(X, y)
 
     assert pipeline.inference(X).head(10).shape == (10, 5)
     assert pipeline.inference(X.values[:10]).shape == (10, 5)
@@ -94,4 +95,5 @@ def test_lightgbm_sklearn():
     assert pipeline.inference(X).head(10).shape == (10, 5)
     assert pipeline.inference(X.values[:10]).shape == (10, 5)
     assert pipeline.inference(self.raw).shape == (1, 5)
+    assert 'Lightgbm' in pipeline.description
     pipeline.save('../goldilox-ops/models/pipeline.pkl')

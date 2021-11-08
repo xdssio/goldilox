@@ -12,6 +12,7 @@ from goldilox.utils import _is_s3_url
 
 class Pipeline:
     pipeline_type: str
+    description: str
 
     @classmethod
     def check_hash(cls, file_path):
@@ -38,16 +39,16 @@ class Pipeline:
         return df.iloc[0].to_dict()  # pandas
 
     @classmethod
-    def from_vaex(cls, df, fit=None):
+    def from_vaex(cls, df, fit=None, **kwargs):
         from goldilox.vaex.pipeline import VaexPipeline as VaexPipeline
-        return VaexPipeline.from_dataframe(df=df, fit=fit)
+        return VaexPipeline.from_dataframe(df=df, fit=fit, **kwargs)
 
     @classmethod
-    def from_sklearn(cls, pipeline, sample=None, target=None, features=None, output_column=None, fit_params=None):
+    def from_sklearn(cls, pipeline, sample=None, target=None, features=None, output_column=None, fit_params=None, **kwargs):
         from goldilox.sklearn.pipeline import SklearnPipeline, DEFAULT_OUTPUT_COLUMN
         output_column = output_column or DEFAULT_OUTPUT_COLUMN
         return SklearnPipeline.from_sklearn(pipeline=pipeline, features=features, target=target, sample=sample,
-                                            output_column=output_column, fit_params=fit_params)
+                                            output_column=output_column, fit_params=fit_params, **kwargs)
 
     @classmethod
     def load(cls, path):
