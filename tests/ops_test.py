@@ -68,6 +68,10 @@ def lightgbm_vaex_fit():
     assert list(pipeline.example.keys()) == ['sepal_length', 'sepal_width', 'petal_length', 'petal_width', 'class_',
                                              'predictions', 'prediction','label','probabilities']
     assert 'Lightgbm' in pipeline.description
+    pipeline.raw.pop('class_')
+    assert pipeline.inference(data).shape == (1, 9)
+    pipeline.validate(df.head(2))
+    pipeline._validate_na(df)
     pipeline.save('../goldilox-ops/models/pipeline.pkl')
 
 
@@ -94,7 +98,7 @@ def test_lightgbm_sklearn():
 
     # with a trained sklearn pipeline
     sample = X.head(1).to_records()[0]
-    self = pipeline = SklearnPipeline.from_sklearn(sk_pipeline, sample=sample, description="Lightgbm with sklearn").fit(X, y)
+    self = pipeline = SklearnPipeline.from_sklearn(sk_pipeline, raw=sample, description="Lightgbm with sklearn").fit(X, y)
     assert pipeline.inference(X).head(10).shape == (10, 5)
     assert pipeline.inference(X.values[:10]).shape == (10, 5)
     assert pipeline.inference(self.raw).shape == (1, 5)
