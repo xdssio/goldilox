@@ -44,12 +44,12 @@ class Pipeline:
         return VaexPipeline.from_dataframe(df=df, fit=fit, **kwargs)
 
     @classmethod
-    def from_sklearn(cls, pipeline, sample=None, target=None, features=None, output_column=None, variables=None,
+    def from_sklearn(cls, pipeline, raw=None, target=None, features=None, output_column=None, variables=None,
                      fit_params=None,
                      description=''):
         from goldilox.sklearn.pipeline import SklearnPipeline, DEFAULT_OUTPUT_COLUMN
         output_column = output_column or DEFAULT_OUTPUT_COLUMN
-        return SklearnPipeline.from_sklearn(pipeline=pipeline, features=features, target=target, sample=sample,
+        return SklearnPipeline.from_sklearn(pipeline=pipeline, features=features, target=target, raw=raw,
                                             output_column=output_column, variables=variables, fit_params=fit_params,
                                             description=description)
 
