@@ -109,7 +109,7 @@ def test_xgboost_sklearn(iris):
 
     # with a trained sklearn pipeline
     sample = X.head(1).to_records()[0]
-    self = pipeline = SklearnPipeline.from_sklearn(sk_pipeline, sample=sample).fit(X, y)
+    self = pipeline = SklearnPipeline.from_sklearn(sk_pipeline, raw=sample).fit(X, y)
     assert pipeline.inference(X).head(10).shape == (10, 5)
     assert pipeline.inference(X.values[:10]).shape == (10, 5)
     assert pipeline.inference(self.raw).shape == (1, 5)

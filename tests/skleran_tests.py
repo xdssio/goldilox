@@ -50,7 +50,7 @@ def test_from_sklearn_transform(iris):
     assert pipeline.features == columns
 
     pipeline = SklearnPipeline.from_sklearn(sklearn.pipeline.Pipeline([('standard', StandardScaler())]).fit(X),
-                                            sample=SklearnPipeline._sample(X))
+                                            raw=SklearnPipeline._sample(X))
     assert pipeline.inference(X).shape == X.shape
     assert pipeline.inference(values).shape == X.shape
     assert pipeline.raw == SklearnPipeline._sample(X)
