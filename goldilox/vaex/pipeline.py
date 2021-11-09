@@ -161,24 +161,6 @@ class VaexPipeline(HasState, Pipeline):
                 PIPELINE_TYPE: self.pipeline_type,
                 VERSION: goldilox.__version__}
 
-    def save(self, path):
-        if self.state is None:
-            raise RuntimeError("Pipeline has no state to save")
-        state_to_write = cloudpickle.dumps(self.json_get())
-        if _is_s3_url(path):
-            fs = s3fs.S3FileSystem(profile=AWS_PROFILE)
-            with fs.open(path, 'wb') as f:
-                f.write(state_to_write)
-        else:
-            try:
-                os.makedirs('/'.join(path.split('/')[:-1]), exist_ok=True)
-            except AttributeError as e:
-                pass
-            with open(path, 'wb') as outfile:
-                outfile.write(state_to_write)
-        # self.reload_fit_func()
-        return path
-
     @classmethod
     def is_vaex_dataset(cls, ds):
         return isinstance(ds, vaex.dataframe.DataFrame)
@@ -406,14 +388,3 @@ class VaexPipeline(HasState, Pipeline):
                 ret = False
                 print(f"Pipeline doesn't handle NA for {column}")
         return ret
-
-    def validate(self, df=None, check_na=True):
-        if df is None:
-            df = self.infer(self.raw)
-        try:
-            len(self.inference(df)) == len(df)
-        except Exception as e:
-            return e
-        if check_na:
-            self._validate_na(df)
-        return True

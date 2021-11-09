@@ -1,6 +1,7 @@
 import json
 from copy import deepcopy
 from hashlib import sha256
+from tempfile import TemporaryDirectory
 
 import cloudpickle
 import numpy as np
@@ -56,6 +57,35 @@ class Pipeline:
     @classmethod
     def load(cls, path):
         return cls.from_file(path)
+
+    def save(self, path):
+        state_to_write = cloudpickle.dumps(self.json_get())
+        if _is_s3_url(path):
+            import s3fs
+            fs = s3fs.S3FileSystem(profile=AWS_PROFILE)
+            with fs.open(path, 'wb') as outfile:
+                outfile.write(state_to_write)
+        else:
+            try:
+                import os
+                os.makedirs('/'.join(path.split('/')[:-1]), exist_ok=True)
+            except AttributeError as e:
+                pass
+            with open(path, 'wb') as outfile:
+                outfile.write(state_to_write)
+    
+    def validate(self, df=None, check_na=True):
+        tmpdir = TemporaryDirectory().name
+        path = tmpdir + 'models/model.pkl'
+        self.save(path)
+        pipeline = self.from_file(path)
+        if df is None:
+            df = self.infer(self.raw)
+        results = pipeline.inference(df)
+        assert len(results) == len(df)
+        if check_na:
+            pipeline._validate_na(df)
+        return True
 
     @classmethod
     def from_file(self, path):

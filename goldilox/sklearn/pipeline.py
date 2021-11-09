@@ -97,25 +97,6 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
             state = state[STATE]
         return cloudpickle.loads(state)
 
-    def save(self, path):
-        state_to_write = cloudpickle.dumps(self.json_get())
-        if _is_s3_url(path):
-            import s3fs
-            fs = s3fs.S3FileSystem(profile=AWS_PROFILE)
-            with fs.open(path, 'wb') as f:
-                f.write(state_to_write)
-        else:
-            try:
-                import os
-                os.makedirs('/'.join(path.split('/')[:-1]), exist_ok=True)
-            except AttributeError as e:
-                pass
-
-            with open(path, 'wb') as outfile:
-                outfile.write(state_to_write)
-        # self.reload_fit_func()
-        return path
-
     def _to_pandas(self, X, y=None):
         try:
             import vaex
@@ -198,13 +179,4 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
                 print(f"Pipeline doesn't handle na for {column}")
         return ret
 
-    def validate(self, df=None, check_na=True):
-        if df is None:
-            df = self.infer(self.raw)
 
-        results = self.inference(df)
-        assert len(results) == len(df)
-        if check_na:
-            self._validate_na(df)
-
-        return True

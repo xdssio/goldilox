@@ -8,20 +8,22 @@ from goldilox.sklearn.pipeline import SklearnPipeline
 from goldilox.vaex.pipeline import VaexPipeline
 
 
-def test_skleran_save_load():
+# from tempfile import TemporaryDirectory; tmpdir = TemporaryDirectory().name ; path = 'models/model.pkl' # TODO remove
+
+def test_skleran_save_load(tmpdir):
     iris = load_iris().to_pandas_df()
     features = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
     target = 'class_'
     X = iris[features]
     y = iris[target]
     pipeline = SklearnPipeline.from_sklearn(sklearn.pipeline.Pipeline([('regression', LogisticRegression())])).fit(X, y)
-    path = 'tests/models/sk.pkl'
+    path = str(tmpdir) + '/model.pkl'
     pipeline.save(path)
     pipeline = SklearnPipeline.from_file(path)
     assert pipeline.inference(pipeline.raw).shape == (1, 5)
 
 
-def test_vaex_save_load():
+def test_vaex_save_load(tmpdir):
     df = load_iris()
     features = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
     target = 'class_'
@@ -29,14 +31,14 @@ def test_vaex_save_load():
     model.fit(df)
     df = model.transform(df)
     pipeline = VaexPipeline.from_vaex(df)
-    path = 'tests/models/sk.pkl'
+    path = str(tmpdir) + '/model.pkl'
     pipeline.save(path)
 
     pipeline = VaexPipeline.from_file(path)
     assert pipeline.inference(pipeline.raw).shape == (1, 6)
 
 
-def test_goldilox_save_load():
+def test_goldilox_save_load(tmpdir):
     df = load_iris()
     features = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
     target = 'class_'
@@ -44,7 +46,7 @@ def test_goldilox_save_load():
     model.fit(df)
     df = model.transform(df)
     pipeline = VaexPipeline.from_vaex(df)
-    path = 'tests/models/sk.pkl'
+    path = str(tmpdir) + '/model.pkl'
     pipeline.save(path)
     pipeline = Pipeline.from_file(path)
     assert pipeline.pipeline_type == 'vaex'
