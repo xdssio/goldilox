@@ -33,11 +33,11 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
         return self.inference(self.raw).to_dict(orient='records')[0]
 
     @classmethod
-    def from_sklearn(cls, pipeline, sample=None, features=None, target=None, output_column=DEFAULT_OUTPUT_COLUMN,
+    def from_sklearn(cls, pipeline, raw=None, features=None, target=None, output_column=DEFAULT_OUTPUT_COLUMN,
                      variables=None, fit_params=None, description=''):
         """
         :param sklearn.preprocessing.pipeline.Pipeline pipeline: The skleran pipeline
-        :param sample: dict [optional]: An example of data which will be queried in production (only the features)
+        :param raw: dict [optional]: An example of data which will be queried in production (only the features)
                 - If X is provided, would be the first row.
         :param features: list [optional]: A list of columns - if X is provided, will take it's columns
         :param target: str [optional]: The name of the target column - Used for retraining
@@ -48,18 +48,18 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
         """
         if isinstance(features, pd.core.indexes.base.Index):
             features = list(features)
-        elif isinstance(sample, dict) and features is None:
-            features = list(sample.keys())
-        elif sample is None and isinstance(features, list):
-            sample = {key: 0 for key in features}
+        elif isinstance(raw, dict) and features is None:
+            features = list(raw.keys())
+        elif raw is None and isinstance(features, list):
+            raw = {key: 0 for key in features}
         if hasattr(pipeline,
-                   '__sklearn_is_fitted__') and pipeline.__sklearn_is_fitted__() and sample is None and features is None:
+                   '__sklearn_is_fitted__') and pipeline.__sklearn_is_fitted__() and raw is None and features is None:
             raise RuntimeError("For a fitted pipeline, please provide either the 'features' or 'sample'")
         if variables is None:
             variables = {}
         if fit_params:
             variables.update(fit_params)
-        return SklearnPipeline(pipeline=pipeline, features=features, target=target, sample=sample,
+        return SklearnPipeline(pipeline=pipeline, features=features, target=target, sample=raw,
                                output_column=output_column, fit_params=fit_params, variables=variables,
                                description=description)
 
@@ -187,18 +187,20 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
         pass
 
     def _validate_na(self, df):
-
+        ret = True
         for column in df:
             tmp = df.copy()
             tmp[column] = None
             try:
                 self.inference(tmp)
             except:
+                ret = False
                 print(f"Pipeline doesn't handle na for {column}")
+        return ret
 
     def validate(self, df=None, check_na=True):
         if df is None:
-            df = self.infer(self.example)
+            df = self.infer(self.raw)
 
         results = self.inference(df)
         assert len(results) == len(df)

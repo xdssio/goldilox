@@ -396,13 +396,16 @@ class VaexPipeline(HasState, Pipeline):
 
     def _validate_na(self, df):
         length = len(df)
+        ret = True
         for column in df:
             tmp = df.copy()
             tmp[column] = self.na_column(length)
             try:
                 self.inference(tmp)
-            except:
+            except Exception as e:
+                ret = False
                 print(f"Pipeline doesn't handle NA for {column}")
+        return ret
 
     def validate(self, df=None, check_na=True):
         if df is None:
