@@ -1,10 +1,10 @@
-from setuptools import setup
+from setuptools import setup,find_packages
 
 setup(
     name='goldilox',
-    packages=['goldilox'],
-    install_requires=['sklearn', 'pandas', 'vaex', 'numpy','cloudpickle'],
-    version='0.0.1',
+    packages=find_packages(),
+    install_requires=['sklearn', 'pandas', 'numpy', 'cloudpickle'],
+    version='0.0.1a1',
     url="https://github.com/xdssio/goldilox",
     description='A tool for deploying machine learning',
     author="Yonatan Alexander",

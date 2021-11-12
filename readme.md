@@ -1,6 +1,7 @@
 # What is Goldilox?
 
-Goldilox is a one line tool which transform a machine lernaing pipeline into an object for production
+Goldilox is a one line tool which transform a machine learning pipeline into an object for production.
+This is in current development, please wait for the first stable version. 
 
 # Installing
 With pip:
@@ -17,5 +18,5 @@ TODO
 #TODO
 [![Documentation](https://readthedocs.org/projects/vaex/badge/?version=latest)](https://docs.vaex.io)
 
-## SKlarn support
+## SKlearn support
 #TODO

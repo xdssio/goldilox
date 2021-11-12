@@ -7,7 +7,7 @@ import cloudpickle
 import numpy as np
 import pandas as pd
 
-from goldilox.config import AWS_PROFILE, PIPELINE_TYPE
+from goldilox.config import AWS_PROFILE, PIPELINE_TYPE, VAEX, SKLEARN
 from goldilox.utils import _is_s3_url
 
 
@@ -73,7 +73,7 @@ class Pipeline:
                 pass
             with open(path, 'wb') as outfile:
                 outfile.write(state_to_write)
-    
+
     def validate(self, df=None, check_na=True):
         tmpdir = TemporaryDirectory().name
         path = tmpdir + 'models/model.pkl'
@@ -88,7 +88,7 @@ class Pipeline:
         return True
 
     @classmethod
-    def from_file(self, path):
+    def from_file(cls, path):
         if _is_s3_url(path):
             import s3fs
             fs = s3fs.S3FileSystem(profile=AWS_PROFILE)
@@ -98,10 +98,10 @@ class Pipeline:
             with open(path, 'rb') as f:
                 state = cloudpickle.loads(f.read())
         pipeline_type = state.get(PIPELINE_TYPE)
-        if pipeline_type == 'sklearn':
+        if pipeline_type == SKLEARN:
             from goldilox.sklearn.pipeline import SklearnPipeline
             return SklearnPipeline.loads(state)
-        elif pipeline_type == 'vaex':
+        elif pipeline_type == VAEX:
             from goldilox.vaex.pipeline import VaexPipeline
             return VaexPipeline.load_state(state)
         raise RuntimeError(f"Cannot load pipeline of type {pipeline_type} from {path}")
@@ -120,9 +120,6 @@ class Pipeline:
     def fit(self, df, **kwargs):
         return self
 
-    def validate(self, df=None, check_na=True):
-        raise NotImplementedError(f"Not implemented for {self.pipeline_type}")
-
     def transform(self, df, **kwargs):
         raise NotImplementedError(f"Not implemented for {self.pipeline_type}")
 
@@ -136,7 +133,7 @@ class Pipeline:
         raise NotImplementedError(f"Not implemented for {self.pipeline_type}")
 
     @classmethod
-    def dictify(cls, items):
+    def to_records(cls, items):
         if isinstance(items, pd.DataFrame):
             return items.to_dict(orient='records')
         elif isinstance(items, list) or isinstance(items, dict):
