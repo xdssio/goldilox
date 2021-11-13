@@ -59,7 +59,7 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
             variables = {}
         if fit_params:
             variables.update(fit_params)
-        return SklearnPipeline(pipeline=pipeline, features=features, target=target, sample=raw,
+        return SklearnPipeline(pipeline=pipeline, features=features, target=target, raw=raw,
                                output_column=output_column, fit_params=fit_params, variables=variables,
                                description=description)
 
@@ -84,18 +84,21 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
             pass
         raise RuntimeError(f"could not infer type:{type(df)}")
 
-    def json_get(self):
-        state = {STATE: cloudpickle.dumps(self),
+    def _dumps(self):
+        state = {STATE: self,
                  PIPELINE_TYPE: self.pipeline_type,
                  VERSION: goldilox.__version__}
-
-        return state
+        return cloudpickle.dumps(state)
 
     @classmethod
     def loads(cls, state):
-        if STATE in state:
-            state = state[STATE]
-        return cloudpickle.loads(state)
+        if isinstance(state, bytes):
+            state = cloudpickle.loads(state)
+        return state[STATE]
+    
+    @classmethod
+    def from_file(cls, path):
+        return Pipeline.from_file(path)
 
     def _to_pandas(self, X, y=None):
         try:

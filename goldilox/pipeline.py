@@ -7,13 +7,14 @@ import cloudpickle
 import numpy as np
 import pandas as pd
 
-from goldilox.config import AWS_PROFILE, PIPELINE_TYPE, VAEX, SKLEARN
+from goldilox.config import AWS_PROFILE, PIPELINE_TYPE, VAEX, SKLEARN, STATE
 from goldilox.utils import _is_s3_url
 
 
 class Pipeline:
     pipeline_type: str
     description: str
+    BYTES_SIGNETURE = b'Goldilox'
 
     @classmethod
     def check_hash(cls, file_path):
@@ -55,11 +56,40 @@ class Pipeline:
                                             description=description)
 
     @classmethod
+    def from_file(cls, path):
+        def open_state():
+            return open(path, 'rb')
+
+        if _is_s3_url(path):
+            import s3fs
+            fs = s3fs.S3FileSystem(profile=AWS_PROFILE)
+
+            def open_state():
+                return fs.open(path, 'rb')
+        with open_state() as f:
+            state_bytes = f.read()
+        state_bytes = Pipeline._remove_signature(state_bytes)
+        state = cloudpickle.loads(state_bytes)
+        pipeline_type = state.get(PIPELINE_TYPE)
+        if pipeline_type == SKLEARN:
+            return state[STATE]
+        elif pipeline_type == VAEX:
+            from goldilox.vaex.pipeline import VaexPipeline
+            return VaexPipeline.load_state(state)
+        raise RuntimeError(f"Cannot load pipeline of type {pipeline_type} from {path}")
+
+    @classmethod
     def load(cls, path):
         return cls.from_file(path)
 
+    @classmethod
+    def _remove_signature(cls, b):
+        if b[:len(Pipeline.BYTES_SIGNETURE)] == Pipeline.BYTES_SIGNETURE:
+            return b[len(Pipeline.BYTES_SIGNETURE):]
+        return b
+
     def save(self, path):
-        state_to_write = cloudpickle.dumps(self.json_get())
+        state_to_write = Pipeline.BYTES_SIGNETURE + self._dumps()
         if _is_s3_url(path):
             import s3fs
             fs = s3fs.S3FileSystem(profile=AWS_PROFILE)
@@ -86,25 +116,6 @@ class Pipeline:
         if check_na:
             pipeline._validate_na(df)
         return True
-
-    @classmethod
-    def from_file(cls, path):
-        if _is_s3_url(path):
-            import s3fs
-            fs = s3fs.S3FileSystem(profile=AWS_PROFILE)
-            with fs.open(path, 'rb') as f:
-                state = cloudpickle.loads(f.read())
-        else:
-            with open(path, 'rb') as f:
-                state = cloudpickle.loads(f.read())
-        pipeline_type = state.get(PIPELINE_TYPE)
-        if pipeline_type == SKLEARN:
-            from goldilox.sklearn.pipeline import SklearnPipeline
-            return SklearnPipeline.loads(state)
-        elif pipeline_type == VAEX:
-            from goldilox.vaex.pipeline import VaexPipeline
-            return VaexPipeline.load_state(state)
-        raise RuntimeError(f"Cannot load pipeline of type {pipeline_type} from {path}")
 
     # TODO
     @classmethod

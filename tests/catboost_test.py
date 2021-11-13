@@ -4,7 +4,7 @@ import sklearn.pipeline
 import vaex
 from sklearn.metrics import accuracy_score
 from vaex.ml.datasets import load_iris_1e5
-
+from tests.test_utils import validate_persistance
 from goldilox.sklearn.pipeline import Pipeline as SklearnPipeline
 from goldilox.vaex.pipeline import VaexPipeline as VaexPipeline
 
@@ -51,7 +51,8 @@ def test_vaex_catboost(iris):
     assert pipeline.inference({'sepal_length': 5.9, 'petal_length': 4.2, 'Y': 'new column'}).head(1).shape == (1, 9)
 
 
-def test_catboost_vaex_fit(iris):
+def test_catboost_vaex_fit(iris, tmpdir):
+
     def fit(df):
         from sklearn.metrics import accuracy_score
         from vaex.ml.catboost import CatBoostModel
@@ -96,7 +97,7 @@ def test_catboost_vaex_fit(iris):
     assert pipeline.inference(data).shape == df.head(1).shape
     data = df.to_records(0)
     pipeline.fit(df)
-
+    pipeline = validate_persistance(pipeline)
     assert pipeline.inference(data).shape == (1, 7)
     assert pipeline.get_variable('accuracy')
     assert pipeline.raw == data

@@ -1,4 +1,5 @@
 import os
+
 AWS_PROFILE = os.environ.get('AWS_PROFILE')
 
 # Constants
@@ -25,3 +26,4 @@ STATE = 'state'
 VERSION = 'version'
 VALID_VAEX_HEADERS = ['*.csv', '*.hdf5', '*.parquet', '*.arrow']
 DEFAULT_SUFFIX = '.parquet'
+

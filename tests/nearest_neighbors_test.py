@@ -8,19 +8,14 @@ from scipy.sparse import csr_matrix
 from sklearn.base import TransformerMixin, BaseEstimator
 
 from goldilox import Pipeline
-
+from tests.test_utils import validate_persistance
 
 features = ['x', 'y', 'z', 'vx', 'vy', 'vz', 'E', 'L', 'Lz', 'FeH']
 
 
-@pytest.fixture()
-def df():
-    # df = vaex.example().head(1000)
-    return vaex.example().head(1000)
-
-
-def test_hnswlib_vaex(df):
+def test_hnswlib_vaex():
     import hnswlib
+    df = vaex.example().head(1000)
 
     index = hnswlib.Index(space='l2', dim=df.shape[1] - 1)  # possible options are l2, cosine or ip
     index.init_index(max_elements=len(df), ef_construction=200, M=16)
@@ -41,13 +36,14 @@ def test_hnswlib_vaex(df):
     df['knn'] = df.func.topk(*tuple([df[col] for col in features]), k=3)
     df.add_function('topk', topk)
     pipeline = Pipeline.from_vaex(df)
+    pipeline = validate_persistance(pipeline)
     assert pipeline.raw == sample
     assert df.to_records(0)['knn'] == [0, 21, 24]
 
 
-def test_nmslib_vaex(df):
+def test_nmslib_vaex():
     import nmslib
-
+    df = vaex.example().head(1000)
     ids = {index: _id for index, _id in enumerate(df['id'].tolist())}
     df.variables['id_map'] = ids  # good practice
     X = df[features]
@@ -61,19 +57,19 @@ def test_nmslib_vaex(df):
     # we need a pickable model
     class NMSLibModel(traitlets.HasTraits):
 
-        def __init__(self, index=None, method='hnsw', space='cosinesimil'):
+        def __init__(self, index=None, method='hnsw', metric='cosinesimil'):
 
             self.method = method
-            self.space = space
+            self.metric = metric
             self.index = self.decode(index)
 
         def __reduce__(self):
-            return (self.__class__, (self.encode(), self.method, self.space))
+            return (self.__class__, (self.encode(), self.method, self.metric))
 
         def decode(self, encoding):
             import nmslib
             if isinstance(encoding, bytes):
-                index = nmslib.init(method=self.method, space=self.space)
+                index = nmslib.init(method=self.method, space=self.metric)
                 path = NamedTemporaryFile().name
                 with open(path, 'wb') as outfile:
                     outfile.write(encoding)
@@ -113,10 +109,9 @@ def test_nmslib_vaex(df):
     df['neighbours'] = df['knn'].results()
 
     pipeline = Pipeline.from_vaex(df)
+    pipeline = validate_persistance(pipeline)
     assert pipeline.raw
     assert pipeline.inference(pipeline.raw).shape == (1, 13)
-    pipeline.save('tests/models/nmslib.pkl')
-    from goldilox.vaex.pipeline import VaexPipeline
 
 
 @pytest.mark.skip("Annoy-Process finished with exit code 132 (interrupted by signal 4: SIGILL)")
@@ -124,7 +119,7 @@ def test_annoy_sklearn(df):
     import annoy
     import sklearn.pipeline
 
-    df = vaex.example().head(1000)
+    # df = vaex.example().head(1000)
 
     class AnnoyTransformer(TransformerMixin, BaseEstimator):
         """Wrapper for using annoy.AnnoyIndex as sklearn's KNeighborsTransformer"""
@@ -188,24 +183,56 @@ def test_annoy_sklearn(df):
     sk_pipeline.fit(df)
 
 
-def test_nmslib_sklearn(df):
+def test_nmslib_sklearn():
     """
     https://scikit-learn.org/stable/auto_examples/neighbors/approximate_nearest_neighbors.html
     """
-    import nmslib
     n = 1000
     df = vaex.example().head(n)
 
+    # https://github.com/nmslib/nmslib/tree/master/manual
     class NMSlibTransformer(TransformerMixin, BaseEstimator):
         """Wrapper for using nmslib as sklearn's KNeighborsTransformer"""
 
-        def __init__(self, n_neighbors=5, output_column='knn', metric="euclidean", method="sw-graph", n_jobs=1):
+        def __init__(self, n_neighbors=5, output_column='knn', method="hnsw", metric="cosinesimil" , n_jobs=1,
+                     index=None):
+
             self.n_neighbors = n_neighbors
             self.method = method
             self.metric = metric
             self.n_jobs = n_jobs
             self.output_column = output_column
             self.n_samples_fit_ = None
+            self.index = self._create_index(index)
+
+        def __reduce__(self):
+            return (self.__class__,
+                    (self.n_neighbors, self.output_column, self.method, self.metric, self.n_jobs, self._encode()))
+
+        def _create_index(self, encoding):
+            import nmslib
+            if encoding is None:
+                return nmslib.init(method=self.method, space=self.metric)
+            if isinstance(encoding, bytes):
+                index = nmslib.init(method=self.method, space=self.metric)
+                path = NamedTemporaryFile().name
+                with open(path, 'wb') as outfile:
+                    outfile.write(encoding)
+                index.loadIndex(path)
+                return index
+            else:
+                return encoding
+
+        def _encode(self):
+            if self.index is None:
+                return None
+            if isinstance(self.index, bytes):
+                return self.index
+            path = NamedTemporaryFile().name
+            self.index.saveIndex(path, save_data=True)
+            with open(path, 'rb') as outfile:
+                encoding = outfile.read()
+            return encoding
 
         def __sklearn_is_fitted__(self):
             return self.n_samples_fit_ is not None
@@ -213,22 +240,12 @@ def test_nmslib_sklearn(df):
         def fit(self, X, y=None):
             self.n_samples_fit_ = X.shape[0]
 
-            # see more metric in the manual
-            # https://github.com/nmslib/nmslib/tree/master/manual
-            space = {
-                "euclidean": "l2",
-                "cosine": "cosinesimil",
-                "l1": "l1",
-                "l2": "l2",
-            }[self.metric]
-
-            self.nmslib_ = nmslib.init(method=self.method, space=space)
-            self.nmslib_.addDataPointBatch(X)
-            self.nmslib_.createIndex()
+            self.index.addDataPointBatch(X)
+            self.index.createIndex()
             return self
 
         def transform(self, X):
-            results = self.nmslib_.knnQueryBatch(X, k=self.n_neighbors, num_threads=self.n_jobs)
+            results = self.index.knnQueryBatch(X, k=self.n_neighbors, num_threads=self.n_jobs)
             indices, distances = zip(*results)
             indices, distances = np.vstack(indices), np.vstack(distances)
             X[self.output_column] = tuple(indices)
@@ -238,7 +255,5 @@ def test_nmslib_sklearn(df):
 
     sample = X.to_records(0)
     pipeline = Pipeline.from_sklearn(NMSlibTransformer()).fit(X)
-
+    pipeline = validate_persistance(pipeline)
     assert pipeline.inference(sample).shape == (n, 11)
-
-

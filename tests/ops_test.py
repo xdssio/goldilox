@@ -14,6 +14,7 @@ def lightgbm_vaex_fit():
         import numpy as np
         from vaex.ml.lightgbm import LightGBMModel
         from sklearn.metrics import accuracy_score
+
         train, test = df.ml.train_test_split(test_size=0.2, verbose=False)
 
         features = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']

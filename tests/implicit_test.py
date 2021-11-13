@@ -8,9 +8,10 @@ from implicit.nearest_neighbours import bm25_weight
 from scipy.sparse import csr_matrix
 
 from goldilox import Pipeline
+from tests.test_utils import validate_persistance
 
 
-def test_implicit_als():
+def test_implicit_als(tmpdir):
     df = vaex.open('data/imdb.parquet')
     userid = 'userId'
     itemid = 'movieId'
@@ -98,6 +99,6 @@ def test_implicit_als():
     df['explanation'] = df.func.explain(df[userid], df[itemid])
 
     pipeline = Pipeline.from_vaex(df)
-
+    pipeline = validate_persistance(pipeline)
     assert pipeline.inference({userid: [1, 2, 3]}, columns=[userid, 'als', 'tfidf']).shape == (3, 3)
     assert pipeline.inference({userid: [1, 2, 3], itemid: [2, 2, 2]}, columns=[userid, 'als', 'tfidf', 'explanation']).shape == (3, 4)  # TODO

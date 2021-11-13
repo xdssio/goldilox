@@ -1,5 +1,7 @@
-from goldilox.vaex import VaexPipeline
 import vaex
+
+from goldilox.vaex import VaexPipeline
+from tests.test_utils import validate_persistance
 
 
 def test_advance_vaex():
@@ -64,20 +66,18 @@ def test_advance_vaex():
     train['prediction'] = train.func.where(train['lgm_predictions'] > 0.5, 1, 0)
     train['target_label'] = train.func.where(train['lgm_predictions'] > 0.5, 'survived', 'died')
     pipeline = VaexPipeline.from_dataframe(train)
-
-    assert pipeline.inference(test).shape==(len(test),23)
+    pipeline = validate_persistance(pipeline)
+    assert pipeline.inference(test).shape == (len(test), 23)
     predictions = pipeline.inference(test, fillna=False)['prediction']
     assert 0.5 < accuracy_score(test[target].values, predictions.values)
 
 
 def test_advance_vaex_fit():
-
     def fit(df):
         import vaex
         from vaex.ml.lightgbm import LightGBMModel
         from sklearn.metrics import accuracy_score
         from vaex.ml import LabelEncoder
-
 
         train, test = df.split_random([0.8, 0.2])
 
@@ -138,7 +138,7 @@ def test_advance_vaex_fit():
         pipeline = VaexPipeline.from_dataframe(train)
         predictions = pipeline.inference(test, fillna=False)['prediction']
         accuracy = accuracy_score(test[target].values, predictions.values)
-        all_data = pipeline.inference(df, columns=features+[target])
+        all_data = pipeline.inference(df, columns=features + [target])
         model.fit(all_data)
         all_data = model.transform(all_data)
         all_data['prediction'] = all_data.func.where(all_data['lgm_predictions'] > 0.5, 1, 0)
@@ -146,8 +146,9 @@ def test_advance_vaex_fit():
         all_data.variables['accuracy'] = accuracy
         return all_data
 
-
-
-
-
     df = vaex.open('data/titanic.csv')
+    pipeline = VaexPipeline.from_dataframe(df, fit)
+    pipeline.fit(df)
+    pipeline = validate_persistance(pipeline)
+    assert pipeline.inference(df).shape == (len(df), 23)
+

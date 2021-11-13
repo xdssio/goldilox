@@ -11,6 +11,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OrdinalEncoder
 from sklearn.preprocessing import StandardScaler
 
+from tests.test_utils import validate_persistance
+
 warnings.filterwarnings('ignore')
 
 from goldilox.sklearn.pipeline import SklearnPipeline
@@ -75,7 +77,7 @@ def test_sklrean_predict_classification(iris):
     self = pipeline = SklearnPipeline.from_sklearn(sklearn.pipeline.Pipeline([('regression', LogisticRegression())]),
                                             features=features, target=target).fit(df)
     assert pipeline.validate(X, check_na=False)
-
+    pipeline = validate_persistance(pipeline)
     assert pipeline.output_column in pipeline.inference(X)
     assert pipeline.raw == SklearnPipeline._sample(X)
     assert pipeline.features == features
@@ -101,7 +103,7 @@ def test_sklrean_predict_regression(iris):
     assert pipeline.target == target
 
 
-def test_skleran_advance():
+def test_skleran_advance(tmpdir):
     df = pd.read_csv('data/titanic.csv')
     train, test = train_test_split(df)
 
@@ -282,6 +284,7 @@ def test_skleran_advance():
     ])
 
     pipeline = SklearnPipeline.from_sklearn(sk_pipeline[1:]).fit(train)
+    pipeline = validate_persistance(pipeline)
     assert pipeline.validate()
     assert pipeline.inference(test).shape == (len(test), 22)
 

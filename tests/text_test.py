@@ -6,6 +6,7 @@ from sklearn.linear_model import LogisticRegression
 
 from goldilox.sklearn.pipeline import Pipeline as SklearnPipeline
 from goldilox.vaex.pipeline import VaexPipeline as VaexPipeline
+from tests.test_utils import validate_persistance
 
 
 @pytest.fixture()
@@ -14,7 +15,7 @@ def news():
     return vaex.open('data/news.hdf5').head(1000)
 
 
-def test_text_vaex(news):
+def test_text_vaex(news, tmpdir):
     df = news.copy()
     sk_pipeline = sklearn.pipeline.Pipeline([('tfidf', TfidfVectorizer()), ('classifier', LogisticRegression())])
     X = df['text'].to_numpy()
@@ -29,11 +30,13 @@ def test_text_vaex(news):
     df['prediction'] = df['text'].predict()
     pipeline = VaexPipeline.from_dataframe(df)
     pipeline.raw.pop('target')
-
+    path = str(tmpdir) + '/model.pkl'
+    pipeline.save(path)
+    pipeline = SklearnPipeline.from_file(path)
     assert pipeline.inference(pipeline.raw).shape == (1, 3)
 
 
-def test_text_sklearn(news):
+def test_text_sklearn(news, tmpdir):
     df = news.copy()
 
     sk_pipeline = sklearn.pipeline.Pipeline([('tfidf', TfidfVectorizer()), ('classifier', LogisticRegression())])
@@ -44,4 +47,5 @@ def test_text_sklearn(news):
     y = df['target']
     sk_pipeline = sklearn.pipeline.Pipeline([('tfidf', TfidfVectorizer()), ('classifier', LogisticRegression())])
     pipeline = SklearnPipeline.from_sklearn(sk_pipeline).fit(X, y)
+    pipeline = validate_persistance(pipeline)
     assert pipeline.inference(pipeline.raw).shape == (1, 2)

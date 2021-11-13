@@ -136,30 +136,19 @@ class VaexPipeline(HasState, Pipeline):
 
     @classmethod
     def from_file(cls, path):
-        if _is_s3_url(path):
-            fs = s3fs.S3FileSystem(profile=AWS_PROFILE)
-            with fs.open(path, 'rb') as f:
-                state = cls.json_load(cloudpickle.loads(f.read())[STATE])
-        else:
-            with open(path, 'rb') as f:
-                state = cls.json_load(cloudpickle.loads(f.read())[STATE])
-        ret = VaexPipeline.from_dict(state)
-        # ret.reload_fit_func()
-        return ret
+        return  Pipeline.from_file(path)
 
-    def json_dumps(self):
-        from vaex.json import VaexJsonEncoder
-        return json.dumps(_copy(self.state_get()), indent=2, cls=VaexJsonEncoder)
+    def _dumps(self):
+        state = {STATE:_copy(self.state_get()),
+                 PIPELINE_TYPE: self.pipeline_type,
+                 VERSION: goldilox.__version__}
+        return cloudpickle.dumps(state)
 
     @classmethod
     def json_load(cls, state):
         from vaex.json import VaexJsonDecoder
-        return json.loads(state, cls=VaexJsonDecoder)
+        return json.loads(state[STATE], cls=VaexJsonDecoder)
 
-    def json_get(self):
-        return {STATE: self.json_dumps(),
-                PIPELINE_TYPE: self.pipeline_type,
-                VERSION: goldilox.__version__}
 
     @classmethod
     def is_vaex_dataset(cls, ds):

@@ -20,3 +20,14 @@ TODO
 
 ## SKlearn support
 #TODO
+
+#TODO 
+# Roadmap
+* [ ] Keras
+* [ ] Tensorflow
+* [ ] Pytorch
+* [ ] Intercept
+* [ ] Spacy
+* [ ] Hugging face
+* [ ] Images data
+* [ ] River

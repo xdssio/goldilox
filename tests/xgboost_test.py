@@ -7,6 +7,7 @@ from xgboost.sklearn import XGBClassifier
 
 from goldilox.sklearn.pipeline import Pipeline as SklearnPipeline
 from goldilox.vaex.pipeline import VaexPipeline as VaexPipeline
+from tests.test_utils import validate_persistance
 
 
 @pytest.fixture()
@@ -81,6 +82,7 @@ def test_xgboost_vaex_fit(iris):
     assert pipeline.inference(data).shape == df.head(1).shape
     data = df.to_records(0)
     pipeline.fit(df)
+    pipeline = validate_persistance(pipeline)
 
     assert pipeline.inference(data).shape == (1, 6)
     assert pipeline.get_variable('accuracy')
@@ -103,6 +105,7 @@ def test_xgboost_sklearn(iris):
     assert pipeline.inference(self.raw).shape == (1, 5)
 
     pipeline.fit(df)
+    pipeline = validate_persistance(pipeline)
     assert pipeline.inference(X).head(10).shape == (10, 5)
     assert pipeline.inference(X.values[:10]).shape == (10, 5)
     assert pipeline.inference(self.raw).shape == (1, 5)

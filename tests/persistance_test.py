@@ -8,7 +8,9 @@ from goldilox.sklearn.pipeline import SklearnPipeline
 from goldilox.vaex.pipeline import VaexPipeline
 
 
-# from tempfile import TemporaryDirectory; tmpdir = TemporaryDirectory().name ; path = 'models/model.pkl' # TODO remove
+# from tempfile import TemporaryDirectory; tmpdir = TemporaryDirectory().name  # TODO remove
+from tests.test_utils import validate_persistance
+
 
 def test_skleran_save_load(tmpdir):
     iris = load_iris().to_pandas_df()
@@ -17,9 +19,7 @@ def test_skleran_save_load(tmpdir):
     X = iris[features]
     y = iris[target]
     pipeline = SklearnPipeline.from_sklearn(sklearn.pipeline.Pipeline([('regression', LogisticRegression())])).fit(X, y)
-    path = str(tmpdir) + '/model.pkl'
-    pipeline.save(path)
-    pipeline = SklearnPipeline.from_file(path)
+    pipeline = validate_persistance(pipeline)
     assert pipeline.inference(pipeline.raw).shape == (1, 5)
 
 
@@ -31,9 +31,9 @@ def test_vaex_save_load(tmpdir):
     model.fit(df)
     df = model.transform(df)
     pipeline = VaexPipeline.from_vaex(df)
+    # from tempfile import TemporaryDirectory; tmpdir = TemporaryDirectory().name
     path = str(tmpdir) + '/model.pkl'
     pipeline.save(path)
-
     pipeline = VaexPipeline.from_file(path)
     assert pipeline.inference(pipeline.raw).shape == (1, 6)
 
@@ -46,9 +46,7 @@ def test_goldilox_save_load(tmpdir):
     model.fit(df)
     df = model.transform(df)
     pipeline = VaexPipeline.from_vaex(df)
-    path = str(tmpdir) + '/model.pkl'
-    pipeline.save(path)
-    pipeline = Pipeline.from_file(path)
+    pipeline = validate_persistance(pipeline)
     assert pipeline.pipeline_type == 'vaex'
     pipeline.inference(pipeline.raw).shape == (1, 6)
 

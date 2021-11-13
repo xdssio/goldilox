@@ -4,7 +4,7 @@ setup(
     name='goldilox',
     packages=find_packages(),
     install_requires=['sklearn', 'pandas', 'numpy', 'cloudpickle'],
-    version='0.0.1a1',
+    version='0.0.1ab',
     url="https://github.com/xdssio/goldilox",
     description='A tool for deploying machine learning',
     author="Yonatan Alexander",
