@@ -108,7 +108,7 @@ class Pipeline:
         tmpdir = TemporaryDirectory().name
         path = tmpdir + 'models/model.pkl'
         self.save(path)
-        pipeline = self.from_file(path)
+        pipeline = Pipeline.from_file(path)
         if df is None:
             df = self.infer(self.raw)
         results = pipeline.inference(df)
