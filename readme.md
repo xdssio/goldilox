@@ -34,6 +34,9 @@ Any [Sklearn](https://scikit-learn.org/) pipeline can be deployed as well.
   * [XGBoost](): #TODO
   * [Catbboost](): #TODO
   * [Skleran](): #TODO
+  
+* **Clustering**
+  * [Kmeans]()
     
 * **Nearest neighbours**
   * [hnsw]() #TODO
