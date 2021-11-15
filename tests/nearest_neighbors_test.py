@@ -194,7 +194,7 @@ def test_nmslib_sklearn():
     class NMSlibTransformer(TransformerMixin, BaseEstimator):
         """Wrapper for using nmslib as sklearn's KNeighborsTransformer"""
 
-        def __init__(self, n_neighbors=5, output_column='knn', method="hnsw", metric="cosinesimil" , n_jobs=1,
+        def __init__(self, n_neighbors=5, output_column='knn', method="hnsw", metric="cosinesimil", n_jobs=1,
                      index=None):
 
             self.n_neighbors = n_neighbors
@@ -257,3 +257,65 @@ def test_nmslib_sklearn():
     pipeline = Pipeline.from_sklearn(NMSlibTransformer()).fit(X)
     pipeline = validate_persistance(pipeline)
     assert pipeline.inference(sample).shape == (n, 11)
+
+
+def test_kmeans():
+    """
+    https://scikit-learn.org/stable/auto_examples/neighbors/approximate_nearest_neighbors.html
+    """
+    n = 1000
+    df = vaex.example().head(n)
+
+    # Vaex version
+    from sklearn.neighbors import KDTree
+    model = KDTree(df[features], leaf_size=2)
+
+    @vaex.register_function(on_expression=False)
+    def query(*columns):
+        data = np.array(columns).T
+        dist, ind = model.query(data, k=3)
+        return ind
+
+    df.add_function('query', query)
+    df['predictions'] = df.func.query(*tuple([df[col] for col in features]))
+    pipeline = Pipeline.from_vaex(df)
+
+    pipeline = validate_persistance(pipeline)
+    assert pipeline.inference(pipeline.raw).shape == (1, 12)
+
+    # SKleran version
+    X = df[features].to_pandas_df()
+    model = KDTree(X[features], leaf_size=2)
+
+    class KDTreePredictor(TransformerMixin, BaseEstimator):
+        def __init__(self, features=None, leaf_size=2, k=3, output_column='results'):
+            self.index = None
+            self.ids = None
+            self.features = features
+            self.k = k
+            self.leaf_size = leaf_size
+            self.output_column = output_column
+
+        def fit(self, X, y=None):
+            if y is not None:
+                assert len(X) == len(y)
+                self.ids = {i: j for i, j in enumerate(y)}
+            if self.features and isinstance(self.features, list):
+                X = X[self.features]
+            self.index = KDTree(X, leaf_size=self.leaf_size)
+            return self
+
+        def transform(self, X):
+            copy = X.copy()
+            if self.index is None:
+                raise RuntimeError("model was not trained")
+            if self.features and isinstance(self.features, list):
+                copy = X[self.features]
+            _,  ind = self.index.query(copy, k=self.k)
+            copy[self.output_column] = list(ind)
+            return copy
+
+    pipeline = Pipeline.from_sklearn(KDTreePredictor()).fit(X)
+    pipeline = validate_persistance(pipeline)
+    assert pipeline.validate()
+    assert pipeline.inference(pipeline.raw).shape == (1, 11)
