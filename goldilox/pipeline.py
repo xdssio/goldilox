@@ -104,6 +104,8 @@ class Pipeline:
             with open(path, 'wb') as outfile:
                 outfile.write(state_to_write)
 
+        return path
+
     def validate(self, df=None, check_na=True):
         tmpdir = TemporaryDirectory().name
         path = tmpdir + 'models/model.pkl'
