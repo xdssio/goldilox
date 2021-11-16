@@ -8,5 +8,9 @@ setup(
     url="https://github.com/xdssio/goldilox",
     description='A tool for deploying machine learning',
     author="Yonatan Alexander",
-    author_email="jonathan@xdss.io"
+    author_email="jonathan@xdss.io",
+    entry_points = '''
+        [console_scripts]
+        gl=goldilox.app.cli:main
+    '''
 )

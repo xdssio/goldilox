@@ -1,4 +1,4 @@
-from goldilox.server import Server
+from goldilox.app import Server
 
 
 def main():
