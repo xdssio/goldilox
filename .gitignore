@@ -161,3 +161,4 @@ pip-selfcheck.json
 /catboost_*
 flaml.log
 *.egg
+catboost_info
