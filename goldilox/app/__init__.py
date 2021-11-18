@@ -11,6 +11,31 @@ GUNICORN = 'gunicorn'
 UVICORN = 'uvicorn'
 PATH = 'path'
 
+valida_types = {type(None), dict, list, int, float, str, bool}
+
+def parse_query(query):
+    if not isinstance(query, list):
+        query = [query]
+    return [q.dict() for q in query if q]
+
+
+def process_response(items):
+    items = Pipeline.to_records(items)
+    if not isinstance(items, list):
+        items = [items]
+    for item in items:
+        for key, value in item.items():
+            if isinstance(value, list):
+                item[key] = [v if not pd.isnull(v) else None for v in value]
+            elif isinstance(value, dict):
+                item[key] = {k: v if not pd.isnull(v) else None for k, v in value.items()}
+            elif pd.isnull(value):
+                item[key] = None
+    return items
+
+def process_variables(variables):
+    return {key: value for key, value in variables.items() if type(value) in valida_types and not pd.isnull(value)}
+
 
 def get_app(path):
     from fastapi import FastAPI, HTTPException
@@ -18,34 +43,16 @@ def get_app(path):
     logger = logging.getLogger(__name__)
     app = FastAPI()
     PIPELINE = 'pipeline'
-    valida_types = {type(None), dict, list, int, float, str, bool}
+
     pipeline = Pipeline.from_file(path)
     # A dynamic way to create a pydanic model based on the raw data
-    raw = pipeline.raw
+    raw = process_response(pipeline.raw)[0]
     Query = create_model("Query", **{k: (type(v), None) for k, v in raw.items()},
                          __config__=type('QueryConfig', (object,), {'schema_extra': {'example': raw}}))
 
     def get_pipeline():
         return app.state._state.get(PIPELINE, pipeline)
 
-    def parse_query(query):
-        if not isinstance(query, list):
-            query = [query]
-        return [q.dict() for q in query if q]
-
-    def process_response(items):
-        items = Pipeline.to_records(items)
-        if not isinstance(items, list):
-            items = [items]
-        for item in items:
-            for key, value in item.items():
-                if isinstance(value, list):
-                    item[key] = [v if not pd.isnull(v) else None for v in value]
-                elif isinstance(value, dict):
-                    item[key] = {k: v if not pd.isnull(v) else None for k, v in value.items()}
-                elif pd.isnull(value):
-                    item[key] = None
-        return items
 
     @app.post("/inference", response_model=List[dict])
     def inference(data: List[Query], columns: str = ''):
@@ -59,26 +66,9 @@ def get_app(path):
         except Exception as e:
             logger.error(e)
             raise HTTPException(status_code=400, detail=str(e))
+
         return process_response(ret)
 
-    # @app.get("/bootstrap", response_model=dict)
-    # def bootstrap():
-    #     logger.info("/bootstrap")
-    #
-    #     try:
-    #         pipeline = get_pipeline()
-    #         ret = {
-    #             'raw': pipeline.raw.copy(),
-    #             'example': pipeline.example.copy(),
-    #             'description': pipeline.description
-    #         }
-    #     except Exception as e:
-    #         logger.error(e)
-    #         raise HTTPException(status_code=400, detail=str(e))
-    #     return ret
-
-    def process_variables(variables):
-        return {key: value for key, value in variables.items() if type(value) in valida_types and not pd.isnull(value)}
 
     @app.get("/variables", response_model=dict)
     def variables():
