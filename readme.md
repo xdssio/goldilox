@@ -63,4 +63,7 @@ Any [Sklearn](https://scikit-learn.org/) pipeline can be deployed as well.
 * Online learning
  * [River]() #TODO
 
+* Training
+  * [AIM](https://github.com/aimhubio/aim) #TODO
+
 # [Roadmap](https://github.com/xdssio/goldilox/wiki/Roadmap)
