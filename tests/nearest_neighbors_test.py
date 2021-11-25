@@ -283,7 +283,7 @@ def test_kmeans():
     pipeline = validate_persistance(pipeline)
     assert pipeline.inference(pipeline.raw).shape == (1, 12)
 
-    # SKleran version
+    # SKlearn version
     X = df[features].to_pandas_df()
     model = KDTree(X[features], leaf_size=2)
 
