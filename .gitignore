@@ -162,3 +162,4 @@ pip-selfcheck.json
 flaml.log
 *.egg
 catboost_info
+/.vscode/
