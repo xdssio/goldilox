@@ -14,13 +14,13 @@ from goldilox.utils import _is_s3_url
 class Pipeline:
     pipeline_type: str
     description: str
-    BYTES_SIGNETURE = b'Goldilox'
+    BYTES_SIGNETURE = b"Goldilox"
 
     @classmethod
     def check_hash(cls, file_path):
         h = sha256()
 
-        with open(file_path, 'rb') as file:
+        with open(file_path, "rb") as file:
             while True:
                 # Reading is buffered, so we can read smaller chunks.
                 chunk = file.read(h.block_size)
@@ -31,8 +31,8 @@ class Pipeline:
         return h.hexdigest()
 
     @staticmethod
-    def _sample(df):
-        if hasattr(df, 'to_pandas_df'):  # vaex
+    def to_raw(df):
+        if hasattr(df, "to_pandas_df"):  # vaex
             return df.to_records(0)
         elif isinstance(df, np.ndarray):  # numpy
             return list(df[0])
@@ -43,29 +43,48 @@ class Pipeline:
     @classmethod
     def from_vaex(cls, df, fit=None, **kwargs):
         from goldilox.vaex.pipeline import VaexPipeline as VaexPipeline
+
         return VaexPipeline.from_dataframe(df=df, fit=fit, **kwargs)
 
     @classmethod
-    def from_sklearn(cls, pipeline, raw=None, target=None, features=None, output_column=None, variables=None,
-                     fit_params=None,
-                     description=''):
+    def from_sklearn(
+        cls,
+        pipeline,
+        raw=None,
+        target=None,
+        features=None,
+        output_column=None,
+        variables=None,
+        fit_params=None,
+        description="",
+    ):
         from goldilox.sklearn.pipeline import SklearnPipeline, DEFAULT_OUTPUT_COLUMN
+
         output_column = output_column or DEFAULT_OUTPUT_COLUMN
-        return SklearnPipeline.from_sklearn(pipeline=pipeline, features=features, target=target, raw=raw,
-                                            output_column=output_column, variables=variables, fit_params=fit_params,
-                                            description=description)
+        return SklearnPipeline.from_sklearn(
+            pipeline=pipeline,
+            features=features,
+            target=target,
+            raw=raw,
+            output_column=output_column,
+            variables=variables,
+            fit_params=fit_params,
+            description=description,
+        )
 
     @classmethod
     def from_file(cls, path):
         def open_state():
-            return open(path, 'rb')
+            return open(path, "rb")
 
         if _is_s3_url(path):
             import s3fs
+
             fs = s3fs.S3FileSystem(profile=AWS_PROFILE)
 
             def open_state():
-                return fs.open(path, 'rb')
+                return fs.open(path, "rb")
+
         with open_state() as f:
             state_bytes = f.read()
         state_bytes = Pipeline._remove_signature(state_bytes)
@@ -75,6 +94,7 @@ class Pipeline:
             return state[STATE]
         elif pipeline_type == VAEX:
             from goldilox.vaex.pipeline import VaexPipeline
+
             return VaexPipeline.load_state(state)
         raise RuntimeError(f"Cannot load pipeline of type {pipeline_type} from {path}")
 
@@ -84,31 +104,33 @@ class Pipeline:
 
     @classmethod
     def _remove_signature(cls, b):
-        if b[:len(Pipeline.BYTES_SIGNETURE)] == Pipeline.BYTES_SIGNETURE:
-            return b[len(Pipeline.BYTES_SIGNETURE):]
+        if b[: len(Pipeline.BYTES_SIGNETURE)] == Pipeline.BYTES_SIGNETURE:
+            return b[len(Pipeline.BYTES_SIGNETURE) :]
         return b
 
     def save(self, path):
         state_to_write = Pipeline.BYTES_SIGNETURE + self._dumps()
         if _is_s3_url(path):
             import s3fs
+
             fs = s3fs.S3FileSystem(profile=AWS_PROFILE)
-            with fs.open(path, 'wb') as outfile:
+            with fs.open(path, "wb") as outfile:
                 outfile.write(state_to_write)
         else:
             try:
                 import os
-                os.makedirs('/'.join(path.split('/')[:-1]), exist_ok=True)
+
+                os.makedirs("/".join(path.split("/")[:-1]), exist_ok=True)
             except AttributeError as e:
                 pass
-            with open(path, 'wb') as outfile:
+            with open(path, "wb") as outfile:
                 outfile.write(state_to_write)
 
         return path
 
     def validate(self, df=None, check_na=True):
         tmpdir = TemporaryDirectory().name
-        path = tmpdir + 'models/model.pkl'
+        path = tmpdir + "models/model.pkl"
         self.save(path)
         pipeline = Pipeline.from_file(path)
         if df is None:
@@ -148,7 +170,7 @@ class Pipeline:
     @classmethod
     def to_records(cls, items):
         if isinstance(items, pd.DataFrame):
-            return items.to_dict(orient='records')
+            return items.to_dict(orient="records")
         elif isinstance(items, list) or isinstance(items, dict):
             return items
             # vaex
@@ -157,7 +179,7 @@ class Pipeline:
     @classmethod
     def jsonify(cls, items):
         if isinstance(items, pd.DataFrame):
-            return items.to_json(orient='records')
+            return items.to_json(orient="records")
         elif isinstance(items, list) or isinstance(items, dict):
             return json.dumps(items)
 

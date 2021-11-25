@@ -10,54 +10,57 @@ from sklearn.base import TransformerMixin, BaseEstimator
 from goldilox import Pipeline
 from tests.test_utils import validate_persistance
 
-features = ['x', 'y', 'z', 'vx', 'vy', 'vz', 'E', 'L', 'Lz', 'FeH']
+features = ["x", "y", "z", "vx", "vy", "vz", "E", "L", "Lz", "FeH"]
 
 
 def test_hnswlib_vaex():
     import hnswlib
+
     df = vaex.example().head(1000)
 
-    index = hnswlib.Index(space='l2', dim=df.shape[1] - 1)  # possible options are l2, cosine or ip
+    index = hnswlib.Index(
+        space="l2", dim=df.shape[1] - 1
+    )  # possible options are l2, cosine or ip
     index.init_index(max_elements=len(df), ef_construction=200, M=16)
-    features = df.get_column_names(regex='^(?!id|\\.).*')  # not the id
+    features = df.get_column_names(regex="^(?!id|\\.).*")  # not the id
     for i1, i2, chunk in df.to_pandas_df(chunk_size=10000):
         X = chunk[features]
-        y = chunk['id']
+        y = chunk["id"]
         index.add_items(X, y)
 
     index.set_ef(50)  # ef should always be > k (Controlling the recall by setting ef)
-    sample = Pipeline._sample(df)
+    sample = Pipeline.to_raw(df)
 
     @vaex.register_function(on_expression=False)
     def topk(*columns, k=3):
         labels, _ = index.knn_query(np.array(columns).T, k=k)
         return np.array(labels)
 
-    df['knn'] = df.func.topk(*tuple([df[col] for col in features]), k=3)
-    df.add_function('topk', topk)
+    df["knn"] = df.func.topk(*tuple([df[col] for col in features]), k=3)
+    df.add_function("topk", topk)
     pipeline = Pipeline.from_vaex(df)
     pipeline = validate_persistance(pipeline)
     assert pipeline.raw == sample
-    assert df.to_records(0)['knn'] == [0, 21, 24]
+    assert df.to_records(0)["knn"] == [0, 21, 24]
 
 
 def test_nmslib_vaex():
     import nmslib
+
     df = vaex.example().head(1000)
-    ids = {index: _id for index, _id in enumerate(df['id'].tolist())}
-    df.variables['id_map'] = ids  # good practice
+    ids = {index: _id for index, _id in enumerate(df["id"].tolist())}
+    df.variables["id_map"] = ids  # good practice
     X = df[features]
 
-    method = 'hnsw'
-    space = 'l2'
+    method = "hnsw"
+    space = "l2"
     index = nmslib.init(method=method, space=space)
     index.addDataPointBatch(X)
     index.createIndex()
 
     # we need a pickable model
     class NMSLibModel(traitlets.HasTraits):
-
-        def __init__(self, index=None, method='hnsw', metric='cosinesimil'):
+        def __init__(self, index=None, method="hnsw", metric="cosinesimil"):
 
             self.method = method
             self.metric = metric
@@ -68,10 +71,11 @@ def test_nmslib_vaex():
 
         def decode(self, encoding):
             import nmslib
+
             if isinstance(encoding, bytes):
                 index = nmslib.init(method=self.method, space=self.metric)
                 path = NamedTemporaryFile().name
-                with open(path, 'wb') as outfile:
+                with open(path, "wb") as outfile:
                     outfile.write(encoding)
                 index.loadIndex(path)
                 return index
@@ -83,7 +87,7 @@ def test_nmslib_vaex():
                 return self.index
             path = NamedTemporaryFile().name
             self.index.saveIndex(path, save_data=True)
-            with open(path, 'rb') as outfile:
+            with open(path, "rb") as outfile:
                 encoding = outfile.read()
             return encoding
 
@@ -98,15 +102,15 @@ def test_nmslib_vaex():
         data = np.array(columns).T
         return model.predict(data, k)
 
-    df['knn'] = df.func.topk(*tuple([df[col] for col in features]), k=3)
-    df.add_function('topk', topk)
+    df["knn"] = df.func.topk(*tuple([df[col] for col in features]), k=3)
+    df.add_function("topk", topk)
 
     @vaex.register_function(on_expression=True)
     def results(ar):
         return np.vectorize(ids.get)(ar)
 
-    df.add_function('results', results)
-    df['neighbours'] = df['knn'].results()
+    df.add_function("results", results)
+    df["neighbours"] = df["knn"].results()
 
     pipeline = Pipeline.from_vaex(df)
     pipeline = validate_persistance(pipeline)
@@ -114,7 +118,9 @@ def test_nmslib_vaex():
     assert pipeline.inference(pipeline.raw).shape == (1, 13)
 
 
-@pytest.mark.skip("Annoy-Process finished with exit code 132 (interrupted by signal 4: SIGILL)")
+@pytest.mark.skip(
+    "Annoy-Process finished with exit code 132 (interrupted by signal 4: SIGILL)"
+)
 def test_annoy_sklearn(df):
     import annoy
     import sklearn.pipeline
@@ -194,8 +200,15 @@ def test_nmslib_sklearn():
     class NMSlibTransformer(TransformerMixin, BaseEstimator):
         """Wrapper for using nmslib as sklearn's KNeighborsTransformer"""
 
-        def __init__(self, n_neighbors=5, output_column='knn', method="hnsw", metric="cosinesimil", n_jobs=1,
-                     index=None):
+        def __init__(
+            self,
+            n_neighbors=5,
+            output_column="knn",
+            method="hnsw",
+            metric="cosinesimil",
+            n_jobs=1,
+            index=None,
+        ):
 
             self.n_neighbors = n_neighbors
             self.method = method
@@ -206,17 +219,27 @@ def test_nmslib_sklearn():
             self.index = self._create_index(index)
 
         def __reduce__(self):
-            return (self.__class__,
-                    (self.n_neighbors, self.output_column, self.method, self.metric, self.n_jobs, self._encode()))
+            return (
+                self.__class__,
+                (
+                    self.n_neighbors,
+                    self.output_column,
+                    self.method,
+                    self.metric,
+                    self.n_jobs,
+                    self._encode(),
+                ),
+            )
 
         def _create_index(self, encoding):
             import nmslib
+
             if encoding is None:
                 return nmslib.init(method=self.method, space=self.metric)
             if isinstance(encoding, bytes):
                 index = nmslib.init(method=self.method, space=self.metric)
                 path = NamedTemporaryFile().name
-                with open(path, 'wb') as outfile:
+                with open(path, "wb") as outfile:
                     outfile.write(encoding)
                 index.loadIndex(path)
                 return index
@@ -230,7 +253,7 @@ def test_nmslib_sklearn():
                 return self.index
             path = NamedTemporaryFile().name
             self.index.saveIndex(path, save_data=True)
-            with open(path, 'rb') as outfile:
+            with open(path, "rb") as outfile:
                 encoding = outfile.read()
             return encoding
 
@@ -245,7 +268,9 @@ def test_nmslib_sklearn():
             return self
 
         def transform(self, X):
-            results = self.index.knnQueryBatch(X, k=self.n_neighbors, num_threads=self.n_jobs)
+            results = self.index.knnQueryBatch(
+                X, k=self.n_neighbors, num_threads=self.n_jobs
+            )
             indices, distances = zip(*results)
             indices, distances = np.vstack(indices), np.vstack(distances)
             X[self.output_column] = tuple(indices)
@@ -268,6 +293,7 @@ def test_kmeans():
 
     # Vaex version
     from sklearn.neighbors import KDTree
+
     model = KDTree(df[features], leaf_size=2)
 
     @vaex.register_function(on_expression=False)
@@ -276,8 +302,8 @@ def test_kmeans():
         dist, ind = model.query(data, k=3)
         return ind
 
-    df.add_function('query', query)
-    df['predictions'] = df.func.query(*tuple([df[col] for col in features]))
+    df.add_function("query", query)
+    df["predictions"] = df.func.query(*tuple([df[col] for col in features]))
     pipeline = Pipeline.from_vaex(df)
 
     pipeline = validate_persistance(pipeline)
@@ -288,7 +314,7 @@ def test_kmeans():
     model = KDTree(X[features], leaf_size=2)
 
     class KDTreePredictor(TransformerMixin, BaseEstimator):
-        def __init__(self, features=None, leaf_size=2, k=3, output_column='results'):
+        def __init__(self, features=None, leaf_size=2, k=3, output_column="results"):
             self.index = None
             self.ids = None
             self.features = features
@@ -311,7 +337,7 @@ def test_kmeans():
                 raise RuntimeError("model was not trained")
             if self.features and isinstance(self.features, list):
                 copy = X[self.features]
-            _,  ind = self.index.query(copy, k=self.k)
+            _, ind = self.index.query(copy, k=self.k)
             copy[self.output_column] = list(ind)
             return copy
 
