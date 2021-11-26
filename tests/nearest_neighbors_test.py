@@ -284,7 +284,7 @@ def test_nmslib_sklearn():
     assert pipeline.inference(sample).shape == (n, 11)
 
 
-def test_kmeans():
+def test_kdtree():
     """
     https://scikit-learn.org/stable/auto_examples/neighbors/approximate_nearest_neighbors.html
     """
