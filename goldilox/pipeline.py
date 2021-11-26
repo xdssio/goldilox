@@ -120,7 +120,8 @@ class Pipeline:
             try:
                 import os
 
-                os.makedirs("/".join(path.split("/")[:-1]), exist_ok=True)
+                if "/" in path:
+                    os.makedirs("/".join(path.split("/")[:-1]), exist_ok=True)
             except AttributeError as e:
                 pass
             with open(path, "wb") as outfile:

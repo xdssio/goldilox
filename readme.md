@@ -198,7 +198,7 @@ assert pipeline.validate()
   * [kmeans (Sklearn )]()#TODO  
 
 * **Recommendations**
-  * [Implicit]() #TODO
+  * [Implicit (Matrix Factorization)](https://github.com/xdssio/goldilox/blob/master/notebooks/implicit.ipynb)
 
 * **NLP**
   * [TFIDF (Sklearn)]() #TODO
