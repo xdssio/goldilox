@@ -4,7 +4,7 @@ import cloudpickle
 import numpy as np
 import pandas as pd
 import traitlets
-
+import logging
 import goldilox
 from goldilox import Pipeline
 from goldilox.config import AWS_PROFILE, STATE, PIPELINE_TYPE, VERSION
@@ -12,6 +12,8 @@ from goldilox.utils import _is_s3_url
 
 DEFAULT_OUTPUT_COLUMN = "prediction"
 TRAITS = "_trait_values"
+
+logger = logging.getLogger()
 
 
 class SklearnPipeline(traitlets.HasTraits, Pipeline):
@@ -221,5 +223,5 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
                 self.inference(tmp)
             except:
                 ret = False
-                print(f"Pipeline doesn't handle na for {column}")
+                logger.warning(f"Pipeline doesn't handle na for {column}")
         return ret
