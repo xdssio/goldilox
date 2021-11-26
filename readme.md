@@ -190,7 +190,7 @@ assert pipeline.validate()
   * [Skleran](https://github.com/xdssio/goldilox/blob/master/notebooks/skleran_simple.ipynb)
   
 * **Clustering**
-  * [Kmeans]()
+  * [Kmeans](https://github.com/xdssio/goldilox/blob/master/notebooks/clustering.ipynb)
     
 * **Nearest neighbours**
   * [hnsw]() #TODO
@@ -213,6 +213,9 @@ assert pipeline.validate()
     
 * Online learning
  * [River]() #TODO
+
+* Explnations
+  * [SHAP]() #TODO
 
 * Training
   * [AIM](https://github.com/aimhubio/aim) #TODO
