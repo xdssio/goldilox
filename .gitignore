@@ -163,3 +163,4 @@ flaml.log
 *.egg
 catboost_info
 /.vscode/
+/pipeline.pkl

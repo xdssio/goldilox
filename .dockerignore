@@ -159,3 +159,4 @@ catboost_*
 flaml.log
 *.egg
 /.vscode/
+pipeline.pkl
