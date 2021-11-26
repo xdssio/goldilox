@@ -102,8 +102,8 @@ def test_nmslib_vaex():
         data = np.array(columns).T
         return model.predict(data, k)
 
-    df["knn"] = df.func.topk(*tuple([df[col] for col in features]), k=3)
     df.add_function("topk", topk)
+    df["knn"] = df.func.topk(*tuple([df[col] for col in features]), k=3)
 
     @vaex.register_function(on_expression=True)
     def results(ar):

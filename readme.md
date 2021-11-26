@@ -193,10 +193,8 @@ assert pipeline.validate()
   * [Kmeans](https://github.com/xdssio/goldilox/blob/master/notebooks/clustering.ipynb)
     
 * **Nearest neighbours**
-  * [hnsw]() #TODO
-  * [nmslib]() #TODO
-  * [kmeans (Sklearn )]()#TODO  
-
+  * [KTTree (sklearn), hnswlib, nmslib](https://github.com/xdssio/goldilox/blob/master/notebooks/nearest_neighbors.ipynb)
+  
 * **Recommendations**
   * [Implicit (Matrix Factorization)](https://github.com/xdssio/goldilox/blob/master/notebooks/implicit.ipynb)
 
