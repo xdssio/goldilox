@@ -186,7 +186,7 @@ assert pipeline.validate()
 * **Classification/Regression** 
   * [LightGBM notebook](https://github.com/xdssio/goldilox/blob/master/notebooks/LightGBM.ipynb)
   * [XGBoost notebook](https://github.com/xdssio/goldilox/blob/master/notebooks/XGBoost.ipynb) 
-  * [Catbboost](): #TODO
+  * [Catbboost](https://github.com/xdssio/goldilox/blob/master/notebooks/CatBoost.ipynb)
   * [Skleran](): #TODO
   
 * **Clustering**
