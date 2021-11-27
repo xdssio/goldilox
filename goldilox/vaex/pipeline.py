@@ -6,12 +6,11 @@ from copy import deepcopy, copy as _copy
 from glob import glob
 from numbers import Number
 from time import time
-
+import sys
 import cloudpickle
 import numpy as np
 import pandas as pd
 import pyarrow as pa
-import s3fs
 import traitlets
 import vaex
 from vaex.column import Column
@@ -167,6 +166,7 @@ class VaexPipeline(HasState, Pipeline):
             STATE: _copy(self.state_get()),
             PIPELINE_TYPE: self.pipeline_type,
             VERSION: goldilox.__version__,
+            PY_VERSION: sys.version.split(" ")[0],
         }
         return cloudpickle.dumps(state)
 

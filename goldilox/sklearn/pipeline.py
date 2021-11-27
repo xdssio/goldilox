@@ -1,5 +1,5 @@
 from time import time
-
+import sys
 import cloudpickle
 import numpy as np
 import pandas as pd
@@ -7,7 +7,7 @@ import traitlets
 import logging
 import goldilox
 from goldilox import Pipeline
-from goldilox.config import AWS_PROFILE, STATE, PIPELINE_TYPE, VERSION
+from goldilox.config import AWS_PROFILE, STATE, PIPELINE_TYPE, VERSION, PY_VERSION
 from goldilox.utils import _is_s3_url
 
 DEFAULT_OUTPUT_COLUMN = "prediction"
@@ -130,6 +130,7 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
             STATE: self,
             PIPELINE_TYPE: self.pipeline_type,
             VERSION: goldilox.__version__,
+            PY_VERSION: sys.version.split(" ")[0],
         }
         return cloudpickle.dumps(state)
 
