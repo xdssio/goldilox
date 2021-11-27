@@ -201,6 +201,7 @@ assert pipeline.validate()
 * **NLP**
   * [TFIDF (Sklearn)]() #TODO
   * [Spacy]() #TODO
+  * [KeyBert]() #TODO
   * [Transformers]() #TODO
     
 * **Deep learning**
@@ -210,7 +211,7 @@ assert pipeline.validate()
   * [MXNet]() #TODO
     
 * Online learning
- * [River]() (https://github.com/xdssio/goldilox/blob/master/notebooks/river_online_learning.ipynb) 
+ * [River](https://github.com/xdssio/goldilox/blob/master/notebooks/river_online_learning.ipynb) 
  * [Vowpal Wabbit](https://github.com/xdssio/goldilox/blob/master/notebooks/vowpal_wabbit.ipynb) 
 
 * Predictions with explanations
