@@ -210,10 +210,10 @@ assert pipeline.validate()
   * [MXNet]() #TODO
     
 * Online learning
- * [River]() #TODO
- * [Vowpal Wabbit](https://vowpalwabbit.org/) #TODO
+ * [River]() (https://github.com/xdssio/goldilox/blob/master/notebooks/river_online_learning.ipynb) 
+ * [Vowpal Wabbit](https://github.com/xdssio/goldilox/blob/master/notebooks/vowpal_wabbit.ipynb) 
 
-* Explnations
+* Predictions with explanations
   * [SHAP]() #TODO
 
 * Training
