@@ -23,7 +23,7 @@ $ pip install goldilox
   * Variables and description queries
 
 # Vaex First
-[Vaex]((https://github.com/vaexio/vaex)) is an open-soruce big data technology with similar APIs to [Pandas](https://pandas.pydata.org/).   
+[Vaex](https://github.com/vaexio/vaex) is an open-soruce big data technology with similar APIs to [Pandas](https://pandas.pydata.org/).   
 We use some of the Vaex special sauce to allow the extreme flexibility for advance pipeline solutions while insuring we have a tool that works on big data.
 * [![Documentation](https://readthedocs.org/projects/vaex/badge/?version=latest)](https://docs.vaex.io)
 
@@ -182,10 +182,10 @@ assert pipeline.validate()
 ```
 * We can still deploy a pipeline that doesn't deal with missing values if we want, *validate()* returns `True` if serialization, and prediction of raw validations pass.
 
-# [Notebook examples](https://github.com/xdssio/goldilox/tree/master/notebooks)
+# [Example Notebooks](https://github.com/xdssio/goldilox/tree/master/notebooks)
 * **Classification/Regression** 
-  * [LightGBM notebook](https://github.com/xdssio/goldilox/blob/master/notebooks/lightgbm.ipynb)
-  * [XGBoost notebook](https://github.com/xdssio/goldilox/blob/master/notebooks/xgboost.ipynb) 
+  * [LightGBM](https://github.com/xdssio/goldilox/blob/master/notebooks/lightgbm.ipynb)
+  * [XGBoost](https://github.com/xdssio/goldilox/blob/master/notebooks/xgboost.ipynb) 
   * [Catbboost](https://github.com/xdssio/goldilox/blob/master/notebooks/catboost.ipynb)
   * [Skleran](https://github.com/xdssio/goldilox/blob/master/notebooks/skleran_simple.ipynb)
   
@@ -193,7 +193,7 @@ assert pipeline.validate()
   * [Kmeans](https://github.com/xdssio/goldilox/blob/master/notebooks/clustering.ipynb)
     
 * **Nearest neighbours**
-  * [KTTree (sklearn), hnswlib, nmslib](https://github.com/xdssio/goldilox/blob/master/notebooks/nearest_neighbors.ipynb)
+  * [KDTree (sklearn), hnswlib, nmslib](https://github.com/xdssio/goldilox/blob/master/notebooks/nearest_neighbors.ipynb)
   
 * **Recommendations**
   * [Implicit (Matrix Factorization)](https://github.com/xdssio/goldilox/blob/master/notebooks/implicit.ipynb)
@@ -211,6 +211,7 @@ assert pipeline.validate()
     
 * Online learning
  * [River]() #TODO
+ * [Vowpal Wabbit](https://vowpalwabbit.org/) #TODO
 
 * Explnations
   * [SHAP]() #TODO
