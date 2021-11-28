@@ -129,6 +129,12 @@ class VaexPipeline(HasState, Pipeline):
         return False
 
     @classmethod
+    def _tolist(cls, value):
+        if hasattr(value, "ar"):
+            return value.ar.tolist()
+        return value.tolist()
+
+    @classmethod
     def from_dataframe(cls, df, fit=None, description=""):
         copy = VaexPipeline.verify_vaex_dataset(df)
         if fit is not None:
@@ -137,7 +143,7 @@ class VaexPipeline(HasState, Pipeline):
         state = copy.state_get()
         renamed = {x[1]: x[0] for x in state["renamed_columns"]}
         raw = {
-            renamed.get(key, key): value.tolist()[0]
+            renamed.get(key, key): cls._tolist(value)[0]  ##
             for key, value in sample.dataset._columns.items()
         }
         original_columns = VaexPipeline._get_original_columns(sample)

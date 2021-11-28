@@ -199,7 +199,8 @@ assert pipeline.validate()
   * [Implicit (Matrix Factorization)](https://github.com/xdssio/goldilox/blob/master/notebooks/implicit.ipynb)
 
 * **NLP**
-  * [TFIDF (Sklearn)]() #TODO
+  * [TFIDF (Sklearn)](https://github.com/xdssio/goldilox/blob/master/notebooks/tfidf.ipynb)
+  * [Gensim]() #TODO
   * [Spacy]() #TODO
   * [KeyBert]() #TODO
   * [Transformers]() #TODO
