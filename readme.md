@@ -222,7 +222,6 @@ assert pipeline.validate()
   * [AIM](https://github.com/aimhubio/aim) #TODO
 
 * **Advance pipelines**
-  * [LightGBM with Vaex]() #TODO
-  * [Sklearn]() # TODO
+  * [Titanic with feature engineering and LightGBM](https://github.com/xdssio/goldilox/blob/master/notebooks/advance_pipelines.ipynb)
 
 # [Roadmap](https://github.com/xdssio/goldilox/wiki/Roadmap)
