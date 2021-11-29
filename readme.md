@@ -211,14 +211,14 @@ assert pipeline.validate()
   * [PyTorch]() #TODO
   * [MXNet]() #TODO
     
-* Online learning
+* **Online learning**
   * [River](https://github.com/xdssio/goldilox/blob/master/notebooks/river_online_learning.ipynb) 
   * [Vowpal Wabbit](https://github.com/xdssio/goldilox/blob/master/notebooks/vowpal_wabbit.ipynb) 
 
-* Predictions with explanations
+* **Predictions with explanations**
   * [SHAP]() #TODO
 
-* Training
+* **Training**
   * [AIM](https://github.com/aimhubio/aim) #TODO
 
 * **Advance pipelines**
