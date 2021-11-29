@@ -64,14 +64,12 @@ def test_nmslib_vaex():
 
             self.method = method
             self.metric = metric
-            self.index = self.decode(index)
+            self.index = self._decode(index)
 
         def __reduce__(self):
-            return (self.__class__, (self.encode(), self.method, self.metric))
+            return (self.__class__, (self._encode(), self.method, self.metric))
 
-        def decode(self, encoding):
-            import nmslib
-
+        def _decode(self, encoding):
             if isinstance(encoding, bytes):
                 index = nmslib.init(method=self.method, space=self.metric)
                 path = NamedTemporaryFile().name
@@ -82,7 +80,7 @@ def test_nmslib_vaex():
             else:
                 return encoding
 
-        def encode(self):
+        def _encode(self):
             if isinstance(self.index, bytes):
                 return self.index
             path = NamedTemporaryFile().name
@@ -98,12 +96,12 @@ def test_nmslib_vaex():
     model = NMSLibModel(index, method, space)
 
     @vaex.register_function(on_expression=False)
-    def topk(*columns, k=3):
+    def topk(*columns):
         data = np.array(columns).T
-        return model.predict(data, k)
+        return model.predict(data, 3)
 
     df.add_function("topk", topk)
-    df["knn"] = df.func.topk(*tuple([df[col] for col in features]), k=3)
+    df["knn"] = df.func.topk(*features)
 
     @vaex.register_function(on_expression=True)
     def results(ar):

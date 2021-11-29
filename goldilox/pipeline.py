@@ -1,6 +1,7 @@
 import json
 from copy import deepcopy
 from hashlib import sha256
+import logging
 from tempfile import TemporaryDirectory
 
 import cloudpickle
@@ -9,6 +10,8 @@ import pandas as pd
 
 from goldilox.config import AWS_PROFILE, PIPELINE_TYPE, VAEX, SKLEARN, STATE
 from goldilox.utils import _is_s3_url
+
+logger = logging.getLogger()
 
 
 class Pipeline:
@@ -88,7 +91,13 @@ class Pipeline:
         with open_state() as f:
             state_bytes = f.read()
         state_bytes = Pipeline._remove_signature(state_bytes)
-        state = cloudpickle.loads(state_bytes)
+        try:
+            state = cloudpickle.loads(state_bytes)
+        except:
+            import pickle
+
+            logger.warning("issue with cloudpickle loads")
+            state = pickle.loads(state_bytes)
         pipeline_type = state.get(PIPELINE_TYPE)
         if pipeline_type == SKLEARN:
             return state[STATE]
@@ -174,7 +183,7 @@ class Pipeline:
             return items.to_dict(orient="records")
         elif isinstance(items, list) or isinstance(items, dict):
             return items
-            # vaex
+        # vaex
         return items.to_records()
 
     @classmethod

@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 PIPELINE_FIT = "_PIPELINE_FIT"
 FUNCTIONS = "functions"
+VARIABLES = "variables"
 
 
 class VaexPipeline(HasState, Pipeline):
@@ -48,6 +49,9 @@ class VaexPipeline(HasState, Pipeline):
     )
     description = traitlets.Unicode(
         default_value="", help="Any notes to associate with a pipeline instance"
+    )
+    variables = traitlets.Dict(
+        default_value={}, help="Any variables to associate with a pipeline instance"
     )
 
     @property
@@ -147,12 +151,12 @@ class VaexPipeline(HasState, Pipeline):
             for key, value in sample.dataset._columns.items()
         }
         original_columns = VaexPipeline._get_original_columns(sample)
-
         pipeline = VaexPipeline(
             state=state,
             _original_columns=original_columns,
             raw=raw,
             description=description,
+            variables=_copy(state.get(VARIABLES, {})),
         )
 
         return pipeline
@@ -356,21 +360,11 @@ class VaexPipeline(HasState, Pipeline):
         raise RuntimeError("Could not infer a vaex type")
 
     def set_variable(self, key, value):
-        self.state[VARIABLES][key] = value
+        self.variables[key] = value
         return value
 
     def get_variable(self, key, default=None):
-        return self.state[VARIABLES].get(key, default)
-
-    @property
-    def variables(self):
-        return self.state[VARIABLES]
-
-    def get_variable(self, variable):
-        if self.state is None:
-            logger.debug("state is None")
-            return None
-        return self.state[VARIABLES].get(variable)
+        return self.variables.get(key, default)
 
     def get_columns_names(self, virtual=True, strings=True, hidden=False, regex=None):
         return self.inference(self.raw).get_column_names(
@@ -414,6 +408,7 @@ class VaexPipeline(HasState, Pipeline):
                         type(trained)
                     )
                 )
+        self.variables.update(self.state.get(VARIABLES, {}))
         self.updated = int(time())
         return self
 

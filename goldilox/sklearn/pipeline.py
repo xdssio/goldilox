@@ -50,6 +50,13 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
     def example(self):
         return self.inference(self.raw).to_dict(orient="records")[0]
 
+    def set_variable(self, key, value):
+        self.variables[key] = value
+        return value
+
+    def get_variable(self, key, default=None):
+        return self.variables.get(key, default)
+
     @classmethod
     def from_sklearn(
         cls,
