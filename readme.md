@@ -221,7 +221,9 @@ assert pipeline.validate()
 * **Training**
   * [AIM](https://github.com/aimhubio/aim) #TODO
 
-* **Advance pipelines**
+* **Advance**
   * [Titanic with feature engineering and LightGBM](https://github.com/xdssio/goldilox/blob/master/notebooks/advance_pipelines.ipynb)
+  * [Using a package which is not pickalbe](https://github.com/xdssio/goldilox/blob/master/notebooks/vowpal_wabbit.ipynb)
+
 
 # [Roadmap](https://github.com/xdssio/goldilox/wiki/Roadmap)
