@@ -164,3 +164,4 @@ flaml.log
 catboost_info
 /.vscode/
 /pipeline.pkl
+goldilox/__pycache__/

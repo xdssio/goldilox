@@ -216,7 +216,7 @@ assert pipeline.validate()
   * [Vowpal Wabbit](https://github.com/xdssio/goldilox/blob/master/notebooks/vowpal_wabbit.ipynb) 
 
 * **Predictions with explanations**
-  * [SHAP]() #TODO
+  * [SHAP](https://github.com/xdssio/goldilox/blob/master/notebooks/explanations_shap.ipynb)
 
 * **Training**
   * [AIM](https://github.com/aimhubio/aim) #TODO
