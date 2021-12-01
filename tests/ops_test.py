@@ -1,6 +1,7 @@
 from goldilox.sklearn.pipeline import Pipeline as SklearnPipeline
 from goldilox.vaex.pipeline import VaexPipeline as VaexPipeline
 from vaex.ml.datasets import load_iris_1e5
+import pytest
 
 
 def lightgbm_vaex_fit():
@@ -121,3 +122,74 @@ def test_lightgbm_sklearn():
     assert pipeline.inference(self.raw).shape == (1, 5)
     assert "Lightgbm" in pipeline.description
     pipeline.save("../goldilox-ops/models/sk.pkl")
+
+
+pytest.mark.skip("test manually")
+
+
+def test_faiss():
+    import vaex
+    from faiss import IndexFlatL2
+    from goldilox import Pipeline
+    import numpy as np
+    import traitlets
+    from tempfile import NamedTemporaryFile
+    from faiss import write_index, read_index
+
+    df = vaex.example().head(1000)
+    features = df.get_column_names(regex="[^id]")  # not the ida
+    d = len(features)
+    X = np.float32(np.ascontiguousarray(df[features]))
+    index = IndexFlatL2(d)
+    index.add(X)
+
+    class FiassModel(traitlets.HasTraits):
+
+        # This should work with the reduce's arguments
+        def __init__(self, index=None):
+            self.index = self._decode(index)
+
+        # This is how you make a class pickalbe
+        def __reduce__(self):
+            return (self.__class__, (self._encode(),))
+
+        # how nmslib implemented serialization
+        def _decode(self, encoding):
+            if isinstance(encoding, bytes):
+                path = NamedTemporaryFile().name
+                with open(path, "wb") as outfile:
+                    outfile.write(encoding)
+                return read_index(path)
+            else:
+                return encoding
+
+        # how nmslib implemented serialization
+        def _encode(self):
+            if isinstance(self.index, bytes):
+                return self.index
+            path = NamedTemporaryFile().name
+            write_index(self.index, path)
+            with open(path, "rb") as outfile:
+                encoding = outfile.read()
+            return encoding
+
+        def predict(self, data, k=3):
+            data = np.float32(np.ascontiguousarray(data))
+            _, ind = model.index.search(data, k)
+            return ind
+
+    model = FiassModel(index)
+
+    @vaex.register_function(on_expression=False)
+    def search(*columns):
+        k = 3
+        data = np.float32(np.ascontiguousarray(np.array(columns).T))
+        _, ind = model.index.search(data, k)
+        return ind
+
+    df.add_function("search", search)
+    df["neighbors"] = df.func.search(*features)
+    pipeline = Pipeline.from_vaex(df)
+    pipeline.validate()
+    pipeline.inference(pipeline.raw)
+    pipeline.save("../goldilox-ops/models/faiss.pkl")
