@@ -194,17 +194,20 @@ assert pipeline.validate()
 * **Clustering**
   * [Kmeans](https://github.com/xdssio/goldilox/blob/master/notebooks/clustering.ipynb)
     
-* **Nearest neighbours**
-  * [KDTree (sklearn), hnswlib, nmslib, Fiass](https://github.com/xdssio/goldilox/blob/master/notebooks/nearest_neighbors.ipynb)
+* **Nearest Neighbours**
+  * [KDTree (sklearn)](https://github.com/xdssio/goldilox/blob/master/notebooks/kdtree_nearest_neighbors.ipynb)
+  * [hnswlib (recommended)](https://github.com/xdssio/goldilox/blob/master/notebooks/hnswlib_nearest_neighbors.ipynb)
+  * [nmslib](https://github.com/xdssio/goldilox/blob/master/notebooks/nmslib_nearest_neighbors.ipynb)
+  * [Fiass](https://github.com/xdssio/goldilox/blob/master/notebooks/Fiass_nearest_neighbors.ipynb)
   
 * **Recommendations**
   * [Implicit (Matrix Factorization)](https://github.com/xdssio/goldilox/blob/master/notebooks/implicit.ipynb)
 
-* **Online learning**
+* **Online Learning**
   * [River](https://github.com/xdssio/goldilox/blob/master/notebooks/river_online_learning.ipynb) 
   * [Vowpal Wabbit](https://github.com/xdssio/goldilox/blob/master/notebooks/vowpal_wabbit.ipynb) 
 
-* **Predictions with explanations**
+* **Predictions with Explanations**
   * [SHAP](https://github.com/xdssio/goldilox/blob/master/notebooks/explanations_shap.ipynb)
 
 * **NLP**
@@ -214,7 +217,7 @@ assert pipeline.validate()
   * [Spacy]() #TODO
   * [KeyBert]() #TODO
     
-* **Deep learning**
+* **Deep Learning**
   * [Keras]() #TODO
   * [Tensorflow]() #TODO
   * [PyTorch]() #TODO
