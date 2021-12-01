@@ -107,6 +107,8 @@ gl serve <path>
 [2021-11-16 18:54:44 +0100] [74911] [INFO] Waiting for application startup.
 [2021-11-16 18:54:44 +0100] [74911] [INFO] Application startup complete.
 ```
+![Alt text](assets/lightgbm-vaex-example.jpg?raw=true "Title")
+
 **4. Training:**  For experiments, cloud training, automations, etc,.    
 
 With *Vaex*, you put everything you want to do to a function which recives and returns a Vaex DataFrame
@@ -156,7 +158,7 @@ features = iris.feature_names
 df = pd.DataFrame(iris.data, columns=features)
 df['target'] = iris.target
 
-# we don't need to provide raw example if we do the training - it would be sampeld automatically.
+# we don't need to provide raw example if we do the training from the Goldilox Pipeline - it would be taken automatically from the first row.
 classifier = XGBClassifier(n_estimators=10, verbosity=0, use_label_encoder=False)
 pipeline = Pipeline.from_sklearn(classifier).fit(df[features], df['target'])
 assert pipeline.validate()
@@ -180,10 +182,10 @@ sk_pipeline = sklearn.pipeline.Pipeline([('imputer', imputer), ('classifier', cl
 pipeline = Pipeline.from_sklearn(sk_pipeline).fit(df[features], df['target'])
 assert pipeline.validate()                              
 ```
-* We can still deploy a pipeline that doesn't deal with missing values if we want, *validate()* returns `True` if serialization, and prediction of raw validations pass.
+* We can still deploy a pipeline that doesn't deal with missing values if we want, *validate()* returns `True` if serialization, and prediction-on-raw validations pass.
 
 # [Example Notebooks](https://github.com/xdssio/goldilox/tree/master/notebooks)
-* **Classification/Regression** 
+* **Classification / Regression** 
   * [LightGBM](https://github.com/xdssio/goldilox/blob/master/notebooks/lightgbm.ipynb)
   * [XGBoost](https://github.com/xdssio/goldilox/blob/master/notebooks/xgboost.ipynb) 
   * [Catbboost](https://github.com/xdssio/goldilox/blob/master/notebooks/catboost.ipynb)
@@ -198,19 +200,6 @@ assert pipeline.validate()
 * **Recommendations**
   * [Implicit (Matrix Factorization)](https://github.com/xdssio/goldilox/blob/master/notebooks/implicit.ipynb)
 
-* **NLP**
-  * [TFIDF (Sklearn)](https://github.com/xdssio/goldilox/blob/master/notebooks/tfidf.ipynb)
-  * [Gensim]() #TODO
-  * [Spacy]() #TODO
-  * [KeyBert]() #TODO
-  * [Transformers]() #TODO
-    
-* **Deep learning**
-  * [Keras]() #TODO
-  * [Tensorflow]() #TODO
-  * [PyTorch]() #TODO
-  * [MXNet]() #TODO
-    
 * **Online learning**
   * [River](https://github.com/xdssio/goldilox/blob/master/notebooks/river_online_learning.ipynb) 
   * [Vowpal Wabbit](https://github.com/xdssio/goldilox/blob/master/notebooks/vowpal_wabbit.ipynb) 
@@ -218,6 +207,19 @@ assert pipeline.validate()
 * **Predictions with explanations**
   * [SHAP](https://github.com/xdssio/goldilox/blob/master/notebooks/explanations_shap.ipynb)
 
+* **NLP**
+  * [TFIDF (Sklearn)](https://github.com/xdssio/goldilox/blob/master/notebooks/tfidf.ipynb)
+  * [Transformers]() #TODO
+  * [Gensim]() #TODO
+  * [Spacy]() #TODO
+  * [KeyBert]() #TODO
+    
+* **Deep learning**
+  * [Keras]() #TODO
+  * [Tensorflow]() #TODO
+  * [PyTorch]() #TODO
+  * [MXNet]() #TODO
+    
 * **Training**
   * [AIM](https://github.com/aimhubio/aim) #TODO
 
@@ -225,5 +227,8 @@ assert pipeline.validate()
   * [Titanic with feature engineering and LightGBM](https://github.com/xdssio/goldilox/blob/master/notebooks/advance_pipelines.ipynb)
   * [Using a package which is not pickalbe](https://github.com/xdssio/goldilox/blob/master/notebooks/vowpal_wabbit.ipynb)
 
-
-# [Roadmap](https://github.com/xdssio/goldilox/wiki/Roadmap)
+# Contributing
+See [contributing](https://github.com/xdssio/goldilox/wiki/Contributing) page.
+* Notebooks can be a great contribution too!
+# Roadmap
+See [roadmap](https://github.com/xdssio/goldilox/wiki/Roadmap) page. 
