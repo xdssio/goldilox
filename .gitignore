@@ -165,3 +165,4 @@ catboost_info
 /.vscode/
 /pipeline.pkl
 goldilox/__pycache__/
+test_ve/

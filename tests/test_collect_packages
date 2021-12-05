@@ -1,0 +1,237 @@
+from imp import new_module
+import sys
+
+originals = sys.modules.copy()
+
+import vaex
+from faiss import IndexFlatL2
+from goldilox import Pipeline
+import numpy as np
+import traitlets
+from tempfile import NamedTemporaryFile
+from faiss import write_index, read_index
+
+df = vaex.example().head(1000)
+features = df.get_column_names(regex="[^id]")  # not the ida
+d = len(features)
+X = np.float32(np.ascontiguousarray(df[features]))
+index = IndexFlatL2(d)
+index.add(X)
+
+
+class FiassModel(traitlets.HasTraits):
+
+    # This should work with the reduce's arguments
+    def __init__(self, index=None):
+        self.index = self._decode(index)
+
+    # This is how you make a class pickalbe
+    def __reduce__(self):
+        return (self.__class__, (self._encode(),))
+
+    # how nmslib implemented serialization
+    def _decode(self, encoding):
+        if isinstance(encoding, bytes):
+            path = NamedTemporaryFile().name
+            with open(path, "wb") as outfile:
+                outfile.write(encoding)
+            return read_index(path)
+        else:
+            return encoding
+
+    # how nmslib implemented serialization
+    def _encode(self):
+        if isinstance(self.index, bytes):
+            return self.index
+        path = NamedTemporaryFile().name
+        write_index(self.index, path)
+        with open(path, "rb") as outfile:
+            encoding = outfile.read()
+        return encoding
+
+    def predict(self, data, k=3):
+        data = np.float32(np.ascontiguousarray(data))
+        _, ind = model.index.search(data, k)
+        return ind
+
+
+model = FiassModel(index)
+
+
+@vaex.register_function(on_expression=False)
+def search(*columns):
+    k = 3
+    data = np.float32(np.ascontiguousarray(np.array(columns).T))
+    _, ind = model.index.search(data, k)
+    return ind
+
+
+df.add_function("search", search)
+df["neighbors"] = df.func.search(*features)
+pipeline = Pipeline.from_vaex(df)
+pipeline.validate()
+pipeline.inference(pipeline.raw)
+# pipeline.save("../goldilox-ops/models/faiss.pkl")
+#### pipeline done
+
+##### Finding pcakges
+
+
+def get_path(pkg):
+    from pathlib import Path
+
+    site_packages = "site-packages"
+    if pkg not in sys.modules:
+        return None
+    path = Path(sys.modules[pkg].__file__)
+    ret = None
+    while path.name != site_packages and path.name != "":
+        if path.parent.name == site_packages:
+            return str(path)
+        path = path.parent
+    return None
+
+
+import os
+from pathlib import Path
+
+path = get_path("nmslib")
+os.path.isdir(path)
+Path(path).is_dir()
+Path(path).is_file()
+
+
+#### All Virtaul Envirponment
+import os
+
+
+def _save_virtual_enironment():
+    from tempfile import NamedTemporaryFile
+    import shutil
+
+    venvdir = os.getenv("VIRTUAL_ENV")
+    venvdir = "test_ve"
+    if venvdir and os.path.isdir(venvdir):
+        output_filename = NamedTemporaryFile().name
+        shutil.make_archive(output_filename, "zip", venvdir)
+        with open(output_filename + ".zip", "rb") as f:
+            encoding = f.read()
+        return encoding
+    return False
+
+
+def _load_virtual_envoronment(encoding):
+    import shutil
+    import sys
+    from tempfile import TemporaryDirectory, mkdtemp
+
+    if encoding is None or encoding == "":
+        return False
+    dirpath = mkdtemp()
+    filename = f"{dirpath}/venv.zip"
+    with open(filename, "wb") as outfile:
+        outfile.write(encoding)
+    extract_dir = f"{tmpdir}/venv"
+    shutil.unpack_archive(filename, extract_dir, "zip")
+    sys.path.append(extract_dir + "/lib/*/site-packages/")
+    from glob import glob
+
+    glob(extract_dir + "/lib/*/site-packages/keras")
+    keras_path = glob(extract_dir + "/lib/*/site-packages/keras")[0]
+    sys.path.append(glob(extract_dir + "/lib/*/site-packages/keras")[0])
+    for line in sys.path:
+        print(line)
+    __import__(keras_path)
+    import keras
+
+
+new_modules = {key: value for key, value in sys.modules.items() if key not in originals}
+
+# u_scores = {key: value for key, value in sys.modules.items() if "__" in key}
+# u_scores["warnings"] = sys.modules["warnings"]
+
+import sys
+
+# sys.modules = u_scores
+import sys
+import importlib
+
+s = "tmp"
+ret = None
+requirements = []
+while ret is None:
+    try:
+        ret = pipeline.validate()
+    except Exception as e:
+        s = str(e)
+        if "'" in s:
+            s = s.replace("'", "")
+        requirements.append(s)
+        importlib.import_module(s)
+
+try:
+
+    importlib.import_module(s)
+except Exception as e:
+    s = str(e)
+    print(s)
+importlib.import_module(eval(s))
+
+s
+
+
+# import types
+# def imports():
+#     for name, val in globals().items():
+#         if isinstance(val, types.ModuleType):
+#             yield val.__name__
+# for i in imports():
+#     print(i)
+
+# import sys
+# modulenames = set(sys.modules) & set(globals())
+# allmodules = [sys.modules[name] for name in modulenames]
+# allmodules
+# # import hnswlib
+# sys.modules['numpy.ma']
+
+packages = set([pkg.split(".")[0] for pkg in new_modules.keys()])
+from tempfile import TemporaryDirectory
+
+tmpdir = TemporaryDirectory().name
+from distutils.dir_util import copy_tree
+
+pkg = "faiss"
+pkg in packages
+sys.modules[pkg].__file__
+
+
+def get_file(pkg):
+    ret = ""
+    try:
+        ret = sys.modules[pkg].__file__
+        if ret is None:
+            ret = ""
+    except:
+        pass
+    return ret
+
+
+modules = [get_file(pkg) for pkg in packages]
+
+modules = [module for module in modules if "site-packages" in module]
+modules[0]
+
+from modulefinder import ModuleFinder
+
+finder = ModuleFinder()
+
+[
+    key
+    for key in locals().keys()
+    if isinstance(locals()[key], type(sys)) and not key.startswith("__")
+]
+
+import sys
+
+mods = [m.__name__ for m in sys.modules.values() if m]
