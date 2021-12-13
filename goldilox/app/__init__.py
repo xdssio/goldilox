@@ -55,9 +55,18 @@ def process_variables(variables):
 
 def get_app(path):
     from fastapi import FastAPI, HTTPException
-
+    from goldilox.config import ALLOW_CORS, CORS_ORIGINS, ALLOW_HEADERS, ALLOW_METHODS, ALLOW_CREDENTIALS
     logger = logging.getLogger(__name__)
     app = FastAPI()
+    if ALLOW_CORS:
+        from fastapi.middleware.cors import CORSMiddleware
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=CORS_ORIGINS,
+            allow_credentials=ALLOW_CREDENTIALS,
+            allow_methods=ALLOW_METHODS,
+            allow_headers=ALLOW_HEADERS,
+        )
     PIPELINE = "pipeline"
 
     pipeline = Pipeline.from_file(path)

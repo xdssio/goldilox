@@ -1,4 +1,5 @@
 import os
+from distutils.util import strtobool
 
 AWS_PROFILE = os.environ.get("AWS_PROFILE")
 
@@ -27,3 +28,10 @@ VERSION = "version"
 PY_VERSION = "py_version"
 VALID_VAEX_HEADERS = ["*.csv", "*.hdf5", "*.parquet", "*.arrow"]
 DEFAULT_SUFFIX = ".parquet"
+
+# App
+CORS_ORIGINS = os.getenv('ORIGINS', '*').split(',')
+ALLOW_METHODS = os.getenv('ALLOW_METHODS', '*').split(',')
+ALLOW_HEADERS = os.getenv('ALLOW_HEADERS', '*').split(',')
+ALLOW_CREDENTIALS = bool(strtobool(os.getenv('ALLOW_CREDENTIALS', 'True')))
+ALLOW_CORS = bool(strtobool(os.getenv('ALLOW_CORS', 'True')))
