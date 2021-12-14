@@ -30,6 +30,8 @@ def to_nulls(value):
         return [to_nulls(v) for v in value]
     elif isinstance(value, dict):
         return {to_nulls(k): to_nulls(v) for k, v in value.items()}
+    elif hasattr(value, 'tolist'):
+        return to_nulls(value.tolist())
     elif pd.isnull(value):
         return None
     return value
@@ -47,9 +49,9 @@ def process_response(items):
 
 def process_variables(variables):
     return {
-        key: value
+        key: to_nulls(value)
         for key, value in variables.items()
-        if type(value) in valida_types and not pd.isnull(value)
+        if (type(value) in valida_types or hasattr(value, 'tolist'))
     }
 
 
