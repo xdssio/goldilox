@@ -84,7 +84,7 @@ features = iris.feature_names
 df = pd.DataFrame(iris.data, columns=features)
 df['target'] = iris.target
 
-model = LGBMClassifier().fit(df[features], df['target'])
+model = XGBClassifier().fit(df[features], df['target'])
 ```
 
 **2. Build a production ready pipeline**
