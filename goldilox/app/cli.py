@@ -14,20 +14,39 @@ def main():
     pass
 
 
-@main.command()
-@click.argument("path", type=click.Path(exists=True))
-@click.option("--port", default=5000, help='Server port')
-@click.option("--host", default='localhost', help='Server host (default "localhost")')
-@click.option("--workers", default=1, help='Number of workers')
-def serve(path, port, host, workers, **options):
-    """Serve a Goldilox Pipeline"""
-    options['bind'] = f"{host}:{port}"
-    options['workers'] = workers
-    options['preload'] = bool(options.get('--preload', True))
+def process_option(s):
+    splited = s.split('=')
+    if len(splited) != 2:
+        splited = s.split(' ')
+    if len(splited) != 2:
+        return None, None
+    key, value = splited[0], splited[1]
+    if key.startswith('--'):
+        key = key[2:]
+    return key, value
 
-    # click.echo(kwargs)
+
+@main.command(context_settings=dict(
+    ignore_unknown_options=True,
+))
+@click.argument("path", type=click.Path(exists=True))
+@click.argument('options', nargs=-1, type=click.UNPROCESSED)
+def serve(path, **options):
+    """Serve a Goldilox Pipeline"""
+    server_options = {}
+    for option in options['options']:
+        key, value = process_option(option)
+        if key is None:
+            print(f"option {option} was is illegal and was ignored ")
+        else:
+            server_options[key] = value
     from goldilox.app import Server
-    Server(path, options=options).serve()
+    Server(path, options=server_options).serve()
+
+
+@main.command()
+def arguments():
+    print("check https://docs.gunicorn.org/en/stable/run.html for options")
 
 
 @main.command()
