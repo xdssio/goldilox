@@ -84,6 +84,14 @@ def variables(path):
     click.echo(json.dumps(process_variables(Pipeline.load(path).variables), indent=4))
 
 
+@main.command()
+@click.argument("path", type=click.Path(exists=True))
+def freeze(path, requirements_path):
+    """Retrive Goldilox Pipeline input example (raw data)"""
+    # TODO make freeze to requirements_path
+    click.echo(json.dumps(process_variables(Pipeline.load(path).variables), indent=4))
+
+
 if __name__ == '__main__':
     args = sys.argv
     if "--help" in args or len(args) == 1:

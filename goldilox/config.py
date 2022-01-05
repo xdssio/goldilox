@@ -26,6 +26,7 @@ PIPELINE_TYPE = "pipeline_type"
 STATE = "state"
 VERSION = "version"
 PY_VERSION = "py_version"
+PACKAGES = "packages"
 VALID_VAEX_HEADERS = ["*.csv", "*.hdf5", "*.parquet", "*.arrow"]
 DEFAULT_SUFFIX = ".parquet"
 

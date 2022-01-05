@@ -1,12 +1,13 @@
 import inspect
 import json
 import logging
+import sys
 from collections import OrderedDict
 from copy import deepcopy, copy as _copy
 from glob import glob
 from numbers import Number
 from time import time
-import sys
+
 import cloudpickle
 import numpy as np
 import pandas as pd
@@ -19,7 +20,6 @@ from vaex.ml.state import HasState, serialize_pickle
 import goldilox
 from goldilox.config import *
 from goldilox.pipeline import Pipeline
-from goldilox.utils import _is_s3_url
 
 logging.basicConfig()
 logger = logging.getLogger(__name__)
@@ -177,6 +177,7 @@ class VaexPipeline(HasState, Pipeline):
             PIPELINE_TYPE: self.pipeline_type,
             VERSION: goldilox.__version__,
             PY_VERSION: sys.version.split(" ")[0],
+            PACKAGES: self._get_packages()
         }
         return cloudpickle.dumps(state)
 
@@ -219,8 +220,8 @@ class VaexPipeline(HasState, Pipeline):
         return pa.array([None] * length)
 
     def preprocess_transform(
-        self,
-        df,
+            self,
+            df,
     ):
         copy = self.infer(df)
         length = len(copy)
@@ -244,7 +245,7 @@ class VaexPipeline(HasState, Pipeline):
                     )
                 )
             if keep_columns is False or (
-                keep_columns is not None and len(keep_columns) == 0
+                    keep_columns is not None and len(keep_columns) == 0
             ):
                 keep_columns = None
             copy.state_set(state, keep_columns=keep_columns, set_filter=set_filter)
@@ -270,7 +271,7 @@ class VaexPipeline(HasState, Pipeline):
         return df
 
     def inference(
-        self, df, columns=None, set_filter=False, keep_columns=None, clean=False
+            self, df, columns=None, set_filter=False, keep_columns=None, clean=False
     ):
         if clean:
             copy = self.infer(df)

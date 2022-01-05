@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 import cloudpickle
 import numpy as np
 import pandas as pd
+import pkg_resources
 
 from goldilox.config import AWS_PROFILE, PIPELINE_TYPE, VAEX, SKLEARN, STATE
 from goldilox.utils import _is_s3_url
@@ -102,7 +103,6 @@ class Pipeline:
             state = cloudpickle.loads(state_bytes)
         except:
             import pickle
-
             logger.warning("issue with cloudpickle loads")
             state = pickle.loads(state_bytes)
         pipeline_type = state.get(PIPELINE_TYPE)
@@ -110,7 +110,6 @@ class Pipeline:
             return state[STATE]
         elif pipeline_type == VAEX:
             from goldilox.vaex.pipeline import VaexPipeline
-
             return VaexPipeline.load_state(state)
         raise RuntimeError(f"Cannot load pipeline of type {pipeline_type} from {path}")
 
@@ -166,17 +165,17 @@ class Pipeline:
     @classmethod
     def _from_koalas(cls, df, **kwargs):
         # from goldilocks.koalas.pipeline import Pipeline as KoalasPipeline
-        raise NotImplementedError(f"Not implemented for {self.pipeline_type}")
+        raise NotImplementedError(f"Not implemented for {pipeline.pipeline_type}")
 
     # TODO
     @classmethod
-    def _from_onnx(self, pipeline, **kwargs):
-        raise NotImplementedError(f"Not implemented for {self.pipeline_type}")
+    def _from_onnx(cls, pipeline, **kwargs):
+        raise NotImplementedError(f"Not implemented for {pipeline.pipeline_type}")
 
     # TODO
     @classmethod
-    def _from_mlflow(self, pipeline, **kwargs):
-        raise NotImplementedError(f"Not implemented for {self.pipeline_type}")
+    def _from_mlflow(cls, pipeline, **kwargs):
+        raise NotImplementedError(f"Not implemented for {pipeline.pipeline_type}")
 
     def fit(self, df, **kwargs):
         return self
@@ -211,3 +210,7 @@ class Pipeline:
 
         # vaex
         return json.dumps(items.to_records())
+
+    @staticmethod
+    def _get_packages():
+        return sorted(["%s==%s" % (i.key, i.version) for i in pkg_resources.working_set])

@@ -9,7 +9,7 @@ import traitlets
 
 import goldilox
 from goldilox import Pipeline
-from goldilox.config import STATE, PIPELINE_TYPE, VERSION, PY_VERSION
+from goldilox.config import STATE, PIPELINE_TYPE, VERSION, PY_VERSION, PACKAGES
 
 DEFAULT_OUTPUT_COLUMN = "prediction"
 TRAITS = "_trait_values"
@@ -139,6 +139,7 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
             PIPELINE_TYPE: self.pipeline_type,
             VERSION: goldilox.__version__,
             PY_VERSION: sys.version.split(" ")[0],
+            PACKAGES: self._get_packages()
         }
         return cloudpickle.dumps(state)
 
