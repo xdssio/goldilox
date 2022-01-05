@@ -1,14 +1,15 @@
-from time import time
+import logging
 import sys
+from time import time
+
 import cloudpickle
 import numpy as np
 import pandas as pd
 import traitlets
-import logging
+
 import goldilox
 from goldilox import Pipeline
-from goldilox.config import AWS_PROFILE, STATE, PIPELINE_TYPE, VERSION, PY_VERSION
-from goldilox.utils import _is_s3_url
+from goldilox.config import STATE, PIPELINE_TYPE, VERSION, PY_VERSION
 
 DEFAULT_OUTPUT_COLUMN = "prediction"
 TRAITS = "_trait_values"
@@ -59,15 +60,15 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
 
     @classmethod
     def from_sklearn(
-        cls,
-        pipeline,
-        raw=None,
-        features=None,
-        target=None,
-        output_column=DEFAULT_OUTPUT_COLUMN,
-        variables=None,
-        fit_params=None,
-        description="",
+            cls,
+            pipeline,
+            raw=None,
+            features=None,
+            target=None,
+            output_column=DEFAULT_OUTPUT_COLUMN,
+            variables=None,
+            fit_params=None,
+            description="",
     ):
         """
         :param sklearn.preprocessing.pipeline.Pipeline pipeline: The skleran pipeline
@@ -87,10 +88,10 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
         elif raw is None and isinstance(features, list):
             raw = {key: 0 for key in features}
         if (
-            hasattr(pipeline, "__sklearn_is_fitted__")
-            and pipeline.__sklearn_is_fitted__()
-            and raw is None
-            and features is None
+                hasattr(pipeline, "__sklearn_is_fitted__")
+                and pipeline.__sklearn_is_fitted__()
+                and raw is None
+                and features is None
         ):
             raise RuntimeError(
                 "For a fitted pipeline, please provide either the 'features' or 'sample'"
@@ -190,12 +191,14 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
                 X = X[self.features[0]]
         return X
 
-    def fit(self, df, y=None):
+    def fit(self, df, y=None, validate=True, check_na=True):
         X, y = self._to_pandas(df, y)
         X = self._get_features(X)
         self.raw = self.to_raw(X)
         params = self.fit_params or {}
         self.pipeline = self.pipeline.fit(X=X, y=y, **params)
+        if validate:
+            self.validate(df=X.head(), check_na=check_na)
         return self
 
     def transform(self, df, **kwargs):

@@ -1,7 +1,6 @@
 import json
-from copy import deepcopy
-from hashlib import sha256
 import logging
+from hashlib import sha256
 from tempfile import TemporaryDirectory
 
 import cloudpickle
@@ -44,27 +43,31 @@ class Pipeline:
         return df.iloc[0].to_dict()  # pandas
 
     @classmethod
-    def from_vaex(cls, df, fit=None, **kwargs):
+    def from_vaex(cls, df, fit=None, validate=True, **kwargs):
         from goldilox.vaex.pipeline import VaexPipeline as VaexPipeline
-
-        return VaexPipeline.from_dataframe(df=df, fit=fit, **kwargs)
+        pipeline = VaexPipeline.from_dataframe(df=df, fit=fit, **kwargs)
+        if validate:
+            logger.info("validate pipeline")
+            logger.info(f"pipeline valid: {pipeline.validate()}")
+        return pipeline
 
     @classmethod
     def from_sklearn(
-        cls,
-        pipeline,
-        raw=None,
-        target=None,
-        features=None,
-        output_column=None,
-        variables=None,
-        fit_params=None,
-        description="",
+            cls,
+            pipeline,
+            raw=None,
+            target=None,
+            features=None,
+            output_column=None,
+            variables=None,
+            fit_params=None,
+            description="",
+            validate=True
     ):
         from goldilox.sklearn.pipeline import SklearnPipeline, DEFAULT_OUTPUT_COLUMN
 
         output_column = output_column or DEFAULT_OUTPUT_COLUMN
-        return SklearnPipeline.from_sklearn(
+        ret = SklearnPipeline.from_sklearn(
             pipeline=pipeline,
             features=features,
             target=target,
@@ -74,6 +77,10 @@ class Pipeline:
             fit_params=fit_params,
             description=description,
         )
+        if validate:
+            logger.info("validate pipeline")
+            logger.info(f"pipeline valid: {ret.validate()}")
+        return ret
 
     @classmethod
     def from_file(cls, path):
@@ -114,7 +121,7 @@ class Pipeline:
     @classmethod
     def _remove_signature(cls, b):
         if b[: len(Pipeline.BYTES_SIGNETURE)] == Pipeline.BYTES_SIGNETURE:
-            return b[len(Pipeline.BYTES_SIGNETURE) :]
+            return b[len(Pipeline.BYTES_SIGNETURE):]
         return b
 
     def save(self, path):
@@ -138,28 +145,37 @@ class Pipeline:
 
         return path
 
-    def validate(self, df=None, check_na=True):
-        tmpdir = TemporaryDirectory().name
-        path = tmpdir + "models/model.pkl"
-        self.save(path)
-        pipeline = Pipeline.from_file(path)
-        if df is None:
-            df = self.infer(self.raw)
-        results = pipeline.inference(df)
-        assert len(results) == len(df)
-        if check_na:
-            pipeline._validate_na(df)
+    def validate(self, df=None, check_na=True, verbose=True):
+        if verbose:
+            logger.info("validate serialization")
+        pipeline = Pipeline.from_file(self.save(TemporaryDirectory().name + "models/model.pkl"))
+        if df is not None or self.raw is not None:
+            if verbose:
+                logger.info("validate inference")
+            if df is None:
+                df = self.infer(self.raw)
+            results = pipeline.inference(df)
+            assert len(results) == len(df)
+            if check_na:
+                pipeline._validate_na(df)
+        elif verbose:
+            logger.info("No data, and no raw example existing for inference validation - skip")
         return True
 
     # TODO
     @classmethod
     def _from_koalas(cls, df, **kwargs):
         # from goldilocks.koalas.pipeline import Pipeline as KoalasPipeline
-        return deepcopy(df.pipeline)
+        raise NotImplementedError(f"Not implemented for {self.pipeline_type}")
 
     # TODO
     @classmethod
     def _from_onnx(self, pipeline, **kwargs):
+        raise NotImplementedError(f"Not implemented for {self.pipeline_type}")
+
+    # TODO
+    @classmethod
+    def _from_mlflow(self, pipeline, **kwargs):
         raise NotImplementedError(f"Not implemented for {self.pipeline_type}")
 
     def fit(self, df, **kwargs):

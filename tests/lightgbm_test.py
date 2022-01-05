@@ -1,14 +1,13 @@
 import pytest
 from vaex.ml.datasets import load_iris
 
-from goldilox.sklearn.pipeline import Pipeline as SklearnPipeline
-from goldilox.vaex.pipeline import VaexPipeline as VaexPipeline
+from goldilox import Pipeline
 from tests.test_utils import validate_persistance
 
 
 @pytest.fixture()
 def iris():
-    # iris = load_iris_1e5()
+    # iris = load_iris()
     return load_iris()
 
 
@@ -38,7 +37,7 @@ def test_lightgbm_vaex(iris, tmpdir):
 
     train.add_function('argmax', argmax)
     train['prediction'] = train['predictions'].argmax()
-    pipeline = VaexPipeline.from_dataframe(train)
+    pipeline = Pipeline.from_vaex(train)
     pipeline.set_variable('accuracy',
                           accuracy_score(pipeline.inference(test[features])['prediction'].values, test[target].values))
 
@@ -78,7 +77,7 @@ def test_lightgbm_vaex_fit(iris, tmpdir):
         train.add_function('argmax', argmax)
         train['prediction'] = train['predictions'].argmax()
 
-        pipeline = VaexPipeline.from_dataframe(train)
+        pipeline = Pipeline.from_vaex(train)
         accuracy = accuracy_score(pipeline.inference(test[features])['prediction'].values,
                                   test[target].values)
         booster = LightGBMModel(features=features,
@@ -95,7 +94,7 @@ def test_lightgbm_vaex_fit(iris, tmpdir):
         return df
 
     df = iris.copy()
-    pipeline = VaexPipeline.from_dataframe(df, fit=fit)
+    pipeline = Pipeline.from_vaex(df, fit=fit)
     data = df.to_records(0)
     assert pipeline.inference(data).shape == df.head(1).shape
     pipeline.fit(df)
@@ -110,31 +109,29 @@ def test_lightgbm_vaex_fit(iris, tmpdir):
 def test_lightgbm_sklearn(iris, tmpdir):
     from lightgbm.sklearn import LGBMClassifier
     import sklearn.pipeline
-
+    iris = load_iris()
     df = iris.copy()
     features = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
     target = 'class_'
+    X, y = df[features], df[target]
     sk_pipeline = sklearn.pipeline.Pipeline([('classifier', LGBMClassifier())])
-    X = df[features]
-    y = df[target]
-    self = pipeline = SklearnPipeline.from_sklearn(sk_pipeline).fit(X, y)
+    pipeline = Pipeline.from_sklearn(sk_pipeline, validate=False).fit(X, y)
 
     assert pipeline.inference(X).head(10).shape == (10, 5)
     assert pipeline.inference(X.values[:10]).shape == (10, 5)
-    assert pipeline.inference(self.raw).shape == (1, 5)
+    assert pipeline.inference(pipeline.raw).shape == (1, 5)
     pipeline.fit(df)
     path = str(tmpdir) + '/model.pkl'
-    pipeline.save(path)
-    pipeline = SklearnPipeline.from_file(path)
+    pipeline = Pipeline.from_file(pipeline.save(path))
     assert pipeline.inference(X).head(10).shape == (10, 5)
     assert pipeline.inference(X.values[:10]).shape == (10, 5)
-    assert pipeline.inference(self.raw).shape == (1, 5)
+    assert pipeline.inference(pipeline.raw).shape == (1, 5)
 
     # with a trained sklearn pipeline
     sample = X.head(1).to_records()[0]
-    self = pipeline = SklearnPipeline.from_sklearn(sk_pipeline, raw=sample).fit(X, y)
+    self = pipeline = Pipeline.from_sklearn(sk_pipeline, raw=sample).fit(X, y)
     pipeline.save(path)
-    pipeline = SklearnPipeline.from_file(path)
+    pipeline = Pipeline.from_file(path)
     assert pipeline.inference(X).head(10).shape == (10, 5)
     assert pipeline.inference(X.values[:10]).shape == (10, 5)
     assert pipeline.inference(self.raw).shape == (1, 5)
