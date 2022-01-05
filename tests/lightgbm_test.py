@@ -1,17 +1,15 @@
-import vaex
+import pytest
+from vaex.ml.datasets import load_iris
 
 from goldilox.sklearn.pipeline import Pipeline as SklearnPipeline
 from goldilox.vaex.pipeline import VaexPipeline as VaexPipeline
-from vaex.ml.datasets import load_iris_1e5
-import pytest
-
 from tests.test_utils import validate_persistance
 
 
 @pytest.fixture()
 def iris():
     # iris = load_iris_1e5()
-    return load_iris_1e5()
+    return load_iris()
 
 
 def test_lightgbm_vaex(iris, tmpdir):
@@ -54,7 +52,6 @@ def test_lightgbm_vaex(iris, tmpdir):
 
 
 def test_lightgbm_vaex_fit(iris, tmpdir):
-
     def fit(df):
         import vaex
         import numpy as np
@@ -141,4 +138,3 @@ def test_lightgbm_sklearn(iris, tmpdir):
     assert pipeline.inference(X).head(10).shape == (10, 5)
     assert pipeline.inference(X.values[:10]).shape == (10, 5)
     assert pipeline.inference(self.raw).shape == (1, 5)
-
