@@ -1,9 +1,12 @@
 import json
 import subprocess
 import sys
+from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 import click
 
+import goldilox
 from goldilox import Pipeline
 from goldilox.config import VARIABLES, RAW, DESCRIPTION, PACKAGES
 from goldilox.utils import process_variables
@@ -90,34 +93,48 @@ def packages(path):
     click.echo(json.dumps(meta[PACKAGES], indent=4))
 
 
+def _write_content(output, content):
+    with open(output, 'w') as outfile:
+        outfile.write(content)
+    return output
+
+
 @main.command()
 @click.argument("path", type=click.Path(exists=True))
 @click.argument("output", type=str)
-def freeze(path, output):
+def freeze(path, output='requirements.txt'):
     """Retrive Goldilox Pipeline input example (raw data)"""
     packages = Pipeline.load_meta(path)[PACKAGES]
-    with open(output, 'w') as outfile:
-        outfile.write(packages)
+    _write_content(output, packages)
     click.echo(f"checkout {output} for the requirements")
 
 
-# TODO
 @main.command()
 @click.argument("path", type=click.Path(exists=True))
 def install(path):
     """Install neccecery python packages"""
+    requirements_path = NamedTemporaryFile().name
+    packages = Pipeline.load_meta(path)[PACKAGES]
+    _write_content(requirements_path, packages)
     subprocess.check_call([sys.executable, '-m', 'pip', 'install',
-                           '<packagename>'])
+                           '-r', requirements_path])
 
-    # process output with an API in the subprocess module:
-    reqs = subprocess.check_output([sys.executable, '-m', 'pip',
-                                    'freeze']).decode()
-    installed_packages = [r.decode().split('==')[0] for r in reqs.split()]
 
-    print(installed_packages)
+@main.command()
+@click.argument("path", type=click.Path(exists=True))
+@click.option("--name", type=str, default="goldilox")
+@click.option('--platform', type=str)
+def build(path, name="goldilox", platform=None):
+    """Install neccecery python packages"""
+    goldilox_path = Path(goldilox.__file__)
+    docker_file_path = str(goldilox_path.parent.absolute().joinpath('app').joinpath('Dockerfile'))
+    args = ['docker', 'build', '-f', docker_file_path, "--build-arg", f"PIPELINE_PATH={path}", '-t',
+            name, '.']
+    if platform is not None:
+        args = args[:-1] + [f"--platform=={platform}"] + args[-1]
 
-    # TODO make freeze to requirements_path
-    click.echo(json.dumps(process_variables(Pipeline.load(path).variables), indent=4))
+    print(' '.join(args))
+    subprocess.check_call(args)
 
 
 if __name__ == '__main__':
