@@ -11,7 +11,7 @@ With pip:
 $ pip install goldilox
 ```
 
-[For more details, see the documentation](www.todo) #TODO
+[For more details, see the documentation](www.docs.goldilox.io)
 
 # Key features
 
@@ -213,6 +213,39 @@ assert pipeline.validate()
 * We can still deploy a pipeline that doesn't deal with missing values if we want, *validate()* returns `True` if
   serialization, and prediction-on-raw validations pass.
 
+# CLI
+
+Some tools
+
+```bash
+# Serve model
+glx serve <pipeline-path>
+
+# get the variables straight from the file.
+glx variables <pipeline-path>
+
+# get the description straight from the file.
+glx description <pipeline-path>
+
+# get the raw data example from the file.
+glx raw <pipeline-path>
+
+# Get the pipeline requirements
+glx freeze <pipeline-path> <path-to-requirements-file-output.txt>
+
+# Get the pipeline requirements
+glx install all requirements from the pipeline
+```
+
+# Docker
+
+You can build a docker image from a pipeline.
+
+```bash
+glx build <pipeline-path> --platform=linux/amd64 --image=python:3.8-slim-bullseye
+
+```
+
 # [Example Notebooks](https://github.com/xdssio/goldilox/tree/master/notebooks)
 
 * **Classification / Regression**
@@ -262,6 +295,15 @@ assert pipeline.validate()
     * [Using a package which is not pickalbe](https://github.com/xdssio/goldilox/blob/master/notebooks/vowpal_wabbit.ipynb)
     * [Imodels](https://github.com/csinva/imodels)
     * [interpret](https://github.com/interpretml/interpret)
+
+# FAQ
+
+1. Why the name "Goldilox"?    
+   Because most solutions out there are either tou need to do everything from scratch per solution, or you have to take
+   it as it. We consider ourselves in between, you can do most things, with minimal adjustments.
+2. Why do you work with Vaex and not just Pandas? Vaex handles Big-Data on normal computers, which is our target
+   audience. And we relay heavily on it's lazy evaluation which pandas doesn't have.
+3.
 
 # Contributing
 

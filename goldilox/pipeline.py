@@ -1,6 +1,7 @@
 import json
 import logging
 import sys
+from copy import deepcopy as _copy
 from hashlib import sha256
 from tempfile import TemporaryDirectory
 
@@ -130,17 +131,16 @@ class Pipeline:
         return cloudpickle.loads(meta_bytes)
 
     def _get_meta(self):
-
         state = {
             PIPELINE_TYPE: self.pipeline_type,
             VERSION: goldilox.__version__,
             PY_VERSION: sys.version.split(" ")[0],
             PACKAGES: self._get_packages(),
-            VARIABLES: self.variables,
+            VARIABLES: self.variables.copy(),
             DESCRIPTION: self.description,
             RAW: self.raw,
         }
-        return cloudpickle.dumps(state)
+        return cloudpickle.dumps(_copy(state))
 
     @classmethod
     def _split_meta(cls, b):

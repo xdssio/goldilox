@@ -5,7 +5,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import vaex
 
 from goldilox.config import DEFAULT_SUFFIX
 
@@ -56,6 +55,7 @@ def open_many(paths):
 
 
 def read_data(path, prefix=None, suffix=DEFAULT_SUFFIX):
+    import vaex
     prefix = prefix or ''
     logger.info(f"read data from {path} and prefix {prefix} and suffix {suffix}")
     if os.path.isdir(path):

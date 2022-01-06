@@ -159,5 +159,4 @@ catboost_*
 flaml.log
 *.egg
 /.vscode/
-pipeline.pkl
 goldilox/__pycache__/

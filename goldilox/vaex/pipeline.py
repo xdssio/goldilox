@@ -18,6 +18,7 @@ from vaex.ml.state import HasState, serialize_pickle
 
 from goldilox.config import *
 from goldilox.pipeline import Pipeline
+from goldilox.utils import process_variables
 
 logging.basicConfig()
 logger = logging.getLogger(__name__)
@@ -154,7 +155,7 @@ class VaexPipeline(HasState, Pipeline):
             _original_columns=original_columns,
             raw=raw,
             description=description,
-            variables=_copy(state.get(VARIABLES, {})),
+            variables=process_variables(state.get(VARIABLES, {})),
         )
 
         return pipeline

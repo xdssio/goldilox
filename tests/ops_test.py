@@ -1,5 +1,5 @@
 import pytest
-from vaex.ml.datasets import load_iris_1e5
+from vaex.ml.datasets import load_iris
 
 from goldilox import Pipeline
 
@@ -57,7 +57,7 @@ def lightgbm_vaex_fit():
         df.variables["names"] = names
         return df
 
-    iris = load_iris_1e5()
+    iris = load_iris()
     df = iris.copy()
     pipeline = Pipeline.from_vaex(
         df, fit=fit, description="Lightgbm with Vaex"
@@ -85,17 +85,17 @@ def lightgbm_vaex_fit():
     pipeline.raw.pop("class_")
     assert pipeline.inference(data).shape == (1, 9)
     pipeline.validate(df.head(2))
+    print(pipeline._get_packages())
 
     pipeline.save("../goldilox-ops/models/pipeline.pkl")
     pipeline.save("./pipeline.pkl")
-    pipeline.save("./notebooks/pipeline.pkl")
 
 
 def test_lightgbm_sklearn():
     from lightgbm.sklearn import LGBMClassifier
     import sklearn.pipeline
 
-    df = load_iris_1e5().copy()
+    df = load_iris().copy()
     features = ["petal_length", "petal_width", "sepal_length", "sepal_width"]
     target = "class_"
     sk_pipeline = sklearn.pipeline.Pipeline([("classifier", LGBMClassifier())])
@@ -116,7 +116,7 @@ def test_lightgbm_sklearn():
 
     # with a trained sklearn pipeline
     sample = X.head(1).to_records()[0]
-    self = pipeline = SklearnPipeline.from_sklearn(
+    self = pipeline = Pipeline.from_sklearn(
         sk_pipeline, raw=sample, description="Lightgbm with sklearn"
     ).fit(X, y)
     assert pipeline.inference(X).head(10).shape == (10, 5)
@@ -126,9 +126,7 @@ def test_lightgbm_sklearn():
     pipeline.save("../goldilox-ops/models/sk.pkl")
 
 
-pytest.mark.skip("test manually")
-
-
+@pytest.mark.skip("test manually")
 def test_faiss():
     import vaex
     from faiss import IndexFlatL2

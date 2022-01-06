@@ -116,25 +116,29 @@ def install(path):
     requirements_path = NamedTemporaryFile().name
     packages = Pipeline.load_meta(path)[PACKAGES]
     _write_content(requirements_path, packages)
-    subprocess.check_call([sys.executable, '-m', 'pip', 'install',
+    subprocess.check_call([sys.executable, '-m', 'pip3', 'install',
                            '-r', requirements_path])
 
 
 @main.command()
 @click.argument("path", type=click.Path(exists=True))
 @click.option("--name", type=str, default="goldilox")
-@click.option('--platform', type=str)
-def build(path, name="goldilox", platform=None):
-    """Install neccecery python packages"""
+@click.option('--image', type=str, default=None)
+@click.option('--platform', type=str, default=None)
+def build(path, name="goldilox", image=None, platform=None):
+    """Docker build"""
     goldilox_path = Path(goldilox.__file__)
     docker_file_path = str(goldilox_path.parent.absolute().joinpath('app').joinpath('Dockerfile'))
-    args = ['docker', 'build', '-f', docker_file_path, "--build-arg", f"PIPELINE_PATH={path}", '-t',
-            name, '.']
+    run_args = ['docker', 'build', f"-f={docker_file_path}", f"-t={name}"]
+    build_args = ["--build-arg", f"PIPELINE_PATH={path}"]
+    suffix_arg = ['.']
+    if image is not None:
+        build_args = build_args + ["--build-arg", f"PYTHON_IMAGE={image}"]
     if platform is not None:
-        args = args[:-1] + [f"--platform=={platform}"] + args[-1]
-
-    print(' '.join(args))
-    subprocess.check_call(args)
+        run_args = run_args + [f"--platform={platform}"]
+    command = run_args + build_args + suffix_arg
+    print(' '.join(command))
+    subprocess.check_call(command)
 
 
 if __name__ == '__main__':
