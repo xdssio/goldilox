@@ -1,14 +1,16 @@
 import json
 import logging
+import sys
 from hashlib import sha256
 from tempfile import TemporaryDirectory
 
 import cloudpickle
 import numpy as np
 import pandas as pd
-import pkg_resources
 
-from goldilox.config import AWS_PROFILE, PIPELINE_TYPE, VAEX, SKLEARN, STATE
+import goldilox
+from goldilox.config import AWS_PROFILE, PIPELINE_TYPE, VAEX, SKLEARN, BYTE_DELIMITER, VERSION, PY_VERSION, \
+    PACKAGES, VARIABLES, DESCRIPTION, RAW
 from goldilox.utils import _is_s3_url
 
 logger = logging.getLogger()
@@ -84,13 +86,12 @@ class Pipeline:
         return ret
 
     @classmethod
-    def from_file(cls, path):
+    def _read_file(cls, path):
         def open_state():
             return open(path, "rb")
 
         if _is_s3_url(path):
             import s3fs
-
             fs = s3fs.S3FileSystem(profile=AWS_PROFILE)
 
             def open_state():
@@ -98,16 +99,22 @@ class Pipeline:
 
         with open_state() as f:
             state_bytes = f.read()
-        state_bytes = Pipeline._remove_signature(state_bytes)
+        return Pipeline._split_meta(state_bytes)
+
+    @classmethod
+    def from_file(cls, path):
+        meta_bytes, state_bytes = Pipeline._read_file(path)
         try:
             state = cloudpickle.loads(state_bytes)
+            meta = cloudpickle.loads(meta_bytes)
         except:
             import pickle
             logger.warning("issue with cloudpickle loads")
             state = pickle.loads(state_bytes)
-        pipeline_type = state.get(PIPELINE_TYPE)
+            meta = pickle.loads(meta_bytes)
+        pipeline_type = meta.get(PIPELINE_TYPE)
         if pipeline_type == SKLEARN:
-            return state[STATE]
+            return state
         elif pipeline_type == VAEX:
             from goldilox.vaex.pipeline import VaexPipeline
             return VaexPipeline.load_state(state)
@@ -118,16 +125,32 @@ class Pipeline:
         return cls.from_file(path)
 
     @classmethod
-    def _remove_signature(cls, b):
-        if b[: len(Pipeline.BYTES_SIGNETURE)] == Pipeline.BYTES_SIGNETURE:
-            return b[len(Pipeline.BYTES_SIGNETURE):]
-        return b
+    def load_meta(cls, path):
+        meta_bytes, _ = Pipeline._read_file(path)
+        return cloudpickle.loads(meta_bytes)
+
+    def _get_meta(self):
+
+        state = {
+            PIPELINE_TYPE: self.pipeline_type,
+            VERSION: goldilox.__version__,
+            PY_VERSION: sys.version.split(" ")[0],
+            PACKAGES: self._get_packages(),
+            VARIABLES: self.variables,
+            DESCRIPTION: self.description,
+            RAW: self.raw,
+        }
+        return cloudpickle.dumps(state)
+
+    @classmethod
+    def _split_meta(cls, b):
+        splited = b.split(BYTE_DELIMITER)
+        return splited[0][len(Pipeline.BYTES_SIGNETURE):], splited[1]
 
     def save(self, path):
-        state_to_write = Pipeline.BYTES_SIGNETURE + self._dumps()
+        state_to_write = Pipeline.BYTES_SIGNETURE + self._get_meta() + BYTE_DELIMITER + self._dumps()
         if _is_s3_url(path):
             import s3fs
-
             fs = s3fs.S3FileSystem(profile=AWS_PROFILE)
             with fs.open(path, "wb") as outfile:
                 outfile.write(state_to_write)
@@ -160,22 +183,6 @@ class Pipeline:
         elif verbose:
             logger.info("No data, and no raw example existing for inference validation - skip")
         return True
-
-    # TODO
-    @classmethod
-    def _from_koalas(cls, df, **kwargs):
-        # from goldilocks.koalas.pipeline import Pipeline as KoalasPipeline
-        raise NotImplementedError(f"Not implemented for {pipeline.pipeline_type}")
-
-    # TODO
-    @classmethod
-    def _from_onnx(cls, pipeline, **kwargs):
-        raise NotImplementedError(f"Not implemented for {pipeline.pipeline_type}")
-
-    # TODO
-    @classmethod
-    def _from_mlflow(cls, pipeline, **kwargs):
-        raise NotImplementedError(f"Not implemented for {pipeline.pipeline_type}")
 
     def fit(self, df, **kwargs):
         return self
@@ -213,4 +220,6 @@ class Pipeline:
 
     @staticmethod
     def _get_packages():
-        return sorted(["%s==%s" % (i.key, i.version) for i in pkg_resources.working_set])
+        import subprocess
+        return subprocess.check_output([sys.executable, '-m', 'pip',
+                                        'freeze']).decode()

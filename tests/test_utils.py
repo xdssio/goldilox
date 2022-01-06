@@ -1,8 +1,7 @@
-from goldilox import Pipeline
 from tempfile import TemporaryDirectory
 
-def validate_persistance(pipeline):
-    tmpdir = TemporaryDirectory().name
-    path = str(tmpdir) + '/model.pkl'
-    pipeline.save(path)
-    return Pipeline.from_file(path)
+from goldilox import Pipeline
+
+
+def validate_persistence(pipeline):
+    return Pipeline.from_file(pipeline.save(str(TemporaryDirectory().name) + '/model.pkl'))

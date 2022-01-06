@@ -6,7 +6,10 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import vaex
+
 from goldilox.config import DEFAULT_SUFFIX
+
+valida_types = {type(None), dict, list, int, float, str, bool}
 
 
 def _is_s3_url(path):
@@ -80,3 +83,27 @@ def read_data(path, prefix=None, suffix=DEFAULT_SUFFIX):
         df = vaex.open(path, shuffle=True)
     logger.info(f"data shape {df.shape}")
     return df
+
+
+def is_list(l):
+    return isinstance(l, (list, pd.core.series.Series, np.ndarray))
+
+
+def to_nulls(value):
+    if is_list(value):
+        return [to_nulls(v) for v in value]
+    elif isinstance(value, dict):
+        return {to_nulls(k): to_nulls(v) for k, v in value.items()}
+    elif hasattr(value, 'tolist'):
+        return to_nulls(value.tolist())
+    elif pd.isnull(value):
+        return None
+    return value
+
+
+def process_variables(variables):
+    return {
+        key: to_nulls(value)
+        for key, value in variables.items()
+        if (type(value) in valida_types or hasattr(value, 'tolist'))
+    }

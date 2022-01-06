@@ -8,7 +8,7 @@ from scipy.sparse import csr_matrix
 from sklearn.base import TransformerMixin, BaseEstimator
 
 from goldilox import Pipeline
-from tests.test_utils import validate_persistance
+from tests.test_utils import validate_persistence
 
 features = ["x", "y", "z", "vx", "vy", "vz", "E", "L", "Lz", "FeH"]
 
@@ -39,7 +39,7 @@ def test_hnswlib_vaex():
     df["knn"] = df.func.topk(*tuple([df[col] for col in features]), k=3)
     df.add_function("topk", topk)
     pipeline = Pipeline.from_vaex(df)
-    pipeline = validate_persistance(pipeline)
+    pipeline = validate_persistence(pipeline)
     assert pipeline.raw == sample
     assert df.to_records(0)["knn"] == [0, 21, 24]
 
@@ -111,7 +111,7 @@ def test_nmslib_vaex():
     df["neighbours"] = df["knn"].results()
 
     pipeline = Pipeline.from_vaex(df)
-    pipeline = validate_persistance(pipeline)
+    pipeline = validate_persistence(pipeline)
     assert pipeline.raw
     assert pipeline.inference(pipeline.raw).shape == (1, 13)
 
@@ -199,13 +199,13 @@ def test_nmslib_sklearn():
         """Wrapper for using nmslib as sklearn's KNeighborsTransformer"""
 
         def __init__(
-            self,
-            n_neighbors=5,
-            output_column="knn",
-            method="hnsw",
-            metric="cosinesimil",
-            n_jobs=1,
-            index=None,
+                self,
+                n_neighbors=5,
+                output_column="knn",
+                method="hnsw",
+                metric="cosinesimil",
+                n_jobs=1,
+                index=None,
         ):
 
             self.n_neighbors = n_neighbors
@@ -278,7 +278,7 @@ def test_nmslib_sklearn():
 
     sample = X.to_records(0)
     pipeline = Pipeline.from_sklearn(NMSlibTransformer()).fit(X)
-    pipeline = validate_persistance(pipeline)
+    pipeline = validate_persistence(pipeline)
     assert pipeline.inference(sample).shape == (n, 11)
 
 
@@ -304,7 +304,7 @@ def test_kdtree():
     df["predictions"] = df.func.query(*tuple([df[col] for col in features]))
     pipeline = Pipeline.from_vaex(df)
 
-    pipeline = validate_persistance(pipeline)
+    pipeline = validate_persistence(pipeline)
     assert pipeline.inference(pipeline.raw).shape == (1, 12)
 
     # SKlearn version
@@ -340,6 +340,6 @@ def test_kdtree():
             return copy
 
     pipeline = Pipeline.from_sklearn(KDTreePredictor()).fit(X)
-    pipeline = validate_persistance(pipeline)
+    pipeline = validate_persistence(pipeline)
     assert pipeline.validate()
     assert pipeline.inference(pipeline.raw).shape == (1, 11)

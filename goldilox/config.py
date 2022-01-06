@@ -21,6 +21,8 @@ NUMPY = "numpy"
 SELECTIONS = "selections"
 SELECTIONS_FILTER = "__filter__"
 VARIABLES = "variables"
+DESCRIPTION = "description"
+RAW = "raw"
 PIPELINE = "pipeline"
 PIPELINE_TYPE = "pipeline_type"
 STATE = "state"
@@ -29,6 +31,7 @@ PY_VERSION = "py_version"
 PACKAGES = "packages"
 VALID_VAEX_HEADERS = ["*.csv", "*.hdf5", "*.parquet", "*.arrow"]
 DEFAULT_SUFFIX = ".parquet"
+BYTE_DELIMITER = b'###'
 
 # App
 CORS_ORIGINS = os.getenv('ORIGINS', '*').split(',')

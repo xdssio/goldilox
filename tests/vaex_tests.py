@@ -1,7 +1,7 @@
 import vaex
 
 from goldilox.vaex import VaexPipeline
-from tests.test_utils import validate_persistance
+from tests.test_utils import validate_persistence
 
 
 def test_advance_vaex():
@@ -66,7 +66,7 @@ def test_advance_vaex():
     train['prediction'] = train.func.where(train['lgm_predictions'] > 0.5, 1, 0)
     train['target_label'] = train.func.where(train['lgm_predictions'] > 0.5, 'survived', 'died')
     pipeline = VaexPipeline.from_dataframe(train)
-    pipeline = validate_persistance(pipeline)
+    pipeline = validate_persistence(pipeline)
     assert pipeline.inference(test).shape == (len(test), 23)
     predictions = pipeline.inference(test, fillna=False)['prediction']
     assert 0.5 < accuracy_score(test[target].values, predictions.values)
@@ -149,6 +149,5 @@ def test_advance_vaex_fit():
     df = vaex.open('data/titanic.csv')
     pipeline = VaexPipeline.from_dataframe(df, fit)
     pipeline.fit(df)
-    pipeline = validate_persistance(pipeline)
+    pipeline = validate_persistence(pipeline)
     assert pipeline.inference(df).shape == (len(df), 23)
-

@@ -1,10 +1,12 @@
 import json
+import subprocess
 import sys
 
 import click
-import pandas as pd
 
 from goldilox import Pipeline
+from goldilox.config import VARIABLES, RAW, DESCRIPTION, PACKAGES
+from goldilox.utils import process_variables
 
 
 @click.group()
@@ -53,8 +55,8 @@ def arguments():
 @click.argument("path", type=click.Path(exists=True))
 def description(path):
     """Retrive Goldilox Pipeline description"""
-    from goldilox import Pipeline
-    click.echo(Pipeline.load(path).description)
+    meta = Pipeline.load_meta(path)
+    click.echo(meta[DESCRIPTION])
 
 
 @main.command()
@@ -68,26 +70,52 @@ def example(path):
 @click.argument("path", type=click.Path(exists=True))
 def raw(path):
     """Retrive Goldilox Pipeline input example (raw data)"""
-    click.echo(json.dumps(Pipeline.load(path).raw, indent=4))
-
-
-def process_variables(variables):
-    valida_types = {type(None), dict, list, int, float, str, bool}
-
-    return {key: value for key, value in variables.items() if type(value) in valida_types and not pd.isnull(value)}
+    meta = Pipeline.load_meta(path)
+    click.echo(json.dumps(meta[RAW], indent=4))
 
 
 @main.command()
 @click.argument("path", type=click.Path(exists=True))
 def variables(path):
     """Retrive Goldilox Pipeline input example (raw data)"""
-    click.echo(json.dumps(process_variables(Pipeline.load(path).variables), indent=4))
+    meta = Pipeline.load_meta(path)
+    click.echo(json.dumps(process_variables(meta[VARIABLES]), indent=4))
 
 
 @main.command()
 @click.argument("path", type=click.Path(exists=True))
-def freeze(path, requirements_path):
+def packages(path):
     """Retrive Goldilox Pipeline input example (raw data)"""
+    meta = Pipeline.load_meta(path)
+    click.echo(json.dumps(meta[PACKAGES], indent=4))
+
+
+@main.command()
+@click.argument("path", type=click.Path(exists=True))
+@click.argument("output", type=str)
+def freeze(path, output):
+    """Retrive Goldilox Pipeline input example (raw data)"""
+    packages = Pipeline.load_meta(path)[PACKAGES]
+    with open(output, 'w') as outfile:
+        outfile.write(packages)
+    click.echo(f"checkout {output} for the requirements")
+
+
+# TODO
+@main.command()
+@click.argument("path", type=click.Path(exists=True))
+def install(path):
+    """Install neccecery python packages"""
+    subprocess.check_call([sys.executable, '-m', 'pip', 'install',
+                           '<packagename>'])
+
+    # process output with an API in the subprocess module:
+    reqs = subprocess.check_output([sys.executable, '-m', 'pip',
+                                    'freeze']).decode()
+    installed_packages = [r.decode().split('==')[0] for r in reqs.split()]
+
+    print(installed_packages)
+
     # TODO make freeze to requirements_path
     click.echo(json.dumps(process_variables(Pipeline.load(path).variables), indent=4))
 

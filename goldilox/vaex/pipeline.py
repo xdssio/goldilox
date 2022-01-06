@@ -1,7 +1,6 @@
 import inspect
 import json
 import logging
-import sys
 from collections import OrderedDict
 from copy import deepcopy, copy as _copy
 from glob import glob
@@ -17,7 +16,6 @@ import vaex
 from vaex.column import Column
 from vaex.ml.state import HasState, serialize_pickle
 
-import goldilox
 from goldilox.config import *
 from goldilox.pipeline import Pipeline
 
@@ -172,14 +170,7 @@ class VaexPipeline(HasState, Pipeline):
         return Pipeline.from_file(path)
 
     def _dumps(self):
-        state = {
-            STATE: _copy(self.state_get()),
-            PIPELINE_TYPE: self.pipeline_type,
-            VERSION: goldilox.__version__,
-            PY_VERSION: sys.version.split(" ")[0],
-            PACKAGES: self._get_packages()
-        }
-        return cloudpickle.dumps(state)
+        return cloudpickle.dumps(_copy(self.state_get()))
 
     @classmethod
     def json_load(cls, state):
@@ -194,8 +185,6 @@ class VaexPipeline(HasState, Pipeline):
     @classmethod
     def load_state(cls, state):
         instance = VaexPipeline()
-        if STATE in state:
-            state = state[STATE]
         if not isinstance(state, dict):
             state = VaexPipeline.json_load(state)
         instance.state_set(state)

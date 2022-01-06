@@ -1,40 +1,21 @@
 import logging
 from typing import List
 
-import numpy as np
-import pandas as pd
 from pydantic import create_model
 
 from goldilox import Pipeline
+from goldilox.utils import to_nulls, process_variables
 
 PIPELINE = "pipeline"
 GUNICORN = "gunicorn"
 UVICORN = "uvicorn"
 PATH = "path"
 
-valida_types = {type(None), dict, list, int, float, str, bool}
-
 
 def parse_query(query):
     if not isinstance(query, list):
         query = [query]
     return [q.dict() for q in query if q]
-
-
-def is_list(l):
-    return isinstance(l, (list, pd.core.series.Series, np.ndarray))
-
-
-def to_nulls(value):
-    if is_list(value):
-        return [to_nulls(v) for v in value]
-    elif isinstance(value, dict):
-        return {to_nulls(k): to_nulls(v) for k, v in value.items()}
-    elif hasattr(value, 'tolist'):
-        return to_nulls(value.tolist())
-    elif pd.isnull(value):
-        return None
-    return value
 
 
 def process_response(items):
@@ -45,14 +26,6 @@ def process_response(items):
         for key, value in item.items():
             item[key] = to_nulls(value)
     return items
-
-
-def process_variables(variables):
-    return {
-        key: to_nulls(value)
-        for key, value in variables.items()
-        if (type(value) in valida_types or hasattr(value, 'tolist'))
-    }
 
 
 def get_app(path):

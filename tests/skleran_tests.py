@@ -11,7 +11,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OrdinalEncoder
 from sklearn.preprocessing import StandardScaler
 
-from tests.test_utils import validate_persistance
+from tests.test_utils import validate_persistence
 
 warnings.filterwarnings("ignore")
 
@@ -93,7 +93,7 @@ def test_sklrean_predict_classification(iris):
         target=target,
     ).fit(df)
     assert pipeline.validate(X, check_na=False)
-    pipeline = validate_persistance(pipeline)
+    pipeline = validate_persistence(pipeline)
     assert pipeline.output_column in pipeline.inference(X)
     assert pipeline.raw == SklearnPipeline.to_raw(X)
     assert pipeline.features == features
@@ -259,8 +259,8 @@ def test_skleran_advance(tmpdir):
         def encode(self, column, X):
             return (
                 self.encoders[column]
-                .transform(self.preprocess_series(X[column]))
-                .reshape(-1)
+                    .transform(self.preprocess_series(X[column]))
+                    .reshape(-1)
             )
 
         def fit(self, X, y=None):
@@ -398,7 +398,7 @@ def test_skleran_advance(tmpdir):
     )
 
     pipeline = SklearnPipeline.from_sklearn(sk_pipeline[1:]).fit(train)
-    pipeline = validate_persistance(pipeline)
+    pipeline = validate_persistence(pipeline)
     assert pipeline.validate()
     assert pipeline.inference(test).shape == (len(test), 22)
 

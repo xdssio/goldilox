@@ -6,7 +6,7 @@ from sklearn.linear_model import LogisticRegression
 
 from goldilox.sklearn.pipeline import Pipeline as SklearnPipeline
 from goldilox.vaex.pipeline import VaexPipeline as VaexPipeline
-from tests.test_utils import validate_persistance
+from tests.test_utils import validate_persistence
 
 
 @pytest.fixture()
@@ -47,5 +47,5 @@ def test_text_sklearn(news, tmpdir):
     y = df['target']
     sk_pipeline = sklearn.pipeline.Pipeline([('tfidf', TfidfVectorizer()), ('classifier', LogisticRegression())])
     pipeline = SklearnPipeline.from_sklearn(sk_pipeline).fit(X, y)
-    pipeline = validate_persistance(pipeline)
+    pipeline = validate_persistence(pipeline)
     assert pipeline.inference(pipeline.raw).shape == (1, 2)

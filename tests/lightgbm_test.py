@@ -2,7 +2,7 @@ import pytest
 from vaex.ml.datasets import load_iris
 
 from goldilox import Pipeline
-from tests.test_utils import validate_persistance
+from tests.test_utils import validate_persistence
 
 
 @pytest.fixture()
@@ -42,7 +42,7 @@ def test_lightgbm_vaex(iris, tmpdir):
                           accuracy_score(pipeline.inference(test[features])['prediction'].values, test[target].values))
 
     data = test.to_records(0)
-    pipeline = validate_persistance(pipeline)
+    pipeline = validate_persistence(pipeline)
     assert pipeline.inference(test).head(1).shape == (1, 8)
     assert pipeline.inference(data).head(1).shape == (1, 8)
     assert pipeline.inference({'sepal_length': 5.9, 'petal_length': 4.2}).head(1).shape == (1, 8)
@@ -98,7 +98,7 @@ def test_lightgbm_vaex_fit(iris, tmpdir):
     data = df.to_records(0)
     assert pipeline.inference(data).shape == df.head(1).shape
     pipeline.fit(df)
-    pipeline = validate_persistance(pipeline)
+    pipeline = validate_persistence(pipeline)
     assert pipeline.inference(data).shape == (1, 7)
     assert pipeline.get_variable('accuracy')
     assert pipeline.raw == data

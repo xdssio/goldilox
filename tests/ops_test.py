@@ -1,7 +1,7 @@
-from goldilox.sklearn.pipeline import Pipeline as SklearnPipeline
-from goldilox.vaex.pipeline import VaexPipeline as VaexPipeline
-from vaex.ml.datasets import load_iris_1e5
 import pytest
+from vaex.ml.datasets import load_iris_1e5
+
+from goldilox import Pipeline
 
 
 def lightgbm_vaex_fit():
@@ -33,7 +33,7 @@ def lightgbm_vaex_fit():
         train.add_function("argmax", argmax)
         train["prediction"] = train["predictions"].argmax()
 
-        pipeline = VaexPipeline.from_dataframe(train)
+        pipeline = Pipeline.from_vaex(train)
         accuracy = accuracy_score(
             pipeline.inference(test[features])["prediction"].values, test[target].values
         )
@@ -59,7 +59,7 @@ def lightgbm_vaex_fit():
 
     iris = load_iris_1e5()
     df = iris.copy()
-    pipeline = VaexPipeline.from_dataframe(
+    pipeline = Pipeline.from_vaex(
         df, fit=fit, description="Lightgbm with Vaex"
     )
     data = df.to_records(0)
@@ -87,6 +87,8 @@ def lightgbm_vaex_fit():
     pipeline.validate(df.head(2))
 
     pipeline.save("../goldilox-ops/models/pipeline.pkl")
+    pipeline.save("./pipeline.pkl")
+    pipeline.save("./notebooks/pipeline.pkl")
 
 
 def test_lightgbm_sklearn():
@@ -99,7 +101,7 @@ def test_lightgbm_sklearn():
     sk_pipeline = sklearn.pipeline.Pipeline([("classifier", LGBMClassifier())])
     X = df[features]
     y = df[target]
-    self = pipeline = SklearnPipeline.from_sklearn(
+    self = pipeline = Pipeline.from_sklearn(
         sk_pipeline, description="Lightgbm with sklearn"
     ).fit(X, y)
 

@@ -1,5 +1,4 @@
 import logging
-import sys
 from time import time
 
 import cloudpickle
@@ -7,9 +6,8 @@ import numpy as np
 import pandas as pd
 import traitlets
 
-import goldilox
 from goldilox import Pipeline
-from goldilox.config import STATE, PIPELINE_TYPE, VERSION, PY_VERSION, PACKAGES
+from goldilox.config import STATE
 
 DEFAULT_OUTPUT_COLUMN = "prediction"
 TRAITS = "_trait_values"
@@ -40,9 +38,9 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
     fit_params = traitlets.Dict(
         allow_none=True, default_value={}, help="params to use on fit time"
     )
-    description = traitlets.Unicode(
-        default_value="", help="Any notes to associate with a pipeline instance"
-    )
+    description = traitlets.Unicode(allow_none=True,
+                                    default_value="", help="Any notes to associate with a pipeline instance"
+                                    )
     variables = traitlets.Dict(
         default_value={}, help="Any variables to associate with a pipeline instance"
     )
@@ -134,14 +132,7 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
         raise RuntimeError(f"could not infer type:{type(df)}")
 
     def _dumps(self):
-        state = {
-            STATE: self,
-            PIPELINE_TYPE: self.pipeline_type,
-            VERSION: goldilox.__version__,
-            PY_VERSION: sys.version.split(" ")[0],
-            PACKAGES: self._get_packages()
-        }
-        return cloudpickle.dumps(state)
+        return cloudpickle.dumps(self)
 
     @classmethod
     def loads(cls, state):

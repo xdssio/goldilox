@@ -8,7 +8,7 @@ from implicit.nearest_neighbours import bm25_weight
 from scipy.sparse import csr_matrix
 
 from goldilox import Pipeline
-from tests.test_utils import validate_persistance
+from tests.test_utils import validate_persistence
 
 
 def test_implicit_als(tmpdir):
@@ -99,6 +99,7 @@ def test_implicit_als(tmpdir):
     df['explanation'] = df.func.explain(df[userid], df[itemid])
 
     pipeline = Pipeline.from_vaex(df)
-    pipeline = validate_persistance(pipeline)
+    pipeline = validate_persistence(pipeline)
     assert pipeline.inference({userid: [1, 2, 3]}, columns=[userid, 'als', 'tfidf']).shape == (3, 3)
-    assert pipeline.inference({userid: [1, 2, 3], itemid: [2, 2, 2]}, columns=[userid, 'als', 'tfidf', 'explanation']).shape == (3, 4)  # TODO
+    assert pipeline.inference({userid: [1, 2, 3], itemid: [2, 2, 2]},
+                              columns=[userid, 'als', 'tfidf', 'explanation']).shape == (3, 4)  # TODO

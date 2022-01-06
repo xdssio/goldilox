@@ -5,7 +5,7 @@ import vaex
 from vaex.ml.datasets import load_iris_1e5
 
 from goldilox import Pipeline
-from tests.test_utils import validate_persistance
+from tests.test_utils import validate_persistence
 
 
 @pytest.fixture()
@@ -37,7 +37,7 @@ def test_flaml_vaex(df, tmpdir):
     df['predictions'] = df.func.automl(*tuple([df[col] for col in features]))
 
     pipeline = Pipeline.from_vaex(df)
-    pipeline = validate_persistance(pipeline)
+    pipeline = validate_persistence(pipeline)
     assert pipeline.inference(pipeline.raw).shape == (1, 6)
 
 

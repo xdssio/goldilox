@@ -101,3 +101,4 @@ model.fit(df)
 df = model.transform(df)
 df['prediction'] = df['prediction'].apply(lambda x: x[0])  # catboost returns array - so we adjust
 df['label'] = df['prediction'].map({0: 'setosa', 1: 'versicolor', 2: 'virginica'})
+
