@@ -65,7 +65,7 @@ def description(path):
 @main.command()
 @click.argument("path", type=click.Path(exists=True))
 def example(path):
-    """Retrive Goldilox Pipeline output example"""
+    """Retrive Goldilox Pipeline output example with all possible outputs"""
     click.echo(json.dumps(Pipeline.load(path).example, indent=4))
 
 
@@ -80,7 +80,7 @@ def raw(path):
 @main.command()
 @click.argument("path", type=click.Path(exists=True))
 def variables(path):
-    """Retrive Goldilox Pipeline input example (raw data)"""
+    """Retrive Goldilox Pipeline variables"""
     meta = Pipeline.load_meta(path)
     click.echo(json.dumps(process_variables(meta[VARIABLES]), indent=4))
 
@@ -88,7 +88,7 @@ def variables(path):
 @main.command()
 @click.argument("path", type=click.Path(exists=True))
 def packages(path):
-    """Retrive Goldilox Pipeline input example (raw data)"""
+    """Retrive Goldilox Pipeline packages"""
     meta = Pipeline.load_meta(path)
     click.echo(json.dumps(meta[PACKAGES], indent=4))
 
@@ -103,7 +103,7 @@ def _write_content(output, content):
 @click.argument("path", type=click.Path(exists=True))
 @click.argument("output", type=str)
 def freeze(path, output='requirements.txt'):
-    """Retrive Goldilox Pipeline input example (raw data)"""
+    """Write Goldilox Pipeline packages to a file (pip freeze > output)"""
     packages = Pipeline.load_meta(path)[PACKAGES]
     _write_content(output, packages)
     click.echo(f"checkout {output} for the requirements")
@@ -112,7 +112,7 @@ def freeze(path, output='requirements.txt'):
 @main.command()
 @click.argument("path", type=click.Path(exists=True))
 def install(path):
-    """Install neccecery python packages"""
+    """Install Goldilox Pipeline packages to current environment ('pip install -r requirements.txt')"""
     requirements_path = NamedTemporaryFile().name
     packages = Pipeline.load_meta(path)[PACKAGES]
     _write_content(requirements_path, packages)
@@ -126,7 +126,7 @@ def install(path):
 @click.option('--image', type=str, default=None)
 @click.option('--platform', type=str, default=None)
 def build(path, name="goldilox", image=None, platform=None):
-    """Docker build"""
+    """Docker build server image"""
     goldilox_path = Path(goldilox.__file__)
     docker_file_path = str(goldilox_path.parent.absolute().joinpath('app').joinpath('Dockerfile'))
     run_args = ['docker', 'build', f"-f={docker_file_path}", f"-t={name}"]
