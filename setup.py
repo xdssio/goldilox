@@ -7,7 +7,7 @@ setup(
     packages=packages,
     include_package_data=True,
     install_requires=["sklearn", "pandas", "numpy", "cloudpickle", "gunicorn", "Click", "fastapi", "uvicorn"],
-    version="0.0.2a4",
+    version="0.0.2",
     url="https://github.com/xdssio/goldilox",
     description="A tool for deploying machine learning",
     author="Yonatan Alexander",
@@ -16,4 +16,5 @@ setup(
         [console_scripts]
         glx=goldilox.app.cli:main
     """,
+    python_requires='>=3',
 )

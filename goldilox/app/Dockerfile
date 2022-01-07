@@ -10,7 +10,7 @@ ENV PYTHONUNBUFFERED=TRUE PYTHONDONTWRITEBYTECODE=TRUE PYTHONUNBUFFERED=1  PYTHO
 
 RUN apt-get update && apt update && apt install -y git gcc python3-pip
 
-RUN pip install -U pip && pip3 install --no-cache-dir goldilox==0.0.2a4  pydantic fastapi click vaex
+RUN pip install -U pip && pip3 install --no-cache-dir goldilox==0.0.2  pydantic fastapi click vaex
 
 ARG PIPELINE_FILE
 
@@ -24,6 +24,8 @@ RUN glx freeze $PIPELINE_PATH REQUIRMENTS
 
 RUN pip3 install -r REQUIRMENTS
 
+RUN ln -s /home/pipeline.pkl pipeline
+
 EXPOSE 8000
 
-CMD ["glx", "serve"]
+CMD ["glx", "serve", "/home/pipeline.pkl"]
