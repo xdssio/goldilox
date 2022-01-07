@@ -10,15 +10,19 @@ RUN echo 'export PS1="\[\e[36m\]goldilox>\[\e[m\] "' >> /root/.bashrc
 
 ENV PYTHONUNBUFFERED=TRUE PYTHONDONTWRITEBYTECODE=TRUE PYTHONUNBUFFERED=1  PYTHONIOENCODING=UTF-8
 
-RUN apt-get update && apt update && apt install -y git gcc
+RUN apt-get update && apt update && apt install -y git gcc python3-pip
+
+RUN pip install -U pip && pip3 install --no-cache-dir goldilox==0.0.1a11  pydantic fastapi click vaex
 
 ENV LOCAL_PIPELINE_PATH "/home/pipeline.pkl"
 
+ENV REQUIRMENTS "/home/requirements.txt"
+
 COPY $PIPELINE_PATH $LOCAL_PIPELINE_PATH
 
-RUN pip install -U pip && pip3 install --no-cache-dir wheel && pip3 install --no-cache-dir goldilox==0.0.1a9  pydantic fastapi click vaex
+RUN glx freeze $LOCAL_PIPELINE_PATH REQUIRMENTS
 
-RUN glx install $LOCAL_PIPELINE_PATH
+RUN pip3 install -r REQUIRMENTS
 
 EXPOSE 8000
 
