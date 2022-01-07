@@ -146,7 +146,7 @@ class VaexPipeline(HasState, Pipeline):
         state = copy.state_get()
         renamed = {x[1]: x[0] for x in state["renamed_columns"]}
         raw = {
-            renamed.get(key, key): cls._tolist(value)[0]  ##
+            renamed.get(key, key): cls._tolist(value)[0]
             for key, value in sample.dataset._columns.items()
         }
         original_columns = VaexPipeline._get_original_columns(sample)
@@ -408,16 +408,3 @@ class VaexPipeline(HasState, Pipeline):
         model = eval(tmp["cls"])()
         model.state_set(state=tmp["state"])
         return model
-
-    def _validate_na(self, df):
-        length = len(df)
-        ret = True
-        for column in df:
-            tmp = df.copy()
-            tmp[column] = self.na_column(length)
-            try:
-                self.inference(tmp)
-            except Exception as e:
-                ret = False
-                logger.warning(f"Pipeline doesn't handle NA for {column}")
-        return ret

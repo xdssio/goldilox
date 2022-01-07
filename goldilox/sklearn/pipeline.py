@@ -47,6 +47,7 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
 
     @property
     def example(self):
+        """Returns an example of all possible outputs"""
         return self.inference(self.raw).to_dict(orient="records")[0]
 
     def set_variable(self, key, value):
@@ -111,9 +112,11 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
 
     @property
     def fitted(self):
+        """Returns True is the pipeline/model is fitted"""
         return self.pipeline is not None and self.pipeline.__sklearn_is_fitted__()
 
     def infer(self, df):
+        """Turn many inputs into a dataframes"""
         if isinstance(df, pd.DataFrame):
             return df.copy()
         if isinstance(df, np.ndarray):
@@ -216,15 +219,3 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
 
     def preprocess(self, df):
         pass
-
-    def _validate_na(self, df):
-        ret = True
-        for column in df:
-            tmp = df.copy()
-            tmp[column] = None
-            try:
-                self.inference(tmp)
-            except:
-                ret = False
-                logger.warning(f"Pipeline doesn't handle na for {column}")
-        return ret

@@ -38,6 +38,11 @@ class Pipeline:
 
     @staticmethod
     def to_raw(df):
+        """
+        Retrinve
+        @param df: a Pandas Dataframe, Pandas Series, Vaex Dataframe, or numpy array.
+        @return: a dict example of raw data which you would expect in production inference time.
+        """
         if hasattr(df, "to_pandas_df"):  # vaex
             return df.to_records(0)
         elif isinstance(df, np.ndarray):  # numpy
@@ -48,6 +53,14 @@ class Pipeline:
 
     @classmethod
     def from_vaex(cls, df, fit=None, validate=True, **kwargs):
+        """
+        Get a Pipeline out of a vaex.dataframe.DataFrame, and validate serilization and missing values.
+        @param df: vaex.dataframe.DataFrame
+        @param fit: method: A method which accepts a dataframe and returns a dataframe which run on pipeline.fit().
+        @param validate: bool [optional]: If true, run validation.
+        @param kwargs: Other parameters to pass to VaexPipeline #TODO remove
+        @return: VaexPipeline
+        """
         from goldilox.vaex.pipeline import VaexPipeline as VaexPipeline
         pipeline = VaexPipeline.from_dataframe(df=df, fit=fit, **kwargs)
         if validate:
@@ -68,6 +81,18 @@ class Pipeline:
             description="",
             validate=True
     ):
+        """
+        :param sklearn.preprocessing.pipeline.Pipeline pipeline: The skleran pipeline
+        :param raw: dict [optional]: An example of data which will be queried in production (only the features)
+                - If X is provided, would be the first row.
+        :param features: list [optional]: A list of columns - if X is provided, will take its columns - important if data provided as numpy array.
+        :param target: str [optional]: The name of the target column - Used for retraining
+        :param output_column: str [optional]: For sklearn estimator with 'predict' predictions a name.
+        :param variables: dict [optional]: Variables to associate with the pipeline - fit_params automatically are added
+        :param description: str [optional]: A pipeline description and notes in text
+        :param validate: bool [optional]: If True, run validation.
+        :return: SkleranPipeline object
+        """
         from goldilox.sklearn.pipeline import SklearnPipeline, DEFAULT_OUTPUT_COLUMN
 
         output_column = output_column or DEFAULT_OUTPUT_COLUMN
@@ -104,6 +129,11 @@ class Pipeline:
 
     @classmethod
     def from_file(cls, path):
+        """
+        Read a pipeline from file.
+        @param path: path to pipeline file.
+        @return: SkleranPipeline or VaexPipeline.
+        """
         meta_bytes, state_bytes = Pipeline._read_file(path)
         try:
             state = cloudpickle.loads(state_bytes)
@@ -123,10 +153,12 @@ class Pipeline:
 
     @classmethod
     def load(cls, path):
+        """Alias to from_file()"""
         return cls.from_file(path)
 
     @classmethod
     def load_meta(cls, path):
+        """Read the meta information from a pipeline file without loading it"""
         meta_bytes, _ = Pipeline._read_file(path)
         return cloudpickle.loads(meta_bytes)
 
@@ -148,6 +180,7 @@ class Pipeline:
         return splited[0][len(Pipeline.BYTES_SIGNETURE):], splited[1]
 
     def save(self, path):
+        """Save a pipeline to a file"""
         state_to_write = Pipeline.BYTES_SIGNETURE + self._get_meta() + BYTE_DELIMITER + self._dumps()
         if _is_s3_url(path):
             import s3fs
@@ -168,6 +201,14 @@ class Pipeline:
         return path
 
     def validate(self, df=None, check_na=True, verbose=True):
+        """
+        Validate the pieline can be saved, reload, and run predictions.
+        Can also check if missing value are handled.
+        @param df: DataFrame [optional] - used to test prediction.
+        @param check_na: bool [optional] - If true, test if missing data is handled.
+        @param verbose: If True, log the validation.
+        @return: True if pipeline can be served for predictions.
+        """
         if verbose:
             logger.info("validate serialization")
         pipeline = Pipeline.from_file(self.save(TemporaryDirectory().name + "models/model.pkl"))
@@ -179,10 +220,25 @@ class Pipeline:
             results = pipeline.inference(df)
             assert len(results) == len(df)
             if check_na:
-                pipeline._validate_na(df)
+                pipeline._validate_na()
         elif verbose:
             logger.info("No data, and no raw example existing for inference validation - skip")
         return True
+
+    def _validate_na(self):
+        ret = True
+        copy = self.raw.copy()
+        for column in copy:
+            tmp = copy.copy()
+            tmp[column] = None
+            try:
+                with np.errstate(all='ignore'):
+                    self.inference(tmp).values
+            except Exception as e:
+                ret = False
+                print("???")
+                logger.warning(f"Pipeline doesn't handle NA for {column}")
+        return ret
 
     def fit(self, df, **kwargs):
         return self
@@ -201,6 +257,7 @@ class Pipeline:
 
     @classmethod
     def to_records(cls, items):
+        """Return data as records: [{key: value, ...}, ...]"""
         if isinstance(items, pd.DataFrame):
             return items.to_dict(orient="records")
         elif isinstance(items, list) or isinstance(items, dict):
@@ -210,16 +267,17 @@ class Pipeline:
 
     @classmethod
     def jsonify(cls, items):
+        """Return data as json: '[{key: value, ...}, ...]'"""
         if isinstance(items, pd.DataFrame):
             return items.to_json(orient="records")
         elif isinstance(items, list) or isinstance(items, dict):
             return json.dumps(items)
-
         # vaex
         return json.dumps(items.to_records())
 
     @staticmethod
     def _get_packages():
+        """Run pip freeze and returns the results"""
         import subprocess
         return subprocess.check_output([sys.executable, '-m', 'pip',
                                         'freeze']).decode()
