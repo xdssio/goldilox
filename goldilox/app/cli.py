@@ -109,20 +109,6 @@ def freeze(path, output='requirements.txt'):
     click.echo(f"checkout {output} for the requirements")
 
 
-"""
-@deprecated
-@main.command()
-@click.argument("path", type=click.Path(exists=True))
-def install(path):
-    ""Install Goldilox Pipeline packages to current environment ('pip install -r requirements.txt')""
-    requirements_path = NamedTemporaryFile().name
-    packages = Pipeline.load_meta(path)[PACKAGES]
-    _write_content(requirements_path, packages)
-    subprocess.check_call([sys.executable, '-m', 'pip3', 'install',
-                           '-r', requirements_path])
-"""
-
-
 @main.command()
 @click.argument("path", type=click.Path(exists=True))
 @click.option("--name", type=str, default="goldilox")
@@ -133,16 +119,18 @@ def build(path, name="goldilox", image=None, platform=None):
     goldilox_path = Path(goldilox.__file__)
     docker_file_path = str(goldilox_path.parent.absolute().joinpath('app').joinpath('Dockerfile'))
     run_args = ['docker', 'build', f"-f={docker_file_path}", f"-t={name}"]
-    build_args = ["--build-arg", f"PIPELINE_PATH={path}"]
+    build_args = ["--build-arg", f"PIPELINE_FILE={path}"]
     suffix_arg = ['.']
     if image is not None:
         build_args = build_args + ["--build-arg", f"PYTHON_IMAGE={image}"]
     if platform is not None:
         run_args = run_args + [f"--platform={platform}"]
     command = run_args + build_args + suffix_arg
-    print(' '.join(command))  # TODO remove
+    click.echo(f"Running docker build as follow:")
+    click.echo(f"{' '.join(command)}")
+    click.echo(f" ")
     subprocess.check_call(command)
-    run_command = f"docker run -it -rm {name}" if platform is None else f"docker run -it -rm --platform=={platform} {name}"
+    run_command = f"docker run --rm -it {name}" if platform is None else f"docker run --rm -it --platform={platform} -p 127.0.0.1:5000:8000 {name}"
     click.echo(f"Image {name} created - run with: '{run_command}'")
 
 

@@ -303,7 +303,13 @@ glx build <pipeline-path> --platform=linux/amd64 --image=python:3.8-slim-bullsey
    it as it. We consider ourselves in between, you can do most things, with minimal adjustments.
 2. Why do you work with Vaex and not just Pandas? Vaex handles Big-Data on normal computers, which is our target
    audience. And we relay heavily on it's lazy evaluation which pandas doesn't have.
-3.
+3. M1 mac with docker?     
+   You probably want to use --platform=linux/amd64
+4. How to send arguments to the docker serve?
+5. `docker run -p 127.0.0.1:5000:5000 --rm -it --platform=linux/amd64 goldilox glx serve $PIPELINE_PATH <args>`
+   example:
+
+* `docker run -p 127.0.0.1:5000:5000 --rm -it --platform=linux/amd64 goldilox glx serve $PIPELINE_PATH --bind=0.0.0.0:5000`
 
 # Contributing
 
@@ -313,4 +319,7 @@ See [contributing](https://github.com/xdssio/goldilox/wiki/Contributing) page.
 
 # Roadmap
 
-See [roadmap](https://github.com/xdssio/goldilox/wiki/Roadmap) page. 
+See [roadmap](https://github.com/xdssio/goldilox/wiki/Roadmap) page.
+
+docker build -f=/Users/yonatanalexander/development/xdss/goldilox/goldilox/app/Dockerfile -t=goldilox
+--platform=linux/amd64 --build-arg PIPELINE_PATH=pipeline.pkl .
