@@ -2,7 +2,6 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 
 import click
 
@@ -37,7 +36,7 @@ def process_option(s):
 @click.argument("path", type=click.Path(exists=True))
 @click.argument('options', nargs=-1, type=click.UNPROCESSED)
 def serve(path, **options):
-    """Serve a Goldilox Pipeline"""
+    """Serve a  pipeline with fastapi server"""
     server_options = {}
     for option in options['options']:
         key, value = process_option(option)
@@ -51,13 +50,14 @@ def serve(path, **options):
 
 @main.command()
 def arguments():
+    """gunicorn arguments reference"""
     print("check https://docs.gunicorn.org/en/stable/run.html for options")
 
 
 @main.command()
 @click.argument("path", type=click.Path(exists=True))
 def description(path):
-    """Retrive Goldilox Pipeline description"""
+    """print pipeline description"""
     meta = Pipeline.load_meta(path)
     click.echo(meta[DESCRIPTION])
 
@@ -65,14 +65,14 @@ def description(path):
 @main.command()
 @click.argument("path", type=click.Path(exists=True))
 def example(path):
-    """Retrive Goldilox Pipeline output example with all possible outputs"""
+    """print pipeline output example with all possible outputs"""
     click.echo(json.dumps(Pipeline.load(path).example, indent=4))
 
 
 @main.command()
 @click.argument("path", type=click.Path(exists=True))
 def raw(path):
-    """Retrive Goldilox Pipeline input example (raw data)"""
+    """print pipeline input example (raw data)"""
     meta = Pipeline.load_meta(path)
     click.echo(json.dumps(meta[RAW], indent=4))
 
@@ -80,7 +80,7 @@ def raw(path):
 @main.command()
 @click.argument("path", type=click.Path(exists=True))
 def variables(path):
-    """Retrive Goldilox Pipeline variables"""
+    """print pipeline variables"""
     meta = Pipeline.load_meta(path)
     click.echo(json.dumps(process_variables(meta[VARIABLES]), indent=4))
 
@@ -88,7 +88,7 @@ def variables(path):
 @main.command()
 @click.argument("path", type=click.Path(exists=True))
 def packages(path):
-    """Retrive Goldilox Pipeline packages"""
+    """print pipeline packages"""
     meta = Pipeline.load_meta(path)
     click.echo(json.dumps(meta[PACKAGES], indent=4))
 
@@ -103,21 +103,24 @@ def _write_content(output, content):
 @click.argument("path", type=click.Path(exists=True))
 @click.argument("output", type=str)
 def freeze(path, output='requirements.txt'):
-    """Write Goldilox Pipeline packages to a file (pip freeze > output)"""
+    """write pipeline packages to a file (pip freeze > output)"""
     packages = Pipeline.load_meta(path)[PACKAGES]
     _write_content(output, packages)
     click.echo(f"checkout {output} for the requirements")
 
 
+"""
+@deprecated
 @main.command()
 @click.argument("path", type=click.Path(exists=True))
 def install(path):
-    """Install Goldilox Pipeline packages to current environment ('pip install -r requirements.txt')"""
+    ""Install Goldilox Pipeline packages to current environment ('pip install -r requirements.txt')""
     requirements_path = NamedTemporaryFile().name
     packages = Pipeline.load_meta(path)[PACKAGES]
     _write_content(requirements_path, packages)
     subprocess.check_call([sys.executable, '-m', 'pip3', 'install',
                            '-r', requirements_path])
+"""
 
 
 @main.command()
@@ -126,7 +129,7 @@ def install(path):
 @click.option('--image', type=str, default=None)
 @click.option('--platform', type=str, default=None)
 def build(path, name="goldilox", image=None, platform=None):
-    """Docker build server image"""
+    """ build a docker server image"""
     goldilox_path = Path(goldilox.__file__)
     docker_file_path = str(goldilox_path.parent.absolute().joinpath('app').joinpath('Dockerfile'))
     run_args = ['docker', 'build', f"-f={docker_file_path}", f"-t={name}"]
@@ -137,8 +140,10 @@ def build(path, name="goldilox", image=None, platform=None):
     if platform is not None:
         run_args = run_args + [f"--platform={platform}"]
     command = run_args + build_args + suffix_arg
-    print(' '.join(command))
+    print(' '.join(command))  # TODO remove
     subprocess.check_call(command)
+    run_command = f"docker run -it -rm {name}" if platform is None else f"docker run -it -rm --platform=={platform} {name}"
+    click.echo(f"Image {name} created - run with: '{run_command}'")
 
 
 if __name__ == '__main__':
