@@ -52,21 +52,26 @@ class Pipeline:
         return df.iloc[0].to_dict()  # pandas
 
     @classmethod
-    def from_vaex(cls, df, fit=None, validate=True, **kwargs):
+    def from_vaex(cls, df, fit=None, variables=None, description="", validate=True):
         """
         Get a Pipeline out of a vaex.dataframe.DataFrame, and validate serilization and missing values.
         @param df: vaex.dataframe.DataFrame
-        @param fit: method: A method which accepts a dataframe and returns a dataframe which run on pipeline.fit().
+        @param fit: method: A method which accepts a vaex dataframe and returns a vaex dataframe which run on pipeline.fit(df).
+        @param variables: dict [optional]: Any variables we want to associate with the current pipeline.
+        @param description: str [optional]: Any text we want to associate with the current pipeline.
         @param validate: bool [optional]: If true, run validation.
-        @param kwargs: Other parameters to pass to VaexPipeline #TODO remove
         @return: VaexPipeline
         """
         from goldilox.vaex.pipeline import VaexPipeline as VaexPipeline
-        pipeline = VaexPipeline.from_dataframe(df=df, fit=fit, **kwargs)
+        pipeline = VaexPipeline.from_dataframe(df=df, fit=fit, variables=variables, description=description)
         if validate:
             logger.info("validate pipeline")
             logger.info(f"pipeline valid: {pipeline.validate()}")
         return pipeline
+
+    @staticmethod
+    def _is_sklearn_fitted(pipeline):
+        return hasattr(pipeline, "__sklearn_is_fitted__") and pipeline.__sklearn_is_fitted__()
 
     @classmethod
     def from_sklearn(
@@ -75,7 +80,7 @@ class Pipeline:
             raw=None,
             target=None,
             features=None,
-            output_column=None,
+            output_columns=None,
             variables=None,
             fit_params=None,
             description="",
@@ -87,7 +92,7 @@ class Pipeline:
                 - If X is provided, would be the first row.
         :param features: list [optional]: A list of columns - if X is provided, will take its columns - important if data provided as numpy array.
         :param target: str [optional]: The name of the target column - Used for retraining
-        :param output_column: str [optional]: For sklearn estimator with 'predict' predictions a name.
+        :param output_columns: List[str] [optional]: For sklearn output column in case the output is a numpy array
         :param variables: dict [optional]: Variables to associate with the pipeline - fit_params automatically are added
         :param description: str [optional]: A pipeline description and notes in text
         :param validate: bool [optional]: If True, run validation.
@@ -95,18 +100,20 @@ class Pipeline:
         """
         from goldilox.sklearn.pipeline import SklearnPipeline, DEFAULT_OUTPUT_COLUMN
 
-        output_column = output_column or DEFAULT_OUTPUT_COLUMN
+        if output_columns is None or len(output_columns) == 0 and hasattr(pipeline, 'predict'):
+            output_columns = [DEFAULT_OUTPUT_COLUMN]
+        output_columns = list(output_columns)
         ret = SklearnPipeline.from_sklearn(
             pipeline=pipeline,
             features=features,
             target=target,
             raw=raw,
-            output_column=output_column,
+            output_columns=output_columns,
             variables=variables,
             fit_params=fit_params,
             description=description,
         )
-        if validate:
+        if validate and Pipeline._is_sklearn_fitted(pipeline):
             logger.info("validate pipeline")
             logger.info(f"pipeline valid: {ret.validate()}")
         return ret
@@ -236,7 +243,6 @@ class Pipeline:
                     self.inference(tmp).values
             except Exception as e:
                 ret = False
-                print("???")
                 logger.warning(f"Pipeline doesn't handle NA for {column}")
         return ret
 

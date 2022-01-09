@@ -32,9 +32,7 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
     pipeline = traitlets.Any(allow_none=False, help="A sklearn pipeline")
     features = traitlets.List(allow_none=True, help="A list of features")
     target = traitlets.Unicode(allow_none=True, help="A column to learn on fit")
-    output_column = traitlets.Unicode(
-        default_value=DEFAULT_OUTPUT_COLUMN, help="A column to learn on fit"
-    )
+    output_columns = traitlets.List(allow_none=True, help="The output column names")
     fit_params = traitlets.Dict(
         allow_none=True, default_value={}, help="params to use on fit time"
     )
@@ -64,7 +62,7 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
             raw=None,
             features=None,
             target=None,
-            output_column=DEFAULT_OUTPUT_COLUMN,
+            output_columns=None,
             variables=None,
             fit_params=None,
             description="",
@@ -75,7 +73,7 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
                 - If X is provided, would be the first row.
         :param features: list [optional]: A list of columns - if X is provided, will take it's columns
         :param target: str [optional]: The name of the target column - Used for retraining
-        :param output_column: str [optional]: For sklearn estimator with 'predict' predictions a name.
+        :param output_columns: List[str] [optional]: For sklearn estimator which predict a numpy.ndarray, name the output columns.
         :param variables: dict [optional]: Variables to associate with the pipeline - fit_params automatically are added
         :param description: str [optional]: A pipeline description and notes in text
         :return: SkleranPipeline object
@@ -99,16 +97,17 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
             variables = {}
         if fit_params:
             variables.update(fit_params)
-        return SklearnPipeline(
+        ret = SklearnPipeline(
             pipeline=pipeline,
             features=features,
             target=target,
             raw=raw,
-            output_column=output_column,
+            output_columns=output_columns,
             fit_params=fit_params,
             variables=variables,
             description=description,
         )
+        return ret
 
     @property
     def fitted(self):
@@ -119,6 +118,8 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
         """Turn many inputs into a dataframes"""
         if isinstance(df, pd.DataFrame):
             return df.copy()
+        if isinstance(df, pd.Series):
+            return pd.DataFrame({df.name: df})
         if isinstance(df, np.ndarray):
             return pd.DataFrame(df, columns=self.features)
         if isinstance(df, dict):
@@ -150,7 +151,6 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
     def _to_pandas(self, X, y=None):
         try:
             import vaex
-
             if isinstance(X, vaex.dataframe.DataFrame):
                 X = X.to_pandas_df()
             elif isinstance(X, vaex.expression.Expression):
@@ -171,9 +171,10 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
         elif isinstance(y, str):
             self.target = y
             y = X[y]
+        X = self._set_features(X)
         return X, y
 
-    def _get_features(self, X):
+    def _set_features(self, X):
         if isinstance(X, pd.DataFrame):
             if self.features is None:
                 self.features = list(X.columns)
@@ -188,7 +189,6 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
 
     def fit(self, df, y=None, validate=True, check_na=True):
         X, y = self._to_pandas(df, y)
-        X = self._get_features(X)
         self.raw = self.to_raw(X)
         params = self.fit_params or {}
         self.pipeline = self.pipeline.fit(X=X, y=y, **params)
@@ -204,17 +204,44 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
             copy = pd.DataFrame(copy, columns=features)
         return copy
 
-    def inference(self, df, columns=None, **kwargs):
+    def inference(self, df, columns=None, passthrough=True, **kwargs):
+        """
+        Returns the transformed data.
+        Always tries to return a dataframe.
+        If self.pipeline implements predict, returns the predictions as a new column (self.output_columns[0]).
+        Else, returns self.pipeline.transform(df)
+        @param df:
+        @param columns: Only this columns are returns from the data frame.
+        @param passthrough: If True, extra columns in the data passthrough.
+        @param kwargs:
+        @return:
+        """
         copy = self.infer(df)
-        features = self.features or copy.columns
+        features = self.features.copy()
+        passthrough_data = None
         if len(features) == 1:  # for text transformers and likewise
             features = features[0]
-        if hasattr(self.pipeline, "predict"):
-            copy[self.output_column] = self.pipeline.predict(copy[features])
+        if hasattr(self.pipeline, "predict") and self.output_columns is not None and len(self.output_columns) > 1:
+            copy[self.output_columns[0]] = self.pipeline.predict(copy[features])
         else:
+            if passthrough:
+                passthrough_columns = [column for column in copy.columns if column not in features]
+                if passthrough_data is not None:
+                    passthrough_columns = [column for column in passthrough_columns if column in columns]
+                if len(passthrough_columns) > 0:
+                    passthrough_data = copy[passthrough_columns]
             copy = self.pipeline.transform(copy[features])
-            if isinstance(copy, np.ndarray) and copy.shape[1] == len(features):
-                copy = pd.DataFrame(copy, columns=features)
+            if isinstance(copy, np.ndarray) and copy.shape[1] == len(self.output_columns):
+                copy = pd.DataFrame(copy, columns=self.output_columns)
+        if passthrough_data is not None and passthrough_data.shape[0] == copy.shape[0]:
+            if isinstance(copy, pd.DataFrame):
+                for column in passthrough_columns:
+                    copy[column] = passthrough_data[column]
+            elif isinstance(copy, np.ndarray):
+                for column in passthrough_columns:
+                    copy = np.hstack(copy, passthrough_columns[column].values)
+        if isinstance(copy, pd.DataFrame) and columns is not None and len(columns) > 0:
+            copy = copy[[column for column in columns if column in copy]]
         return copy
 
     def preprocess(self, df):

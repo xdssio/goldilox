@@ -138,7 +138,16 @@ class VaexPipeline(HasState, Pipeline):
         return value.tolist()
 
     @classmethod
-    def from_dataframe(cls, df, fit=None, description=""):
+    def from_dataframe(cls, df, fit=None, variables=None, description=""):
+        """
+       Get a Pipeline out of a vaex.dataframe.DataFrame, and validate serilization and missing values.
+       @param df: vaex.dataframe.DataFrame
+       @param fit: method: A method which accepts a vaex dataframe and returns a vaex dataframe which run on pipeline.fit(df).
+       @param variables: dict [optional]: Any variables we want to associate with the current pipeline.
+              On top of the variables provided, the dataframe variables are added.
+       @param description: str [optional]: Any text we want to associate with the current pipeline.
+       @return: VaexPipeline
+       """
         copy = VaexPipeline.verify_vaex_dataset(df)
         if fit is not None:
             copy.add_function(PIPELINE_FIT, fit)
@@ -150,12 +159,14 @@ class VaexPipeline(HasState, Pipeline):
             for key, value in sample.dataset._columns.items()
         }
         original_columns = VaexPipeline._get_original_columns(sample)
+        variables = {**(state.get(VARIABLES) or {}), **(variables or {})}
+
         pipeline = VaexPipeline(
             state=state,
             _original_columns=original_columns,
             raw=raw,
             description=description,
-            variables=process_variables(state.get(VARIABLES, {})),
+            variables=process_variables(variables),
         )
 
         return pipeline
@@ -261,19 +272,13 @@ class VaexPipeline(HasState, Pipeline):
         return df
 
     def inference(
-            self, df, columns=None, set_filter=False, keep_columns=None, clean=False
+            self, df, columns=None, set_filter=False, passthrough=True
     ):
-        if clean:
-            copy = self.infer(df)
-            copy.state_set(self.state, set_filter=set_filter)
-            return copy
         if isinstance(columns, str):
             columns = [columns]
         copy = self.preprocess_transform(df)
-        if columns is None and keep_columns is None:
-            keep_columns = True
         ret = self.transform_state(
-            copy, set_filter=set_filter, keep_columns=keep_columns
+            copy, set_filter=set_filter, keep_columns=passthrough
         )
         # ret = self.fill_columns(copy, columns=columns)
         if columns is not None:
