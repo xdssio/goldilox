@@ -272,7 +272,7 @@ class VaexPipeline(HasState, Pipeline):
         return df
 
     def inference(
-            self, df, columns=None, set_filter=False, passthrough=True
+            self, df, columns=None, passthrough=True, set_filter=False,
     ):
         if isinstance(columns, str):
             columns = [columns]

@@ -303,10 +303,13 @@ glx build <pipeline-path> --platform=linux/amd64 --image=python:3.8-slim-bullsey
    it as it. We consider ourselves in between, you can do most things, with minimal adjustments.
 2. Why do you work with Vaex and not just Pandas? Vaex handles Big-Data on normal computers, which is our target
    audience. And we relay heavily on it's lazy evaluation which pandas doesn't have.
-3. M1 mac with docker?     
+3. Why do you use "inference" for predictions and not "predict" or "transform"? Sklearn has a standard, "transform"
+   returns a dataframe, "predict" a numpy array, we wanted to have another word for inference. We want the pipeline to
+   also follow the sklearn standard with fit, transform, and predict.
+4. M1 mac with docker?     
    You probably want to use --platform=linux/amd64
-4. How to send arguments to the docker serve?
-5. `docker run -p 127.0.0.1:5000:5000 --rm -it --platform=linux/amd64 goldilox glx serve $PIPELINE_PATH <args>`
+5. How to send arguments to the docker serve?
+6. `docker run -p 127.0.0.1:5000:5000 --rm -it --platform=linux/amd64 goldilox glx serve $PIPELINE_PATH <args>`
    example:
 
 * `docker run -p 127.0.0.1:5000:5000 --rm -it --platform=linux/amd64 goldilox glx serve $PIPELINE_PATH --bind=0.0.0.0:5000`

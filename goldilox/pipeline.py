@@ -223,7 +223,7 @@ class Pipeline:
             if verbose:
                 logger.info("validate inference")
             if df is None:
-                df = self.infer(self.raw)
+                df = self.raw.copy()
             results = pipeline.inference(df)
             assert len(results) == len(df)
             if check_na:

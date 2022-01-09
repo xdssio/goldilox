@@ -44,6 +44,7 @@ def test_hnswlib_vaex():
     assert df.to_records(0)["knn"] == [0, 21, 24]
 
 
+@pytest.mark.skip("issue on m1")
 def test_nmslib_vaex():
     import nmslib
 
@@ -187,6 +188,7 @@ def test_annoy_sklearn(df):
     sk_pipeline.fit(df)
 
 
+@pytest.mark.skip("M1 issue")
 def test_nmslib_sklearn():
     """
     https://scikit-learn.org/stable/auto_examples/neighbors/approximate_nearest_neighbors.html

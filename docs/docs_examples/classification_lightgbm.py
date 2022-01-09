@@ -19,10 +19,7 @@ model.fit(df)
 df = model.transform(df)
 df['label'] = df['prediction'].map({0: 'setosa', 1: 'versicolor', 2: 'virginica'})
 
-from goldilox import Pipeline
-
-pipeline = Pipeline.from_vaex(df)
-
-print(f"Saved to: {pipeline.save('pipeline.pkl')}")
-print(f"Check out the docs: http://127.0.0.1:5000/docs\n")
-# !glx serve pipeline.pkl
+#
+# print(f"Saved to: {pipeline.save('pipeline.pkl')}")
+# print(f"Check out the docs: http://127.0.0.1:5000/docs\n")
+# # !glx serve pipeline.pkl

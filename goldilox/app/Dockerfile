@@ -1,5 +1,6 @@
 # syntax=docker/dockerfile:1.2
 ARG DEBIAN_FRONTEND=noninteractive
+
 ARG PYTHON_IMAGE="python:3.8-slim-bullseye"
 
 FROM $PYTHON_IMAGE AS builder-image
@@ -10,7 +11,9 @@ ENV PYTHONUNBUFFERED=TRUE PYTHONDONTWRITEBYTECODE=TRUE PYTHONUNBUFFERED=1  PYTHO
 
 RUN apt-get update && apt update && apt install -y git gcc python3-pip
 
-RUN pip install -U pip && pip3 install --no-cache-dir goldilox==0.0.2  pydantic fastapi click vaex
+RUN pip install -U pip && pip3 install --no-cache-dir  pydantic fastapi click vaex gunicorn uvicorn cloudpickle numpy pandas
+
+RUN pip3 install goldilox==0.0.2
 
 ARG PIPELINE_FILE
 

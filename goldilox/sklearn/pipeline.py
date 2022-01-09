@@ -97,7 +97,10 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
             variables = {}
         if fit_params:
             variables.update(fit_params)
-        ret = SklearnPipeline(
+        if hasattr(pipeline, 'predict') and not hasattr(pipeline, 'transform') and (
+                output_columns is None or len(output_columns) == 0):
+            output_columns = [DEFAULT_OUTPUT_COLUMN]
+        return SklearnPipeline(
             pipeline=pipeline,
             features=features,
             target=target,
@@ -107,7 +110,6 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
             variables=variables,
             description=description,
         )
-        return ret
 
     @property
     def fitted(self):
@@ -221,12 +223,12 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
         passthrough_data = None
         if len(features) == 1:  # for text transformers and likewise
             features = features[0]
-        if hasattr(self.pipeline, "predict") and self.output_columns is not None and len(self.output_columns) > 1:
+        if hasattr(self.pipeline, "predict") and self.output_columns is not None and len(self.output_columns) == 1:
             copy[self.output_columns[0]] = self.pipeline.predict(copy[features])
         else:
             if passthrough:
                 passthrough_columns = [column for column in copy.columns if column not in features]
-                if passthrough_data is not None:
+                if columns is not None and len(columns) > 0:
                     passthrough_columns = [column for column in passthrough_columns if column in columns]
                 if len(passthrough_columns) > 0:
                     passthrough_data = copy[passthrough_columns]
@@ -236,10 +238,9 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
         if passthrough_data is not None and passthrough_data.shape[0] == copy.shape[0]:
             if isinstance(copy, pd.DataFrame):
                 for column in passthrough_columns:
-                    copy[column] = passthrough_data[column]
+                    copy[column] = passthrough_data[column].values
             elif isinstance(copy, np.ndarray):
-                for column in passthrough_columns:
-                    copy = np.hstack(copy, passthrough_columns[column].values)
+                copy = np.column_stack((copy, passthrough_data.values))
         if isinstance(copy, pd.DataFrame) and columns is not None and len(columns) > 0:
             copy = copy[[column for column in columns if column in copy]]
         return copy

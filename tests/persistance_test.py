@@ -6,7 +6,6 @@ from vaex.ml.sklearn import Predictor
 from goldilox import Pipeline
 from goldilox.sklearn.pipeline import SklearnPipeline
 from goldilox.vaex.pipeline import VaexPipeline
-# from tempfile import TemporaryDirectory; tmpdir = TemporaryDirectory().name  # TODO remove
 from tests.test_utils import validate_persistence
 
 
@@ -16,7 +15,9 @@ def test_skleran_save_load(tmpdir):
     target = 'class_'
     X = iris[features]
     y = iris[target]
-    pipeline = SklearnPipeline.from_sklearn(sklearn.pipeline.Pipeline([('regression', LogisticRegression())])).fit(X, y)
+    self = pipeline = SklearnPipeline.from_sklearn(sklearn.pipeline.Pipeline([('regression', LogisticRegression())]),
+                                                   output_columns=['predictiom'])
+    pipeline.fit(X, y)
     pipeline = validate_persistence(pipeline)
     assert pipeline.inference(pipeline.raw).shape == (1, 5)
 

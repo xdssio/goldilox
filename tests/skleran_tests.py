@@ -6,11 +6,12 @@ import pytest
 import sklearn.pipeline
 from lightgbm.sklearn import LGBMClassifier
 from sklearn.base import TransformerMixin, BaseEstimator
+from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import OrdinalEncoder
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import OrdinalEncoder, StandardScaler
 
+from goldilox import Pipeline
 from tests.test_utils import validate_persistence
 
 warnings.filterwarnings("ignore")
@@ -23,6 +24,62 @@ from vaex.ml.datasets import load_iris
 def iris():
     # iris = load_iris().to_pandas_df()
     return load_iris().to_pandas_df()
+
+
+def test_sklearn_transformer(iris):
+    pipeline = Pipeline.from_sklearn(
+        sklearn.pipeline.Pipeline([("standard", StandardScaler())]),
+        output_columns=list(iris.columns)
+    ).fit(iris)
+
+    results = pipeline.inference(iris.head())
+    assert results.shape == (5, 5)
+    assert results['class_'].dtype == float
+
+    columns = ["sepal_length", "sepal_width", "petal_length", "petal_width"]
+    pipeline = Pipeline.from_sklearn(PCA(),
+                                     ).fit(iris[columns], iris['class_'])
+
+    results = pipeline.inference(iris.head())
+    assert results.shape == (5, 4)
+    assert isinstance(results, np.ndarray)
+
+    pipeline = Pipeline.from_sklearn(PCA(),
+                                     output_columns=[f"pca{i}" for i in range(4)]
+                                     ).fit(iris[columns])
+
+    results = pipeline.inference(iris.head())
+    for i in range(4):
+        f"pca{i}" in results
+    assert results.shape == (5, 4)
+    assert isinstance(results, pd.DataFrame)
+
+
+def test_sklearn_inference_columns(iris):
+    iris = load_iris().to_pandas_df()
+
+    columns = ["sepal_length", "sepal_width", "petal_length", "petal_width"]
+    pipeline = Pipeline.from_sklearn(PCA()).fit(iris[columns], iris['class_'])
+
+    results = pipeline.inference(iris.head())
+    assert results.shape == (5, 4)
+    assert isinstance(results, np.ndarray)
+
+    pipeline = Pipeline.from_sklearn(PCA(),
+                                     output_columns=[f"pca{i}" for i in range(4)]
+                                     ).fit(iris[columns])
+
+    results = pipeline.inference(iris.head())
+    for i in range(4):
+        f"pca{i}" in results
+    assert results.shape == (5, 5)
+    assert 'class_' in results  # passthrough is true by default
+    assert isinstance(results, pd.DataFrame)
+
+    results = pipeline.inference(iris.head(), columns=["pca1", "pca2", "noise"])
+    for i in range(2):
+        f"pca{i}" in results
+    assert results.shape == (5, 2)
 
 
 def test_from_sklearn_transform(iris):
@@ -82,7 +139,7 @@ def test_sklrean_predict_classification(iris):
     pipeline = SklearnPipeline.from_sklearn(
         sklearn.pipeline.Pipeline([("regression", LogisticRegression())])
     ).fit(X, y)
-    assert pipeline.output_column in pipeline.inference(X)
+    assert pipeline.output_columns in pipeline.inference(X)
     assert pipeline.raw == SklearnPipeline.to_raw(X)
     assert pipeline.features == features
     assert pipeline.target == target
@@ -94,7 +151,7 @@ def test_sklrean_predict_classification(iris):
     ).fit(df)
     assert pipeline.validate(X, check_na=False)
     pipeline = validate_persistence(pipeline)
-    assert pipeline.output_column in pipeline.inference(X)
+    assert pipeline.output_columns in pipeline.inference(X)
     assert pipeline.raw == SklearnPipeline.to_raw(X)
     assert pipeline.features == features
     assert pipeline.target == target
@@ -108,7 +165,7 @@ def test_sklrean_predict_regression(iris):
     pipeline = SklearnPipeline.from_sklearn(
         sklearn.pipeline.Pipeline([("regression", LinearRegression())])
     ).fit(X, y)
-    assert pipeline.output_column in pipeline.inference(X)
+    assert pipeline.output_columns in pipeline.inference(X)
     assert pipeline.raw == SklearnPipeline.to_raw(X)
     assert pipeline.features == features
     assert pipeline.target == target
@@ -118,7 +175,7 @@ def test_sklrean_predict_regression(iris):
         features=features,
         target=target,
     ).fit(iris)
-    assert pipeline.output_column in pipeline.inference(X)
+    assert pipeline.output_columns in pipeline.inference(X)
     assert pipeline.raw == SklearnPipeline.to_raw(X)
     assert pipeline.features == features
     assert pipeline.target == target

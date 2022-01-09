@@ -2,10 +2,11 @@ import numpy as np
 import pandas as pd
 import pytest
 import vaex
-from goldilox import Pipeline
 from hdbscan import HDBSCAN, approximate_predict
 from sklearn.base import TransformerMixin, BaseEstimator
 from sklearn.datasets import make_blobs
+
+from goldilox import Pipeline
 
 n_features = 10
 features = [f"f{i}" for i in range(n_features)]
@@ -65,7 +66,7 @@ def test_hdbscan_sklearn(data):
 
     self = model = HDBSCANTransformer().fit(X, y)
     pipeline = Pipeline.from_sklearn(model).fit(X, y)
-    assert pipeline.output_column in pipeline.inference(X)
+    assert 'label' in pipeline.inference(X)
     assert pipeline.raw == Pipeline.to_raw(X)
     assert pipeline.features == features
     assert pipeline.target == target
