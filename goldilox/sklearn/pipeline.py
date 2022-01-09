@@ -123,7 +123,12 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
         if isinstance(df, pd.Series):
             return pd.DataFrame({df.name: df})
         if isinstance(df, np.ndarray):
-            return pd.DataFrame(df, columns=self.features)
+            if self.features and len(self.features) == df.shape[1]:
+                return pd.DataFrame(df, columns=self.features)
+            elif self.output_columns and len(self.output_columns) == df.shape[1]:
+                return pd.DataFrame(df, columns=self.output_columns)
+            else:
+                return pd.DataFrame(df)
         if isinstance(df, dict):
             df = [df.copy()]
         if isinstance(df, list):
@@ -155,6 +160,8 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
             import vaex
             if isinstance(X, vaex.dataframe.DataFrame):
                 X = X.to_pandas_df()
+            elif isinstance(X, pd.Series):
+                X = pd.DataFrame({X.name: X})
             elif isinstance(X, vaex.expression.Expression):
                 name = X.expression
                 X = X.to_pandas_series()
@@ -166,6 +173,8 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
                 self.target = name
         except:
             pass
+        if isinstance(X, np.ndarray):
+            X = self.infer(X)
         if y is None:
             y = X[self.target] if self.target else None
         elif isinstance(y, pd.Series):
@@ -195,7 +204,7 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
         params = self.fit_params or {}
         self.pipeline = self.pipeline.fit(X=X, y=y, **params)
         if validate:
-            self.validate(df=X.head(), check_na=check_na)
+            self.validate(check_na=check_na)
         return self
 
     def transform(self, df, **kwargs):
@@ -219,12 +228,15 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
         @return:
         """
         copy = self.infer(df)
-        features = self.features.copy()
+        features = self.features or copy.columns
+        if features is None:
+            raise RuntimeError("Model is not trained yet")
         passthrough_data = None
         if len(features) == 1:  # for text transformers and likewise
             features = features[0]
+        X = copy[features] if features else copy
         if hasattr(self.pipeline, "predict") and self.output_columns is not None and len(self.output_columns) == 1:
-            copy[self.output_columns[0]] = self.pipeline.predict(copy[features])
+            copy[self.output_columns[0]] = self.pipeline.predict(X)
         else:
             if passthrough:
                 passthrough_columns = [column for column in copy.columns if column not in features]
@@ -232,8 +244,8 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
                     passthrough_columns = [column for column in passthrough_columns if column in columns]
                 if len(passthrough_columns) > 0:
                     passthrough_data = copy[passthrough_columns]
-            copy = self.pipeline.transform(copy[features])
-            if isinstance(copy, np.ndarray) and copy.shape[1] == len(self.output_columns):
+            copy = self.pipeline.transform(X)
+            if isinstance(copy, np.ndarray) and self.output_columns and copy.shape[1] == len(self.output_columns):
                 copy = pd.DataFrame(copy, columns=self.output_columns)
         if passthrough_data is not None and passthrough_data.shape[0] == copy.shape[0]:
             if isinstance(copy, pd.DataFrame):
@@ -244,6 +256,3 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline):
         if isinstance(copy, pd.DataFrame) and columns is not None and len(columns) > 0:
             copy = copy[[column for column in columns if column in copy]]
         return copy
-
-    def preprocess(self, df):
-        pass

@@ -131,6 +131,7 @@ def test_catboost_vaex_fit(iris, tmpdir):
 
 
 def test_catboost_sklearn(iris):
+    iris = load_iris()
     from catboost import CatBoostClassifier
 
     df = iris.copy().to_pandas_df()
@@ -167,6 +168,7 @@ def test_catboost_sklearn(iris):
 
     # with a trained sklearn pipeline
     sample = X.head(1).to_records()[0]
+    # TODO
     self = pipeline = SklearnPipeline.from_sklearn(sk_pipeline, raw=sample).fit(X, y)
     assert pipeline.inference(X).head(10).shape == (10, 5)
     assert pipeline.inference(X.values[:10]).shape == (10, 5)

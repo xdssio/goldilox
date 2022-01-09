@@ -98,11 +98,8 @@ class Pipeline:
         :param validate: bool [optional]: If True, run validation.
         :return: SkleranPipeline object
         """
-        from goldilox.sklearn.pipeline import SklearnPipeline, DEFAULT_OUTPUT_COLUMN
+        from goldilox.sklearn.pipeline import SklearnPipeline
 
-        if output_columns is None or len(output_columns) == 0 and hasattr(pipeline, 'predict'):
-            output_columns = [DEFAULT_OUTPUT_COLUMN]
-        output_columns = list(output_columns)
         ret = SklearnPipeline.from_sklearn(
             pipeline=pipeline,
             features=features,
@@ -220,12 +217,10 @@ class Pipeline:
             logger.info("validate serialization")
         pipeline = Pipeline.from_file(self.save(TemporaryDirectory().name + "models/model.pkl"))
         if df is not None or self.raw is not None:
+            X = df if df is not None else self.infer(self.raw)
             if verbose:
                 logger.info("validate inference")
-            if df is None:
-                df = self.raw.copy()
-            results = pipeline.inference(df)
-            assert len(results) == len(df)
+            assert len(pipeline.inference(X)) == len(X)
             if check_na:
                 pipeline._validate_na()
         elif verbose:

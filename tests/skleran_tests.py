@@ -82,16 +82,20 @@ def test_sklearn_inference_columns(iris):
     assert results.shape == (5, 2)
 
 
-def test_from_sklearn_transform(iris):
+def test_from_sklearn_transform_numpy(iris):
+    iris = load_iris().to_pandas_df()
     columns = ["petal_length", "petal_width", "sepal_length", "sepal_width"]
     X = iris[columns]
     values = X.values
-    pipeline = SklearnPipeline.from_sklearn(
-        sklearn.pipeline.Pipeline([("standard", StandardScaler())])
-    ).fit(values)
+    self = pipeline = SklearnPipeline.from_sklearn(
+        sklearn.pipeline.Pipeline([("standard", StandardScaler())]),
+        features=columns,
+        output_columns=columns
+    )
+    pipeline.fit(values)
     assert pipeline.inference(X).shape == X.shape
     assert pipeline.inference(values).shape == X.shape
-    assert pipeline.raw == list(values[0])
+    assert pipeline.raw
 
     pipeline = SklearnPipeline.from_sklearn(
         sklearn.pipeline.Pipeline([("standard", StandardScaler())])
