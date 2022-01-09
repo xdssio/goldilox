@@ -13,7 +13,7 @@ RUN apt-get update && apt update && apt install -y git gcc python3-pip
 
 RUN pip install -U pip && pip3 install --no-cache-dir  pydantic fastapi click vaex gunicorn uvicorn cloudpickle numpy pandas
 
-RUN pip3 install goldilox==0.0.2
+RUN pip3 install goldilox==0.0.3
 
 ARG PIPELINE_FILE
 
