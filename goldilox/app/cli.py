@@ -1,4 +1,5 @@
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -132,6 +133,21 @@ def build(path, name="goldilox", image=None, platform=None):
     subprocess.check_call(command)
     run_command = f"docker run --rm -it {name}" if platform is None else f"docker run --rm -it --platform={platform} -p 127.0.0.1:5000:8000 {name}"
     click.echo(f"Image {name} created - run with: '{run_command}'")
+
+
+@main.command()
+@click.option('--output', type=str, default=None)
+def dockerfile(output):
+    """Create a Dockerfile for you to work with"""
+    goldilox_path = Path(goldilox.__file__)
+    docker_file_path = str(goldilox_path.parent.absolute().joinpath('app').joinpath('Dockerfile'))
+    docker_output = output or './Dockerfile'
+    shutil.copyfile(docker_file_path, docker_output)
+    with open(docker_output, 'r') as f:
+        click.echo(f.read())
+    click.echo("##################\nDockerfile was writen to './dockerfile'\n")
+    click.echo(
+        "Use 'docker build -f=Dockerfile -t=<image-name> --build-arg PIPELINE_FILE=<pipeline-path> --build-arg PYTHON_IMAGE=<base-image> .' to build a docker image")
 
 
 if __name__ == '__main__':

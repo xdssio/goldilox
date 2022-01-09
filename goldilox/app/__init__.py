@@ -7,6 +7,7 @@ from goldilox import Pipeline
 from goldilox.utils import to_nulls, process_variables
 
 PIPELINE = "pipeline"
+RAW = "raw"
 GUNICORN = "gunicorn"
 UVICORN = "uvicorn"
 PATH = "path"
@@ -43,6 +44,7 @@ def get_app(path):
             allow_headers=ALLOW_HEADERS,
         )
     PIPELINE = "pipeline"
+    RAW = "raw"
 
     pipeline = Pipeline.from_file(path)
     # A dynamic way to create a pydanic model based on the raw data
@@ -52,6 +54,9 @@ def get_app(path):
         **{k: (type(v), None) for k, v in raw.items()},
         __config__=type("QueryConfig", (object,), {"schema_extra": {"example": raw}}),
     )
+
+    def get_raw():
+        return app.state._state.get(RAW, {})
 
     def get_pipeline():
         return app.state._state.get(PIPELINE, pipeline)
@@ -65,9 +70,11 @@ def get_app(path):
         try:
             columns = None if not columns else columns.split(",")
             ret = get_pipeline().inference(data, columns=columns)
+
         except Exception as e:
             logger.error(e)
-            raise HTTPException(status_code=400, detail=str(e))
+            raise HTTPException(status_code=400, detail=str(
+                f"Issue with inference, try runing your pipeline locally with 'pipeline.inference(data)' to see what is the problem:\n{str(e)}"))
 
         return process_response(ret)
 
@@ -107,7 +114,9 @@ def get_wsgi_application(path):
             }
             for key, value in config.items():
                 self.cfg.set(key.lower(), value)
-            self.application.state._state[PIPELINE] = Pipeline.from_file(path)
+            pipeline = Pipeline.from_file(path)
+            self.application.state._state[PIPELINE] = pipeline
+            self.application.state._state[RAW] = pipeline.raw.copy()
 
         def load(self):
             return self.application
