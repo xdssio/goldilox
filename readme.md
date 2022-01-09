@@ -111,7 +111,7 @@ pipeline = Pipeline.from_file( < path >)
 **3. Deploy**
 
 ```
-gl serve <path>
+glx serve <path>
 
 [2021-11-16 18:54:44 +0100] [74906] [INFO] Starting gunicorn 20.1.0
 [2021-11-16 18:54:44 +0100] [74906] [INFO] Listening at: http://127.0.0.1:5000 (74906)
