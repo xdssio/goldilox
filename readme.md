@@ -1,15 +1,10 @@
+![Logo](https://github.com/xdssio/goldilox/blob/master/assets/logo.png)
+
 # What is Goldilox?
 
-Goldilox is a one line tool which transform a machine learning solution into an object for production.   
-This is in current development, please wait for the first stable version.
+Goldilox is a tool to empower data scientists to build machine learning solutions into production.
 
-# Installing
-
-With pip:
-
-```
-$ pip install goldilox
-```
+* This is in current development, please wait for the first stable version.
 
 [For more details, see the documentation](www.docs.goldilox.io)
 
@@ -25,27 +20,52 @@ $ pip install goldilox
     * I/O examples
     * Variables and description queries
 
-# Vaex First
+# Installing
 
-[Vaex](https://github.com/vaexio/vaex) is an open-soruce big data technology with similar APIs
+With pip:
+
+```
+$ pip install goldilox
+```
+
+# Pandas + Sklearn support
+
+Any [Sklearn](https://scikit-learn.org/) + [Pandas](https://pandas.pydata.org/) pipeline/transformer/estimator works can
+turn to a pipeline with one line of code, which tou can save and run as a server with the CLI. well.
+
+# Vaex native
+
+[Vaex](https://github.com/vaexio/vaex) is an open-source big data technology with similar APIs
 to [Pandas](https://pandas.pydata.org/).   
-We use some of the Vaex special sauce to allow the extreme flexibility for advance pipeline solutions while insuring we
+We use some of Vaex's special sauce to allow the extreme flexibility for advance pipeline solutions while insuring we
 have a tool that works on big data.
 
 * [![Documentation](https://readthedocs.org/projects/vaex/badge/?version=latest)](https://docs.vaex.io)
 
-# Pandas + Sklearn support
-
-Any [Sklearn](https://scikit-learn.org/) + [Pandas](https://pandas.pydata.org/) pipeline/transformer/estimator works as
-well.
-
 # Examples
 
-**1. Data science**    
+**[1. Data science](https://docs.goldilox.io/reference/data-science-examples)**
+
+SKlearn
+
+```python
+import pandas as pd
+from xgboost.sklearn import XGBClassifier
+from sklearn.datasets import load_iris
+
+# Get teh data
+iris = load_iris()
+features = iris.feature_names
+df = pd.DataFrame(iris.data, columns=features)
+df['target'] = iris.target
+
+# modeling
+model = XGBClassifier().fit(df[features], df['target'])
+```
+
 Vaex
 
 ```python
-import vaex
 from vaex.ml.datasets import load_iris
 from vaex.ml.xgboost import XGBoostModel
 import numpy as np
@@ -57,58 +77,38 @@ df["petal_ratio"] = df["petal_length"] / df["petal_width"]
 
 # modeling
 booster = XGBoostModel(
-    features=['petal_length', 'petal_width', 'sepal_length', 'sepal_width', 'petal_ratio'],
-    target='class_',
+    features=["petal_length", "petal_width", "sepal_length", "sepal_width", "petal_ratio"],
+    target="class_",
     prediction_name="prediction",
     num_boost_round=500,
 )
 booster.fit(df)
 df = booster.transform(df)
 
-# post modeling procssing example 
-df['prediction'] = np.around(df['prediction'])
+# post modeling processing example 
+df["prediction"] = np.around(df["prediction"])
 df["label"] = df["prediction"].map({0: "setosa", 1: "versicolor", 2: "virginica"})
 ```
 
-SKlearn
-
-```python
-import pandas as pd
-import json
-from xgboost.sklearn import XGBClassifier
-from sklearn.datasets import load_iris
-
-# Get teh data
-iris = load_iris()
-features = iris.feature_names
-df = pd.DataFrame(iris.data, columns=features)
-df['target'] = iris.target
-
-model = XGBClassifier().fit(df[features], df['target'])
-```
-
-**2. Build a production ready pipeline**
+**2. [Build a production ready pipeline](https://docs.goldilox.io/reference/api-reference/pipeline)**
 
 * In one line (-:
 
 ```python
 from goldilox import Pipeline
 
-# vaex
-pipeline = Pipeline.from_vaex(df)
-
 # sklearn - When using sklearn, we want to have an example of the raw production query data
 pipeline = Pipeline.from_sklearn(model, raw=Pipeline.to_raw(df[features]))
 
-# Validate
-assert pipeline.validate()
+# vaex
+pipeline = Pipeline.from_vaex(df)
 
 # Save and load
 pipeline.save( < path >)
 pipeline = Pipeline.from_file( < path >)
 ```
 
-**3. Deploy**
+**3. [Deploy](https://docs.goldilox.io/reference/api-reference/cli/serve)**
 
 ```
 glx serve <path>
@@ -124,7 +124,8 @@ glx serve <path>
 
 ![Alt text](assets/lightgbm-vaex-example.jpg?raw=true "Title")
 
-**4. Training:**  For experiments, cloud training, automations, etc,.
+**4. [Training](https://docs.goldilox.io/advance/training-re-fitting-todo):**  For experiments, cloud training,
+automations, etc,.
 
 With *Vaex*, you put everything you want to do to a function which recives and returns a Vaex DataFrame
 
@@ -166,10 +167,8 @@ With *Sklearn* the fit would be the standard X and y.
 
 ```python
 import pandas as pd
-import sklearn.pipeline
 from sklearn.datasets import load_iris
 from xgboost.sklearn import XGBClassifier
-from sklearn.pipeline import Pipeline as SklearnPipeline
 
 iris = load_iris()
 features = iris.feature_names
@@ -181,16 +180,16 @@ classifier = XGBClassifier(n_estimators=10, verbosity=0, use_label_encoder=False
 pipeline = Pipeline.from_sklearn(classifier).fit(df[features], df['target'])
 assert pipeline.validate()
 
->> > Pipeline
+WARNING: Pipeline
 doesn
 't handle na for sepal length (cm)
->> > Pipeline
+WARNING: Pipeline
 doesn
 't handle na for sepal width (cm)
->> > Pipeline
+WARNING: Pipeline
 doesn
 't handle na for petal length (cm)
->> > Pipeline
+WARNING: Pipeline
 doesn
 't handle na for petal width (cm)
 ```
@@ -213,7 +212,7 @@ assert pipeline.validate()
 * We can still deploy a pipeline that doesn't deal with missing values if we want, *validate()* returns `True` if
   serialization, and prediction-on-raw validations pass.
 
-# CLI
+# [CLI](https://docs.goldilox.io/reference/api-reference/cli)
 
 Some tools
 
