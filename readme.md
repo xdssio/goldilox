@@ -127,7 +127,7 @@ glx serve <path>
 **4. [Training](https://docs.goldilox.io/advance/training-re-fitting-todo):**  For experiments, cloud training,
 automations, etc,.
 
-With *Vaex*, you put everything you want to do to a function which recives and returns a Vaex DataFrame
+With *Vaex*, you put everything you want to do to a function which receives and returns a Vaex DataFrame
 
 ```python
 from vaex.ml.datasets import load_iris
@@ -178,7 +178,6 @@ df['target'] = iris.target
 # we don't need to provide raw example if we do the training from the Goldilox Pipeline - it would be taken automatically from the first row.
 classifier = XGBClassifier(n_estimators=10, verbosity=0, use_label_encoder=False)
 pipeline = Pipeline.from_sklearn(classifier).fit(df[features], df['target'])
-assert pipeline.validate()
 
 WARNING: Pipeline
 doesn
@@ -205,8 +204,7 @@ imputer = ColumnTransformer([('features_mean', SimpleImputer(strategy='mean'),
 classifier = XGBClassifier(n_estimators=10, verbosity=0, use_label_encoder=False)
 
 sk_pipeline = sklearn.pipeline.Pipeline([('imputer', imputer), ('classifier', classifier)])
-pipeline = Pipeline.from_sklearn(sk_pipeline).fit(df[features], df['target'])
-assert pipeline.validate()                              
+pipeline = Pipeline.from_sklearn(sk_pipeline).fit(df[features], df['target'])                          
 ```
 
 * We can still deploy a pipeline that doesn't deal with missing values if we want, *validate()* returns `True` if
