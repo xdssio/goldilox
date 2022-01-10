@@ -118,6 +118,7 @@ class Pipeline:
         if validate and Pipeline._is_sklearn_fitted(pipeline):
             logger.info("validate pipeline")
             logger.info(f"pipeline valid: {ret.validate()}")
+        return ret
 
     @classmethod
     def _read_file(cls, path):
@@ -239,7 +240,7 @@ class Pipeline:
             tmp[column] = None
             try:
                 with np.errstate(all='ignore'):
-                    self.inference(tmp).values
+                    self.inference(tmp).to_records()
             except Exception as e:
                 ret = False
                 logger.warning(f"Pipeline doesn't handle NA for {column}")

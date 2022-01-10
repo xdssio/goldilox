@@ -1,25 +1,26 @@
+import numpy as np
 import pytest
-from vaex.ml.datasets import load_iris
+import vaex
+from sklearn.metrics import accuracy_score
+from vaex.ml.lightgbm import LightGBMModel
 
 from goldilox import Pipeline
+from goldilox.datasets import load_iris
 from tests.test_utils import validate_persistence
+
+features = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
+target = 'target'
 
 
 @pytest.fixture()
 def iris():
-    # iris = load_iris()
-    return load_iris()
+    # iris = load_iris('vaex')
+    return load_iris('vaex')
 
 
 def test_lightgbm_vaex(iris, tmpdir):
-    import vaex
-    import numpy as np
-    from vaex.ml.lightgbm import LightGBMModel
-    from sklearn.metrics import accuracy_score
-
     train, test = iris.ml.train_test_split(test_size=0.2, verbose=False)
-    features = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
-    target = 'class_'
+
     train['X'] = train['petal_length'] / train['petal_width']
 
     booster = LightGBMModel(features=features,
@@ -59,7 +60,7 @@ def test_lightgbm_vaex_fit(iris, tmpdir):
         train, test = df.ml.train_test_split(test_size=0.2, verbose=False)
 
         features = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
-        target = 'class_'
+        target = 'target'
 
         booster = LightGBMModel(features=features,
                                 target=target,
@@ -102,17 +103,15 @@ def test_lightgbm_vaex_fit(iris, tmpdir):
     assert pipeline.inference(data).shape == (1, 7)
     assert pipeline.get_variable('accuracy')
     assert pipeline.raw == data
-    assert list(pipeline.example.keys()) == ['sepal_length', 'sepal_width', 'petal_length', 'petal_width', 'class_',
+    assert list(pipeline.example.keys()) == ['sepal_length', 'sepal_width', 'petal_length', 'petal_width', 'target',
                                              'predictions', 'prediction']
 
 
 def test_lightgbm_sklearn(iris, tmpdir):
     from lightgbm.sklearn import LGBMClassifier
     import sklearn.pipeline
-    iris = load_iris()
     df = iris.copy()
-    features = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
-    target = 'class_'
+
     X, y = df[features], df[target]
     sk_pipeline = sklearn.pipeline.Pipeline([('classifier', LGBMClassifier())])
     pipeline = Pipeline.from_sklearn(sk_pipeline, validate=False).fit(X, y)
@@ -121,8 +120,7 @@ def test_lightgbm_sklearn(iris, tmpdir):
     assert pipeline.inference(X.values[:10]).shape == (10, 5)
     assert pipeline.inference(pipeline.raw).shape == (1, 5)
     pipeline.fit(df)
-    path = str(tmpdir) + '/model.pkl'
-    pipeline = Pipeline.from_file(pipeline.save(path))
+    pipeline = validate_persistence(pipeline)
     assert pipeline.inference(X).head(10).shape == (10, 5)
     assert pipeline.inference(X.values[:10]).shape == (10, 5)
     assert pipeline.inference(pipeline.raw).shape == (1, 5)
@@ -130,8 +128,7 @@ def test_lightgbm_sklearn(iris, tmpdir):
     # with a trained sklearn pipeline
     sample = X.head(1).to_records()[0]
     self = pipeline = Pipeline.from_sklearn(sk_pipeline, raw=sample).fit(X, y)
-    pipeline.save(path)
-    pipeline = Pipeline.from_file(path)
+    pipeline = validate_persistence(pipeline)
     assert pipeline.inference(X).head(10).shape == (10, 5)
     assert pipeline.inference(X.values[:10]).shape == (10, 5)
     assert pipeline.inference(self.raw).shape == (1, 5)

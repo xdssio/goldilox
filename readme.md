@@ -223,19 +223,20 @@ glx raw <pipeline-path>
 
 # Get the pipeline requirements
 glx freeze <pipeline-path> <path-to-requirements-file-output.txt>
-
-# Get the pipeline requirements
-glx install all requirements from the pipeline
 ```
 
 # Docker
 
 You can build a docker image from a pipeline.
 
+* [Reference](https://docs.goldilox.io/reference/api-reference/cli/build-docker)
+
 ```bash
 glx build <pipeline-path> --platform=linux/amd64 --image=python:3.8-slim-bullseye
 
 ```
+
+# [Data science examples](https://docs.goldilox.io/reference/data-science-examples)
 
 # [Example Notebooks](https://github.com/xdssio/goldilox/tree/master/notebooks)
 

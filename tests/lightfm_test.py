@@ -9,7 +9,7 @@ from vaex.ml import LabelEncoder
 
 from goldilox import Pipeline
 
-
+"""
 def fetch_train():
     from lightfm.datasets import fetch_movielens
     data = fetch_movielens(min_rating=5.0)
@@ -29,12 +29,13 @@ def fetch_train():
         return df
 
     return to_vaex(data['train']), to_vaex(data['test'])
+"""
 
 
 # TODO clean and explain
 def test_lightfm():
     # Load the MovieLens 100k dataset. Only five
-    # star ratings are treated as positive.
+    # stared ratings are treated as positive.
     train = vaex.open('data/imdb100k_train.parquet')
     test = vaex.open('data/imdb100k_test.parquet')
 

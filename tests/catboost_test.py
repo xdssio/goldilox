@@ -3,23 +3,24 @@ import pytest
 import sklearn.pipeline
 import vaex
 from sklearn.metrics import accuracy_score
-from vaex.ml.datasets import load_iris
 
+from goldilox.datasets import load_iris
 from goldilox.sklearn.pipeline import Pipeline as SklearnPipeline
 from goldilox.vaex.pipeline import VaexPipeline as VaexPipeline
 from tests.test_utils import validate_persistence
 
+features = ["petal_length", "petal_width", "sepal_length", "sepal_width"]
+target = "target"
+
 
 @pytest.fixture()
 def iris():
-    # iris = load_iris()
-    return load_iris()
+    # iris = load_iris('vaex')
+    return load_iris('vaex')
 
 
 def test_vaex_catboost(iris):
     train, test = iris.ml.train_test_split(test_size=0.2, verbose=False)
-    features = ["petal_length", "petal_width", "sepal_length", "sepal_width"]
-    target = "class_"
     train["X"] = train["petal_length"] / train["petal_width"]
     from vaex.ml.catboost import CatBoostModel
 
@@ -72,7 +73,7 @@ def test_catboost_vaex_fit(iris, tmpdir):
         train, test = df.ml.train_test_split(test_size=0.2, verbose=False)
 
         features = ["petal_length", "petal_width", "sepal_length", "sepal_width"]
-        target = "class_"
+        target = "target"
 
         booster = CatBoostModel(
             features=features,
@@ -111,7 +112,7 @@ def test_catboost_vaex_fit(iris, tmpdir):
     df = iris.copy()
     pipeline = VaexPipeline.from_dataframe(df, fit=fit)
     data = df.to_records(0)
-    data.pop("class_")
+    data.pop("target")
     assert pipeline.inference(data).shape == df.head(1).shape
     data = df.to_records(0)
     pipeline.fit(df)
@@ -124,19 +125,18 @@ def test_catboost_vaex_fit(iris, tmpdir):
         "sepal_width",
         "petal_length",
         "petal_width",
-        "class_",
+        "target",
         "predictions",
         "prediction",
     ]
 
 
 def test_catboost_sklearn(iris):
-    iris = load_iris()
     from catboost import CatBoostClassifier
 
     df = iris.copy().to_pandas_df()
     features = ["petal_length", "petal_width", "sepal_length", "sepal_width"]
-    target = "class_"
+    target = "target"
     sk_pipeline = sklearn.pipeline.Pipeline(
         [("classifier", CatBoostClassifier(verbose=0, iterations=10))]
     )
@@ -149,7 +149,7 @@ def test_catboost_sklearn(iris):
 
     df = iris.copy()
     features = ["petal_length", "petal_width", "sepal_length", "sepal_width"]
-    target = "class_"
+    target = "target"
     sk_pipeline = sklearn.pipeline.Pipeline(
         [("classifier", CatBoostClassifier(verbose=0, iterations=10))]
     )

@@ -17,13 +17,16 @@ from tests.test_utils import validate_persistence
 warnings.filterwarnings("ignore")
 
 from goldilox.sklearn.pipeline import SklearnPipeline
-from vaex.ml.datasets import load_iris
+from goldilox.datasets import load_iris
+
+features = ["petal_length", "petal_width", "sepal_length", "sepal_width"]
+target = "target"
 
 
 @pytest.fixture()
 def iris():
-    # iris = load_iris().to_pandas_df()
-    return load_iris().to_pandas_df()
+    # iris = load_iris('pandas')
+    return load_iris('pandas')
 
 
 def test_sklearn_transformer(iris):
@@ -34,11 +37,10 @@ def test_sklearn_transformer(iris):
 
     results = pipeline.inference(iris.head())
     assert results.shape == (5, 5)
-    assert results['class_'].dtype == float
+    assert results['target'].dtype == float
 
-    columns = ["sepal_length", "sepal_width", "petal_length", "petal_width"]
     pipeline = Pipeline.from_sklearn(PCA(),
-                                     ).fit(iris[columns], iris['class_'])
+                                     ).fit(iris[features], iris[target])
 
     results = pipeline.inference(iris.head())
     assert results.shape == (5, 4)
@@ -46,7 +48,7 @@ def test_sklearn_transformer(iris):
 
     pipeline = Pipeline.from_sklearn(PCA(),
                                      output_columns=[f"pca{i}" for i in range(4)]
-                                     ).fit(iris[columns])
+                                     ).fit(iris[features])
 
     results = pipeline.inference(iris.head())
     for i in range(4):
@@ -56,24 +58,22 @@ def test_sklearn_transformer(iris):
 
 
 def test_sklearn_inference_columns(iris):
-    iris = load_iris().to_pandas_df()
+    df = iris.copy()
+    pipeline = Pipeline.from_sklearn(PCA()).fit(df[columns], df[target])
 
-    columns = ["sepal_length", "sepal_width", "petal_length", "petal_width"]
-    pipeline = Pipeline.from_sklearn(PCA()).fit(iris[columns], iris['class_'])
-
-    results = pipeline.inference(iris.head())
+    results = pipeline.inference(df.head(5))
     assert results.shape == (5, 4)
     assert isinstance(results, np.ndarray)
 
     pipeline = Pipeline.from_sklearn(PCA(),
                                      output_columns=[f"pca{i}" for i in range(4)]
-                                     ).fit(iris[columns])
+                                     ).fit(iris[features])
 
     results = pipeline.inference(iris.head())
     for i in range(4):
         f"pca{i}" in results
     assert results.shape == (5, 5)
-    assert 'class_' in results  # passthrough is true by default
+    assert 'target' in results  # passthrough is true by default
     assert isinstance(results, pd.DataFrame)
 
     results = pipeline.inference(iris.head(), columns=["pca1", "pca2", "noise"])
@@ -135,11 +135,9 @@ def test_from_sklearn_transform_numpy(iris):
 
 
 def test_sklrean_predict_classification(iris):
-    df = iris.to_pandas_df()
-    features = ["petal_length", "petal_width", "sepal_length", "sepal_width"]
-    target = "class_"
-    X = df[features]
-    y = df[target]
+    df = iris.copy()
+
+    X, y = df[features], df[target]
     pipeline = SklearnPipeline.from_sklearn(
         sklearn.pipeline.Pipeline([("regression", LogisticRegression())])
     ).fit(X, y)
@@ -162,10 +160,8 @@ def test_sklrean_predict_classification(iris):
 
 
 def test_sklrean_predict_regression(iris):
-    features = ["petal_length", "petal_width", "sepal_length", "sepal_width"]
-    target = "class_"
-    X = iris[features]
-    y = iris[target]
+    df = iris.copy()
+    X, y = df[features], df[target]
     pipeline = SklearnPipeline.from_sklearn(
         sklearn.pipeline.Pipeline([("regression", LinearRegression())])
     ).fit(X, y)

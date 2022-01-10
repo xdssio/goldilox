@@ -85,8 +85,9 @@ def lightgbm_vaex_fit():
     pipeline.raw.pop("class_")
     assert pipeline.inference(data).shape == (1, 9)
     pipeline.validate(df.head(2))
-    print(pipeline._get_packages())
-    pipeline._get_packages()
+    # print(pipeline._get_packages())
+    # pipeline._get_packages()
+    pipeline._get_meta()
     pipeline.save("../goldilox-ops/models/pipeline.pkl")
     pipeline.save("./pipeline.pkl")
 

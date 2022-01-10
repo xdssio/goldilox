@@ -2,22 +2,22 @@ import numpy as np
 import pytest
 import sklearn.pipeline
 import vaex
-from vaex.ml.datasets import load_iris_1e5
 
 from goldilox import Pipeline
+from goldilox.datasets import load_iris
 from tests.test_utils import validate_persistence
+
+features = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
+target = 'target'
 
 
 @pytest.fixture()
 def df():
-    # df = load_iris_1e5()
-    return load_iris_1e5()
+    # df = load_iris('vaex')
+    return load_iris('vaex')
 
 
 def test_flaml_vaex(df, tmpdir):
-    features = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
-    target = 'class_'
-
     from flaml import AutoML
     model = AutoML()
     automl_settings = {
@@ -42,9 +42,6 @@ def test_flaml_vaex(df, tmpdir):
 
 
 def test_flaml_sklearn(df):
-    features = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
-    target = 'class_'
-
     from flaml import AutoML
 
     automl_settings = {

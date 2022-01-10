@@ -13,10 +13,15 @@ from tests.test_utils import validate_persistence
 features = ["x", "y", "z", "vx", "vy", "vz", "E", "L", "Lz", "FeH"]
 
 
-def test_hnswlib_vaex():
+@pytest.fixture()
+def example():
+    return vaex.example().head(1000)
+
+
+def test_hnswlib_vaex(example):
     import hnswlib
 
-    df = vaex.example().head(1000)
+    df = example.copy()
 
     index = hnswlib.Index(
         space="l2", dim=df.shape[1] - 1
@@ -45,10 +50,10 @@ def test_hnswlib_vaex():
 
 
 @pytest.mark.skip("issue on m1")
-def test_nmslib_vaex():
+def test_nmslib_vaex(example):
     import nmslib
 
-    df = vaex.example().head(1000)
+    df = example.copy()
     ids = {index: _id for index, _id in enumerate(df["id"].tolist())}
     df.variables["id_map"] = ids  # good practice
     X = df[features]
@@ -120,11 +125,11 @@ def test_nmslib_vaex():
 @pytest.mark.skip(
     "Annoy-Process finished with exit code 132 (interrupted by signal 4: SIGILL)"
 )
-def test_annoy_sklearn(df):
+def test_annoy_sklearn(example):
     import annoy
     import sklearn.pipeline
 
-    # df = vaex.example().head(1000)
+    df = example.copy()
 
     class AnnoyTransformer(TransformerMixin, BaseEstimator):
         """Wrapper for using annoy.AnnoyIndex as sklearn's KNeighborsTransformer"""
@@ -189,12 +194,12 @@ def test_annoy_sklearn(df):
 
 
 @pytest.mark.skip("M1 issue")
-def test_nmslib_sklearn():
+def test_nmslib_sklearn(example):
     """
     https://scikit-learn.org/stable/auto_examples/neighbors/approximate_nearest_neighbors.html
     """
     n = 1000
-    df = vaex.example().head(n)
+    df = example.copy()
 
     # https://github.com/nmslib/nmslib/tree/master/manual
     class NMSlibTransformer(TransformerMixin, BaseEstimator):
@@ -284,12 +289,12 @@ def test_nmslib_sklearn():
     assert pipeline.inference(sample).shape == (n, 11)
 
 
-def test_kdtree():
+def test_kdtree(example):
     """
     https://scikit-learn.org/stable/auto_examples/neighbors/approximate_nearest_neighbors.html
     """
     n = 1000
-    df = vaex.example().head(n)
+    df = example.copy()
 
     # Vaex version
     from sklearn.neighbors import KDTree

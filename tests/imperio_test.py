@@ -1,10 +1,11 @@
 import pandas as pd
+import pytest
 import vaex
 from imperio import BoxCoxTransformer
 from vaex.ml.datasets import load_iris
-from sklearn.base import BaseEstimator, TransformerMixin
+
 from goldilox import Pipeline
-import pytest
+
 
 def test_imperio_vaex():
     df = load_iris()
@@ -25,6 +26,7 @@ def test_imperio_vaex():
     pipeline = Pipeline.from_vaex(df)
     assert pipeline.validate()
     assert pipeline.inference(pipeline.raw).shape == (1, 9)
+
 
 @pytest.mark.skip("TODO")
 def test_imperio_skleran():
@@ -47,6 +49,7 @@ def test_imperio_skleran():
             else:
                 print(X[0])
                 return BoxCoxTransformer.transform(self, X=X, **kwargs)
+
     PandasTransformer(features=columns, target='class_').fit(df[columns], df[target]).transform(df)
     pipeline = Pipeline.from_sklearn(PandasTransformer(features=columns, target='class_')).fit(df[columns], df[target])
     raw = df.head(1).to_dict(orient='records')[0]

@@ -1,6 +1,7 @@
 from numbers import Number
 
 import numpy as np
+import pytest
 import vaex
 from river import compose
 from river.linear_model import LogisticRegression
@@ -12,8 +13,14 @@ from vaex.ml.datasets import load_titanic
 from goldilox import Pipeline
 
 
-def test_river_vaex():
-    df = load_titanic()
+@pytest.fixture()
+def titanic():
+    # df = load_titanic()
+    return load_titanic()
+
+
+def test_river_vaex(titanic):
+    df = titanic.copy()
     features = df.get_column_names()
     features.remove('survived')
     num = compose.SelectType(Number) | StandardScaler()
@@ -38,12 +45,11 @@ def test_river_vaex():
     df.add_function('predict', predict)
     df['predictions'] = df.func.predict(*tuple([df[col] for col in features]))
     pipeline = Pipeline.from_vaex(df)
-    pipeline.validate()
     assert pipeline.inference(pipeline.raw).shape == (1, 15)
 
 
-def test_river_sklearn():
-    df = load_titanic().to_pandas_df()
+def test_river_sklearn(titanic):
+    df = titanic.to_pandas_df()
     features = list(df.columns)
     features.remove('survived')
     num = compose.SelectType(Number) | StandardScaler()
@@ -87,5 +93,4 @@ def test_river_sklearn():
 
     pipeline = Pipeline.from_sklearn(RiverLogisticRegression(model, 'survived')).fit(df)
 
-    pipeline.validate()
     assert pipeline.inference(pipeline.raw).shape == (1, 15)

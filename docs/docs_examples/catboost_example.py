@@ -1,11 +1,9 @@
-import pandas as pd
-from sklearn.datasets import load_iris
+from goldilox.datasets import load_iris
 
-# Get teh data
-iris = load_iris()
-features = iris.feature_names
-df = pd.DataFrame(iris.data, columns=features)
-df['target'] = iris.target
+df = load_iris('pandas')
+features = ["petal_length", "petal_width",
+            "sepal_length", "sepal_width"]
+target = "target"
 
 df.head(2)
 
@@ -13,7 +11,7 @@ from goldilox import Pipeline
 from catboost import CatBoostClassifier
 import json
 
-X, y = df[features], df['target']
+X, y = df[features], df[target]
 
 model = CatBoostClassifier(verbose=0)
 pipeline = Pipeline.from_sklearn(model).fit(X, y)
@@ -23,22 +21,10 @@ raw = pipeline.raw
 print(f"predict for {json.dumps(raw, indent=4)}")
 pipeline.inference(raw)
 
-from goldilox import Pipeline
-from catboost import CatBoostClassifier
-import json
-
-X, y = df[features], df['target']
-
-model = CatBoostClassifier(verbose=0)
-pipeline = Pipeline.from_sklearn(model).fit(X, y)
-
-# I/O Example
-print(f"predict for {json.dumps(pipeline.raw, indent=4)}")
-pipeline.inference(pipeline.raw)
-
-# Vaex example
+# vaex
 import vaex
 import warnings
+from goldilox.datasets import load_iris
 from vaex.ml.catboost import CatBoostModel
 from goldilox import Pipeline
 import numpy as np
@@ -46,8 +32,8 @@ import json
 
 warnings.filterwarnings("ignore")
 
-df = load_iris()
-target = "class_"
+df = load_iris('vaex')
+target = "target"
 
 # feature engineering example
 df["petal_ratio"] = df["petal_length"] / df["petal_width"]
@@ -70,7 +56,6 @@ def argmax(ar, axis=1):
 
 df.add_function("argmax", argmax)
 df["prediction"] = df["predictions"].argmax()
-
 df["label"] = df["prediction"].map({0: "setosa", 1: "versicolor", 2: "virginica"})
 
 # Vaex remember all the transformations
@@ -83,11 +68,13 @@ pipeline.inference(pipeline.raw)
 
 # vaex + skleran
 from catboost import CatBoostClassifier
-from vaex.ml.datasets import load_iris
+from goldilox.datasets import load_iris
 from vaex.ml.sklearn import Predictor
 
-df = load_iris()
-target = 'class_'
+df = load_iris('vaex')
+features = ["petal_length", "petal_width",
+            "sepal_length", "sepal_width"]
+target = "target"
 
 # feature engineering example
 df['petal_ratio'] = df['petal_length'] / df['petal_width']
@@ -102,3 +89,11 @@ df = model.transform(df)
 df['prediction'] = df['prediction'].apply(lambda x: x[0])  # catboost returns array - so we adjust
 df['label'] = df['prediction'].map({0: 'setosa', 1: 'versicolor', 2: 'virginica'})
 
+from goldilox import Pipeline
+import json
+
+pipeline = Pipeline.from_vaex(df)
+pipeline.raw.pop(target)
+# I/O Example
+print(f"predict for {json.dumps(pipeline.raw, indent=4)}")
+pipeline.inference(pipeline.raw)
