@@ -178,19 +178,13 @@ df['target'] = iris.target
 # we don't need to provide raw example if we do the training from the Goldilox Pipeline - it would be taken automatically from the first row.
 classifier = XGBClassifier(n_estimators=10, verbosity=0, use_label_encoder=False)
 pipeline = Pipeline.from_sklearn(classifier).fit(df[features], df['target'])
+```
 
-WARNING: Pipeline
-doesn
-'t handle na for sepal length (cm)
-WARNING: Pipeline
-doesn
-'t handle na for sepal width (cm)
-WARNING: Pipeline
-doesn
-'t handle na for petal length (cm)
-WARNING: Pipeline
-doesn
-'t handle na for petal width (cm)
+```
+WARNING: Pipeline doesn't handle na for sepal length (cm)
+WARNING: Pipeline doesn't handle na for sepal width (cm)
+WARNING: Pipeline doesn 't handle na for petal length (cm)
+WARNING: Pipeline doesn't handle na for petal width (cm)
 ```
 
 We do not handle missing values? Let's fix that!
