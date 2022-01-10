@@ -8,6 +8,7 @@ from tempfile import TemporaryDirectory
 import cloudpickle
 import numpy as np
 import pandas as pd
+from sklearn.utils.validation import check_is_fitted
 
 import goldilox
 from goldilox.config import AWS_PROFILE, PIPELINE_TYPE, VAEX, SKLEARN, BYTE_DELIMITER, VERSION, PY_VERSION, \
@@ -71,7 +72,11 @@ class Pipeline:
 
     @staticmethod
     def _is_sklearn_fitted(pipeline):
-        return hasattr(pipeline, "__sklearn_is_fitted__") and pipeline.__sklearn_is_fitted__()
+        try:
+            check_is_fitted(pipeline)
+            return True
+        except:
+            return False
 
     @classmethod
     def from_sklearn(
@@ -113,7 +118,6 @@ class Pipeline:
         if validate and Pipeline._is_sklearn_fitted(pipeline):
             logger.info("validate pipeline")
             logger.info(f"pipeline valid: {ret.validate()}")
-        return ret
 
     @classmethod
     def _read_file(cls, path):
@@ -224,7 +228,7 @@ class Pipeline:
             if check_na:
                 pipeline._validate_na()
         elif verbose:
-            logger.info("No data, and no raw example existing for inference validation - skip")
+            logger.warning("No data provided for inference validation - skip")
         return True
 
     def _validate_na(self):
