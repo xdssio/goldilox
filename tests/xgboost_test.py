@@ -53,7 +53,7 @@ def test_xgboost_vaex_fit(iris):
         train, test = df.ml.train_test_split(test_size=0.2, verbose=False)
 
         features = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
-        target = 'class_'
+        target = 'target'
 
         booster = XGBoostModel(features=features,
                                target=target,
@@ -77,7 +77,7 @@ def test_xgboost_vaex_fit(iris):
         df.variables['accuracy'] = accuracy
         return df
 
-    df, features, target = load_iris()
+    df, features, target = iris
     df = vaex.from_pandas(df)
     pipeline = VaexPipeline.from_dataframe(df, fit=fit)
     sample = Pipeline.to_raw(df[features])

@@ -168,5 +168,3 @@ def test_catboost_sklearn(iris):
     assert pipeline.inference(X).head(10).shape == (10, 5)
     assert pipeline.inference(X.values[:10]).shape == (10, 5)
     assert pipeline.inference(pipeline.raw).shape == (1, 5)
-
-´
