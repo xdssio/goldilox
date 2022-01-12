@@ -225,11 +225,14 @@ class Pipeline:
             X = df if df is not None else self.infer(self.raw)
             if verbose:
                 logger.info("validate inference")
-            assert len(pipeline.inference(X)) == len(X)
+            try:
+                assert len(pipeline.inference(X)) == len(X)
+            except AssertionError as e:
+                logger.error("WARNING: Pipeline filter data on inference")
             if check_na:
                 pipeline._validate_na()
         elif verbose:
-            logger.warning("No data provided for inference validation - skip")
+            logger.warning("WARNING: No data provided for inference validation - skip")
         return True
 
     def _validate_na(self):
@@ -243,7 +246,7 @@ class Pipeline:
                     self.inference(tmp).to_records()
             except Exception as e:
                 ret = False
-                logger.warning(f"Pipeline doesn't handle NA for {column}")
+                logger.warning(f"WARNING: Pipeline doesn't handle NA for {column}")
         return ret
 
     def fit(self, df, **kwargs):

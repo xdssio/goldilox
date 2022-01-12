@@ -8,18 +8,17 @@ from goldilox import Pipeline
 from goldilox.datasets import load_iris
 from tests.test_utils import validate_persistence
 
-features = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
-target = 'target'
-
 
 @pytest.fixture()
 def iris():
-    # iris = load_iris('vaex')
-    return load_iris('vaex')
+    # iris = load_iris()
+    return load_iris()
 
 
 def test_lightgbm_vaex(iris, tmpdir):
-    train, test = iris.ml.train_test_split(test_size=0.2, verbose=False)
+    df, features, target = iris
+    df = vaex.from_pandas(df)
+    train, test = df.ml.train_test_split(test_size=0.2, verbose=False)
 
     train['X'] = train['petal_length'] / train['petal_width']
 
@@ -94,7 +93,8 @@ def test_lightgbm_vaex_fit(iris, tmpdir):
         df.variables['accuracy'] = accuracy
         return df
 
-    df = iris.copy()
+    df, features, target = iris
+    df = vaex.from_pandas(df)
     pipeline = Pipeline.from_vaex(df, fit=fit)
     data = df.to_records(0)
     assert pipeline.inference(data).shape == df.head(1).shape
@@ -110,8 +110,8 @@ def test_lightgbm_vaex_fit(iris, tmpdir):
 def test_lightgbm_sklearn(iris, tmpdir):
     from lightgbm.sklearn import LGBMClassifier
     import sklearn.pipeline
-    df = iris.copy()
 
+    df, features, target = load_iris()
     X, y = df[features], df[target]
     sk_pipeline = sklearn.pipeline.Pipeline([('classifier', LGBMClassifier())])
     pipeline = Pipeline.from_sklearn(sk_pipeline, validate=False).fit(X, y)
@@ -126,8 +126,8 @@ def test_lightgbm_sklearn(iris, tmpdir):
     assert pipeline.inference(pipeline.raw).shape == (1, 5)
 
     # with a trained sklearn pipeline
-    sample = X.head(1).to_records()[0]
-    self = pipeline = Pipeline.from_sklearn(sk_pipeline, raw=sample).fit(X, y)
+
+    self = pipeline = Pipeline.from_sklearn(sk_pipeline, raw=Pipeline.to_raw(X)).fit(X, y)
     pipeline = validate_persistence(pipeline)
     assert pipeline.inference(X).head(10).shape == (10, 5)
     assert pipeline.inference(X.values[:10]).shape == (10, 5)

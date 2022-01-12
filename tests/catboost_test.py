@@ -4,23 +4,23 @@ import sklearn.pipeline
 import vaex
 from sklearn.metrics import accuracy_score
 
+from goldilox import Pipeline
 from goldilox.datasets import load_iris
 from goldilox.sklearn.pipeline import Pipeline as SklearnPipeline
 from goldilox.vaex.pipeline import VaexPipeline as VaexPipeline
 from tests.test_utils import validate_persistence
 
-features = ["petal_length", "petal_width", "sepal_length", "sepal_width"]
-target = "target"
-
 
 @pytest.fixture()
 def iris():
-    # iris = load_iris('vaex')
-    return load_iris('vaex')
+    # iris = load_iris()
+    return load_iris()
 
 
 def test_vaex_catboost(iris):
-    train, test = iris.ml.train_test_split(test_size=0.2, verbose=False)
+    df, features, target = iris
+    df = vaex.from_pandas(df)
+    train, test = df.ml.train_test_split(test_size=0.2, verbose=False)
     train["X"] = train["petal_length"] / train["petal_width"]
     from vaex.ml.catboost import CatBoostModel
 
@@ -109,7 +109,8 @@ def test_catboost_vaex_fit(iris, tmpdir):
         df["prediction"] = df["predictions"].argmax()
         return df
 
-    df = iris.copy()
+    df, features, target = iris
+    df = vaex.from_pandas(df)
     pipeline = VaexPipeline.from_dataframe(df, fit=fit)
     data = df.to_records(0)
     data.pop("target")
@@ -134,42 +135,38 @@ def test_catboost_vaex_fit(iris, tmpdir):
 def test_catboost_sklearn(iris):
     from catboost import CatBoostClassifier
 
-    df = iris.copy().to_pandas_df()
-    features = ["petal_length", "petal_width", "sepal_length", "sepal_width"]
-    target = "target"
+    df, features, target = load_iris()
+    X, y = df[features], df[target]
+
     sk_pipeline = sklearn.pipeline.Pipeline(
         [("classifier", CatBoostClassifier(verbose=0, iterations=10))]
     )
-    X = df[features]
-    y = df[target]
-    self = pipeline = SklearnPipeline.from_sklearn(sk_pipeline).fit(X, y)
+    pipeline = SklearnPipeline.from_sklearn(sk_pipeline).fit(X, y)
     assert pipeline.inference(X).head(10).shape == (10, 5)
     assert pipeline.inference(X.values[:10]).shape == (10, 5)
-    assert pipeline.inference(self.raw).shape == (1, 5)
+    assert pipeline.inference(pipeline.raw).shape == (1, 5)
 
-    df = iris.copy()
-    features = ["petal_length", "petal_width", "sepal_length", "sepal_width"]
-    target = "target"
+    df, features, target = load_iris()
+    X, y = df[features], df[target]
     sk_pipeline = sklearn.pipeline.Pipeline(
         [("classifier", CatBoostClassifier(verbose=0, iterations=10))]
     )
-    X = df[features]
-    y = df[target]
-    self = pipeline = SklearnPipeline.from_sklearn(sk_pipeline).fit(X, y)
+    pipeline = SklearnPipeline.from_sklearn(sk_pipeline).fit(X, y)
 
     assert pipeline.inference(X).head(10).shape == (10, 5)
     assert pipeline.inference(X.values[:10]).shape == (10, 5)
-    assert pipeline.inference(self.raw).shape == (1, 5)
+    assert pipeline.inference(pipeline.raw).shape == (1, 5)
 
     pipeline.fit(df)
     assert pipeline.inference(X).head(10).shape == (10, 5)
     assert pipeline.inference(X.values[:10]).shape == (10, 5)
-    assert pipeline.inference(self.raw).shape == (1, 5)
+    assert pipeline.inference(pipeline.raw).shape == (1, 5)
 
     # with a trained sklearn pipeline
-    sample = X.head(1).to_records()[0]
-    # TODO
-    self = pipeline = SklearnPipeline.from_sklearn(sk_pipeline, raw=sample).fit(X, y)
+    sample = Pipeline.to_raw(X)
+    pipeline = SklearnPipeline.from_sklearn(sk_pipeline, raw=sample).fit(X, y)
     assert pipeline.inference(X).head(10).shape == (10, 5)
     assert pipeline.inference(X.values[:10]).shape == (10, 5)
-    assert pipeline.inference(self.raw).shape == (1, 5)
+    assert pipeline.inference(pipeline.raw).shape == (1, 5)
+
+´

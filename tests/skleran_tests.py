@@ -1,3 +1,4 @@
+import logging
 import warnings
 
 import numpy as np
@@ -14,43 +15,42 @@ from sklearn.preprocessing import OrdinalEncoder, StandardScaler
 from goldilox import Pipeline
 from tests.test_utils import validate_persistence
 
+logger = logging.getLogger(__name__)
 warnings.filterwarnings("ignore")
 
 from goldilox.sklearn.pipeline import SklearnPipeline
 from goldilox.datasets import load_iris
 
-features = ["petal_length", "petal_width", "sepal_length", "sepal_width"]
-target = "target"
-
 
 @pytest.fixture()
 def iris():
-    # iris = load_iris('pandas')
-    return load_iris('pandas')
+    # iris = load_iris()
+    return load_iris()
 
 
 def test_sklearn_transformer(iris):
+    df, features, target = load_iris()
+    X, y = df[features], df[target]
     pipeline = Pipeline.from_sklearn(
         sklearn.pipeline.Pipeline([("standard", StandardScaler())]),
-        output_columns=list(iris.columns)
-    ).fit(iris)
+        output_columns=features
+    ).fit(df)
 
-    results = pipeline.inference(iris.head())
+    results = pipeline.inference(df.head())
     assert results.shape == (5, 5)
     assert results['target'].dtype == float
 
-    pipeline = Pipeline.from_sklearn(PCA(),
-                                     ).fit(iris[features], iris[target])
+    pipeline = Pipeline.from_sklearn(PCA()).fit(X, y)
 
-    results = pipeline.inference(iris.head())
+    results = pipeline.inference(df.head())
     assert results.shape == (5, 4)
     assert isinstance(results, np.ndarray)
 
     pipeline = Pipeline.from_sklearn(PCA(),
                                      output_columns=[f"pca{i}" for i in range(4)]
-                                     ).fit(iris[features])
+                                     ).fit(X)
 
-    results = pipeline.inference(iris.head())
+    results = pipeline.inference(df.head())
     for i in range(4):
         f"pca{i}" in results
     assert results.shape == (5, 4)
@@ -58,8 +58,9 @@ def test_sklearn_transformer(iris):
 
 
 def test_sklearn_inference_columns(iris):
-    df = iris.copy()
-    pipeline = Pipeline.from_sklearn(PCA()).fit(df[columns], df[target])
+    df, features, target = iris
+    X, y = df[features], df[target]
+    pipeline = Pipeline.from_sklearn(PCA()).fit(X, y)
 
     results = pipeline.inference(df.head(5))
     assert results.shape == (5, 4)
@@ -67,7 +68,7 @@ def test_sklearn_inference_columns(iris):
 
     pipeline = Pipeline.from_sklearn(PCA(),
                                      output_columns=[f"pca{i}" for i in range(4)]
-                                     ).fit(iris[features])
+                                     ).fit(X)
 
     results = pipeline.inference(iris.head())
     for i in range(4):
@@ -76,16 +77,15 @@ def test_sklearn_inference_columns(iris):
     assert 'target' in results  # passthrough is true by default
     assert isinstance(results, pd.DataFrame)
 
-    results = pipeline.inference(iris.head(), columns=["pca1", "pca2", "noise"])
+    results = pipeline.inference(df.head(), columns=["pca1", "pca2", "noise"])
     for i in range(2):
         f"pca{i}" in results
     assert results.shape == (5, 2)
 
 
 def test_from_sklearn_transform_numpy(iris):
-    iris = load_iris().to_pandas_df()
-    columns = ["petal_length", "petal_width", "sepal_length", "sepal_width"]
-    X = iris[columns]
+    df, features, target = load_iris()
+    X, y = df[features], df[target]
     values = X.values
     self = pipeline = SklearnPipeline.from_sklearn(
         sklearn.pipeline.Pipeline([("standard", StandardScaler())]),
@@ -117,7 +117,7 @@ def test_from_sklearn_transform_numpy(iris):
     assert pipeline.inference(X).shape == X.shape
     assert pipeline.inference(values).shape == X.shape
     assert pipeline.raw is None
-    assert pipeline.features == columns
+    assert pipeline.features == features
 
     pipeline = SklearnPipeline.from_sklearn(
         sklearn.pipeline.Pipeline([("standard", StandardScaler())]).fit(X),
@@ -126,7 +126,7 @@ def test_from_sklearn_transform_numpy(iris):
     assert pipeline.inference(X).shape == X.shape
     assert pipeline.inference(values).shape == X.shape
     assert pipeline.raw == SklearnPipeline.to_raw(X)
-    assert pipeline.features == columns
+    assert pipeline.features == features
 
     with pytest.raises(Exception):
         SklearnPipeline.from_sklearn(
@@ -135,8 +135,7 @@ def test_from_sklearn_transform_numpy(iris):
 
 
 def test_sklrean_predict_classification(iris):
-    df = iris.copy()
-
+    df, features, target = iris
     X, y = df[features], df[target]
     pipeline = SklearnPipeline.from_sklearn(
         sklearn.pipeline.Pipeline([("regression", LogisticRegression())])
@@ -160,7 +159,7 @@ def test_sklrean_predict_classification(iris):
 
 
 def test_sklrean_predict_regression(iris):
-    df = iris.copy()
+    df, features, target = load_iris()
     X, y = df[features], df[target]
     pipeline = SklearnPipeline.from_sklearn(
         sklearn.pipeline.Pipeline([("regression", LinearRegression())])
@@ -181,7 +180,8 @@ def test_sklrean_predict_regression(iris):
     assert pipeline.target == target
 
 
-def test_skleran_advance(tmpdir):
+@pytest.fixture(autouse=True)
+def test_skleran_advance(tmpdir, caplog):
     df = pd.read_csv("data/titanic.csv")
     train, test = train_test_split(df)
 
@@ -371,8 +371,11 @@ def test_skleran_advance(tmpdir):
         def __init__(self, column):
             self.column = column
 
-        def transform(self, df, **transform_params):
+        def fit_transform(self, df):
             return df[df[self.column].str.contains(" ") != True]
+
+        def transform(self, df, **transform_params):
+            return df
 
     sk_pipeline = sklearn.pipeline.Pipeline(
         [
@@ -407,13 +410,14 @@ def test_skleran_advance(tmpdir):
         ]
     )
 
-    pipeline = SklearnPipeline.from_sklearn(sk_pipeline).fit(train)
+    pipeline = Pipeline.from_sklearn(sk_pipeline).fit(train)
 
     assert pipeline.inference(test).head(5).shape == (5, 22)
     assert len(pipeline.inference(test)) != len(test)
 
-    with pytest.raises(Exception):
-        pipeline.validate(test)
+    with caplog.at_level(logging.WARNING):
+        assert "Pipeline doesn't handle NA for PassengerId" in caplog.text
+    pipeline.validate(test)
 
     with pytest.raises(Exception):
         pipeline.validate()

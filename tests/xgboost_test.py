@@ -1,10 +1,12 @@
 import pytest
 import sklearn.pipeline
+import vaex
 from sklearn.metrics import accuracy_score
-from vaex.ml.datasets import load_iris_1e5
 from vaex.ml.xgboost import XGBoostModel
 from xgboost.sklearn import XGBClassifier
 
+from goldilox import Pipeline
+from goldilox.datasets import load_iris
 from goldilox.sklearn.pipeline import Pipeline as SklearnPipeline
 from goldilox.vaex.pipeline import VaexPipeline as VaexPipeline
 from tests.test_utils import validate_persistence
@@ -12,17 +14,17 @@ from tests.test_utils import validate_persistence
 
 @pytest.fixture()
 def iris():
-    # iris = load_iris_1e5()
-    return load_iris_1e5()
+    # iris = load_iris()
+    return load_iris()
 
 
 def test_vaex_xgboost(iris):
-    train, test = iris.ml.train_test_split(test_size=0.2, verbose=False)
-    features = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
-    target = 'class_'
-    train['X'] = train['petal_length'] / train['petal_width']
+    df, features, target = load_iris()
+    df = vaex.from_pandas(df)
+    train, test = df.ml.train_test_split(test_size=0.2, verbose=False)
+    train['petal_ratio'] = train['petal_length'] / train['petal_width']
 
-    booster = XGBoostModel(features=features,
+    booster = XGBoostModel(features=features + ['petal_ratio'],
                            target=target,
                            prediction_name='prediction',
                            num_boost_round=10, params={'verbosity': 0,
@@ -75,11 +77,11 @@ def test_xgboost_vaex_fit(iris):
         df.variables['accuracy'] = accuracy
         return df
 
-    df = iris.copy()
+    df, features, target = load_iris()
+    df = vaex.from_pandas(df)
     pipeline = VaexPipeline.from_dataframe(df, fit=fit)
-    data = df.to_records(0)
-    data.pop('class_')
-    assert pipeline.inference(data).shape == df.head(1).shape
+    sample = Pipeline.to_raw(df[features])
+    assert pipeline.inference(sample).shape == df.head(1).shape
     data = df.to_records(0)
     pipeline.fit(df)
     pipeline = validate_persistence(pipeline)
@@ -87,17 +89,13 @@ def test_xgboost_vaex_fit(iris):
     assert pipeline.inference(data).shape == (1, 6)
     assert pipeline.get_variable('accuracy')
     assert pipeline.raw == data
-    assert list(pipeline.example.keys()) == ['sepal_length', 'sepal_width', 'petal_length', 'petal_width', 'class_',
-                                             'predictions']
+    assert list(pipeline.example.keys()) == features + [target] + ['predictions']
 
 
 def test_xgboost_sklearn(iris):
-    df = iris.copy()
-    features = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
-    target = 'class_'
+    df, features, target = load_iris()
+    X, y = df[features], df[target]
     sk_pipeline = sklearn.pipeline.Pipeline([('classifier', XGBClassifier(n_estimators=10, verbosity=0))])
-    X = df[features]
-    y = df[target]
     self = pipeline = SklearnPipeline.from_sklearn(sk_pipeline).fit(X, y)
 
     assert pipeline.inference(X).head(10).shape == (10, 5)
@@ -111,7 +109,7 @@ def test_xgboost_sklearn(iris):
     assert pipeline.inference(self.raw).shape == (1, 5)
 
     # with a trained sklearn pipeline
-    sample = X.head(1).to_records()[0]
+    sample = Pipeline.to_raw(X)
     self = pipeline = SklearnPipeline.from_sklearn(sk_pipeline, raw=sample).fit(X, y)
     assert pipeline.inference(X).head(10).shape == (10, 5)
     assert pipeline.inference(X.values[:10]).shape == (10, 5)

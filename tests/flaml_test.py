@@ -7,18 +7,16 @@ from goldilox import Pipeline
 from goldilox.datasets import load_iris
 from tests.test_utils import validate_persistence
 
-features = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
-target = 'target'
-
 
 @pytest.fixture()
-def df():
-    # df = load_iris('vaex')
-    return load_iris('vaex')
+def iris():
+    return load_iris()
 
 
-def test_flaml_vaex(df, tmpdir):
+def test_flaml_vaex(iris, tmpdir):
     from flaml import AutoML
+    df, features, target = iris
+    df = vaex.from_pandas(df)
     model = AutoML()
     automl_settings = {
         "time_budget": 10,  # in seconds
@@ -41,9 +39,9 @@ def test_flaml_vaex(df, tmpdir):
     assert pipeline.inference(pipeline.raw).shape == (1, 6)
 
 
-def test_flaml_sklearn(df):
+def test_flaml_sklearn(iris):
     from flaml import AutoML
-
+    df, features, target = iris
     automl_settings = {
         "automl__time_budget": 10,  # in seconds
         "automl__metric": 'accuracy',

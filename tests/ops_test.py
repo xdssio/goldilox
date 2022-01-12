@@ -1,7 +1,8 @@
 import pytest
-from vaex.ml.datasets import load_iris
+import vaex
 
 from goldilox import Pipeline
+from goldilox.datasets import load_iris
 
 
 def lightgbm_vaex_fit():
@@ -57,8 +58,8 @@ def lightgbm_vaex_fit():
         df.variables["names"] = names
         return df
 
-    iris = load_iris()
-    df = iris.copy()
+    df, features, target = load_iris()
+    df = vaex.from_pandas(df)
     pipeline = Pipeline.from_vaex(
         df, fit=fit, description="Lightgbm with Vaex"
     )
@@ -96,9 +97,8 @@ def test_lightgbm_sklearn():
     from lightgbm.sklearn import LGBMClassifier
     import sklearn.pipeline
 
-    df = load_iris().copy()
-    features = ["petal_length", "petal_width", "sepal_length", "sepal_width"]
-    target = "class_"
+    df, features, target = load_iris()
+    df = vaex.from_pandas(df)
     sk_pipeline = sklearn.pipeline.Pipeline([("classifier", LGBMClassifier())])
     X = df[features]
     y = df[target]

@@ -1,4 +1,5 @@
 import sklearn.pipeline
+import vaex
 from sklearn.linear_model import LogisticRegression
 from vaex.ml.datasets import load_iris
 from vaex.ml.sklearn import Predictor
@@ -8,14 +9,10 @@ from goldilox.sklearn.pipeline import SklearnPipeline
 from goldilox.vaex.pipeline import VaexPipeline
 from tests.test_utils import validate_persistence
 
-features = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
-target = 'target'
-
 
 def test_skleran_save_load(tmpdir):
-    iris = load_iris()
-    X = iris[features]
-    y = iris[target]
+    df, features, target = load_iris()
+    X, y = df[features], df[target]
     self = pipeline = SklearnPipeline.from_sklearn(sklearn.pipeline.Pipeline([('regression', LogisticRegression())]),
                                                    output_columns=['predictiom'])
     pipeline.fit(X, y)
@@ -24,7 +21,9 @@ def test_skleran_save_load(tmpdir):
 
 
 def test_vaex_save_load(tmpdir):
-    df = load_iris('vaex')
+    df, features, target = load_iris()
+    df = vaex.from_pandas(df)
+    X, y = df[features], df[target]
 
     model = Predictor(model=LogisticRegression(), features=features, target=target)
     model.fit(df)
@@ -35,7 +34,8 @@ def test_vaex_save_load(tmpdir):
 
 
 def test_goldilox_save_load(tmpdir):
-    df = load_iris('vaex')
+    df, features, target = load_iris()
+    df = vaex.from_pandas(df)
     model = Predictor(model=LogisticRegression(), features=features, target=target)
     model.fit(df)
     df = model.transform(df)
