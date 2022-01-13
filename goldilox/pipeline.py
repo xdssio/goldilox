@@ -8,6 +8,7 @@ from tempfile import TemporaryDirectory
 import cloudpickle
 import numpy as np
 import pandas as pd
+from sklearn.base import TransformerMixin, BaseEstimator
 from sklearn.utils.validation import check_is_fitted
 
 import goldilox
@@ -18,7 +19,7 @@ from goldilox.utils import _is_s3_url
 logger = logging.getLogger()
 
 
-class Pipeline:
+class Pipeline(TransformerMixin, BaseEstimator):
     pipeline_type: str
     description: str
     BYTES_SIGNETURE = b"Goldilox"
@@ -243,7 +244,7 @@ class Pipeline:
             tmp[column] = None
             try:
                 with np.errstate(all='ignore'):
-                    self.inference(tmp).to_records()
+                    Pipeline.to_raw(self.inference(tmp))
             except Exception as e:
                 ret = False
                 logger.warning(f"WARNING: Pipeline doesn't handle NA for {column}")

@@ -5,6 +5,7 @@ import cloudpickle
 import numpy as np
 import pandas as pd
 import traitlets
+from sklearn.base import TransformerMixin
 
 from goldilox import Pipeline
 from goldilox.config import STATE
@@ -15,7 +16,7 @@ TRAITS = "_trait_values"
 logger = logging.getLogger()
 
 
-class SklearnPipeline(traitlets.HasTraits, Pipeline):
+class SklearnPipeline(traitlets.HasTraits, Pipeline, TransformerMixin):
     pipeline_type = "sklearn"
     current_time = int(time())
     created = traitlets.Int(
