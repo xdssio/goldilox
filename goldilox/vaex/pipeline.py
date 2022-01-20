@@ -135,6 +135,8 @@ class VaexPipeline(HasState, Pipeline):
     def _tolist(cls, value):
         if hasattr(value, "ar"):
             return value.ar.tolist()
+        elif hasattr(value, "to_numpy"):
+            value = value.to_numpy()
         return value.tolist()
 
     @classmethod
