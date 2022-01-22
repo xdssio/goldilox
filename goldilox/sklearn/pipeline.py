@@ -133,10 +133,15 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline, TransformerMixin):
         if isinstance(df, dict):
             df = [df.copy()]
         if isinstance(df, list):
-            return pd.DataFrame(df, columns=self.features)
+            ret = pd.DataFrame(df)
+            if self.features is not None and \
+                    isinstance(ret.columns, pd.Index) and \
+                    len(self.features) == len(
+                ret.columns):
+                ret.columns = self.features
+            return ret
         try:
             import vaex
-
             if isinstance(df, vaex.dataframe.DataFrame):
                 return df.to_pandas_df()
         except:
@@ -197,6 +202,8 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline, TransformerMixin):
                 X = X[self.features]
             elif len(self.features) == 1:
                 X = X[self.features[0]]
+        if self.output_columns is None:
+            self.output_columns = self.features
         return X
 
     def fit(self, df, y=None, validate=True, check_na=True):

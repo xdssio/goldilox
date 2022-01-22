@@ -33,54 +33,40 @@ def test_sklearn_transformer(iris):
     X, y = df[features], df[target]
     pipeline = Pipeline.from_sklearn(
         sklearn.pipeline.Pipeline([("standard", StandardScaler())]),
-        output_columns=features
     ).fit(df)
 
     results = pipeline.inference(df.head())
     assert results.shape == (5, 5)
     assert results['target'].dtype == float
 
+    pipeline = Pipeline.from_sklearn(
+        sklearn.pipeline.Pipeline([("standard", StandardScaler())]),
+        features=features
+    ).fit(df)
+
+    results = pipeline.inference(df.head())
+    assert results.shape == (5, 5)
+    assert results['target'].dtype == int
+
     pipeline = Pipeline.from_sklearn(PCA()).fit(X, y)
 
     results = pipeline.inference(df.head())
-    assert results.shape == (5, 4)
-    assert isinstance(results, np.ndarray)
+    assert results.shape == (5, 5)
 
     pipeline = Pipeline.from_sklearn(PCA(),
                                      output_columns=[f"pca{i}" for i in range(4)]
                                      ).fit(X)
 
     results = pipeline.inference(df.head())
-    for i in range(4):
-        f"pca{i}" in results
-    assert results.shape == (5, 4)
-    assert isinstance(results, pd.DataFrame)
-
-
-def test_sklearn_inference_columns(iris):
-    df, features, target = iris
-    X, y = df[features], df[target]
-    pipeline = Pipeline.from_sklearn(PCA()).fit(X, y)
-
-    results = pipeline.inference(df.head(5))
-    assert results.shape == (5, 4)
-    assert isinstance(results, np.ndarray)
-
-    pipeline = Pipeline.from_sklearn(PCA(),
-                                     output_columns=[f"pca{i}" for i in range(4)]
-                                     ).fit(X)
-
-    results = pipeline.inference(iris.head())
     for i in range(4):
         f"pca{i}" in results
     assert results.shape == (5, 5)
-    assert 'target' in results  # passthrough is true by default
     assert isinstance(results, pd.DataFrame)
 
-    results = pipeline.inference(df.head(), columns=["pca1", "pca2", "noise"])
+    results = pipeline.inference(df.head(), columns=["pca1", "pca2", "noise", 'target'])
     for i in range(2):
         f"pca{i}" in results
-    assert results.shape == (5, 2)
+    assert results.shape == (5, 3)
 
 
 def test_from_sklearn_transform_numpy(iris):
@@ -89,8 +75,8 @@ def test_from_sklearn_transform_numpy(iris):
     values = X.values
     self = pipeline = SklearnPipeline.from_sklearn(
         sklearn.pipeline.Pipeline([("standard", StandardScaler())]),
-        features=columns,
-        output_columns=columns
+        features=features,
+        output_columns=features
     )
     pipeline.fit(values)
     assert pipeline.inference(X).shape == X.shape
@@ -129,12 +115,12 @@ def test_from_sklearn_transform_numpy(iris):
     assert pipeline.features == features
 
     with pytest.raises(Exception):
-        SklearnPipeline.from_sklearn(
+        Pipeline.from_sklearn(
             sklearn.pipeline.Pipeline([("standard", StandardScaler())]).fit(X)
         )
 
 
-def test_sklrean_predict_classification(iris):
+def test_sklearn_predict_classification(iris):
     df, features, target = iris
     X, y = df[features], df[target]
     pipeline = SklearnPipeline.from_sklearn(
