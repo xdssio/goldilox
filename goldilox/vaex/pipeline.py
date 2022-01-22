@@ -136,7 +136,10 @@ class VaexPipeline(HasState, Pipeline):
         if hasattr(value, "ar"):
             return value.ar.tolist()
         elif hasattr(value, "to_numpy"):
-            value = value.to_numpy()
+            try:
+                value = value.to_numpy()
+            except pa.lib.ArrowInvalid as e:
+                logger.warning(str(e))
         return value.tolist()
 
     @classmethod
