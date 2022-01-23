@@ -17,7 +17,7 @@ logger = logging.getLogger()
 
 
 class SklearnPipeline(traitlets.HasTraits, Pipeline, TransformerMixin):
-    pipeline_type = "sklearn"
+    pipeline_type = traitlets.Unicode(default_value="sklearn")
     current_time = int(time())
     created = traitlets.Int(
         default_value=current_time, allow_none=False, help="Created time"
@@ -69,7 +69,7 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline, TransformerMixin):
             description="",
     ):
         """
-        :param sklearn.preprocessing.pipeline.Pipeline pipeline: The skleran pipeline
+        :param sklearn.preprocessing.pipeline.Pipeline pipeline: The sklearn pipeline
         :param raw: dict [optional]: An example of data which will be queried in production (only the features)
                 - If X is provided, would be the first row.
         :param features: list [optional]: A list of columns - if X is provided, will take it's columns
@@ -216,6 +216,12 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline, TransformerMixin):
         return self
 
     def transform(self, df, **kwargs):
+        """
+        Transform the data based on the the pipeline.
+        @param df: [DataFrame] data to tranform
+        @param kwargs: Tranform
+        @return:
+        """
         copy = self.infer(df)
         features = self.features or copy.columns
         copy = self.pipeline.transform(copy[features])

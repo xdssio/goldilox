@@ -29,7 +29,7 @@ VARIABLES = "variables"
 
 
 class VaexPipeline(HasState, Pipeline):
-    pipeline_type = "vaex"
+    pipeline_type = traitlets.Unicode(default_value="vaex")
     current_time = int(time())
     created = traitlets.Int(
         default_value=current_time, allow_none=False, help="Created time"

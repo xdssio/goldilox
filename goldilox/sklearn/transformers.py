@@ -56,24 +56,3 @@ class Imputer(SklearnPipeline):
 
     def transform(self, X, y=None):
         return self.model.transform(X)
-
-
-from goldilox.datasets import load_iris
-from goldilox import Pipeline
-from lightgbm.sklearn import LGBMClassifier
-import sklearn.pipeline
-
-df, features, target = load_iris()
-X, y = df[features], df[target]
-imputer = Imputer()
-imputer.fit_transform(X, y)
-# imputer.fit_transform(df[features], df[target])
-sklearn_pipeline = sklearn.pipeline.Pipeline([('imputer', Imputer()), ('classifier', LGBMClassifier())])
-
-self = pipeline = Pipeline.from_sklearn(pipeline=sklearn_pipeline).fit(X, y)
-self.inference(self.raw)
-self.pipeline[1]._Booster.feature_name()
-#
-# imputer = ColumnTransformer([('features_mean', SimpleImputer(strategy='mean'), features)], remainder='passthrough')
-# sklearn_pipeline = sklearn.pipeline.Pipeline([('imputer', Imputer()), ('classifier', LGBMClassifier())])
-# sklearn_pipeline = sklearn_pipeline.fit(X, y)
