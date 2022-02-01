@@ -3,7 +3,7 @@ import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 
-from goldilox.sklearn.pipeline import SklearnPipeline
+from goldilox.sklearn.pipeline import SklearnPipeline, Pipeline
 
 
 class Imputer(SklearnPipeline):
