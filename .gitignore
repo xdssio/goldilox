@@ -167,3 +167,4 @@ catboost_info
 goldilox/__pycache__/
 .DS_Store
 pipeline.pkl
+/models
