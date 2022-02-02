@@ -168,3 +168,4 @@ goldilox/__pycache__/
 .DS_Store
 pipeline.pkl
 /models
+/docs/
