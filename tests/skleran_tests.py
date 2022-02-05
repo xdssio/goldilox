@@ -148,9 +148,10 @@ def test_sklrean_predict_regression(iris):
     df, features, target = load_iris()
     X, y = df[features], df[target]
     pipeline = SklearnPipeline.from_sklearn(
-        sklearn.pipeline.Pipeline([("regression", LinearRegression())])
+        sklearn.pipeline.Pipeline([("regression", LinearRegression())]),
+        output_columns=['prediction']
     ).fit(X, y)
-    assert pipeline.output_columns in pipeline.inference(X)
+    assert pipeline.output_columns[0] in pipeline.inference(X)
     assert pipeline.raw == SklearnPipeline.to_raw(X)
     assert pipeline.features == features
     assert pipeline.target == target
@@ -159,11 +160,15 @@ def test_sklrean_predict_regression(iris):
         sklearn.pipeline.Pipeline([("regression", LinearRegression())]),
         features=features,
         target=target,
-    ).fit(iris)
-    assert pipeline.output_columns in pipeline.inference(X)
+    ).fit(df)
+    assert pipeline.output_columns[0] in pipeline.inference(X)
     assert pipeline.raw == SklearnPipeline.to_raw(X)
     assert pipeline.features == features
     assert pipeline.target == target
+
+    predictions = pipeline.predict(X)
+    assert len(predictions) == len(X)
+    assert isinstance(predictions, (list, np.ndarray))
 
 
 @pytest.fixture(autouse=True)

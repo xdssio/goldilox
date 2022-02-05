@@ -1,8 +1,10 @@
 import json
 import logging
+import os
 import sys
 from copy import deepcopy as _copy
 from hashlib import sha256
+from sys import version_info
 from tempfile import TemporaryDirectory
 
 import cloudpickle
@@ -13,7 +15,7 @@ from sklearn.utils.validation import check_is_fitted
 
 import goldilox
 from goldilox.config import AWS_PROFILE, PIPELINE_TYPE, VAEX, SKLEARN, BYTE_DELIMITER, VERSION, PY_VERSION, \
-    PACKAGES, VARIABLES, DESCRIPTION, RAW
+    PACKAGES, VARIABLES, DESCRIPTION, RAW, VENV
 from goldilox.utils import _is_s3_url
 
 logger = logging.getLogger()
@@ -54,18 +56,20 @@ class Pipeline(TransformerMixin):
         return df.iloc[0].to_dict()  # pandas
 
     @classmethod
-    def from_vaex(cls, df, fit=None, variables=None, description="", validate=True):
+    def from_vaex(cls, df, fit=None, predict_column=None, variables=None, description="", validate=True):
         """
         Get a Pipeline out of a vaex.dataframe.DataFrame, and validate serilization and missing values.
         @param df: vaex.dataframe.DataFrame
         @param fit: method: A method which accepts a vaex dataframe and returns a vaex dataframe which run on pipeline.fit(df).
+        @param predict_column: str [optional]: the column to return as values when run predict
         @param variables: dict [optional]: Any variables we want to associate with the current pipeline.
         @param description: str [optional]: Any text we want to associate with the current pipeline.
         @param validate: bool [optional]: If true, run validation.
         @return: VaexPipeline
         """
         from goldilox.vaex.pipeline import VaexPipeline as VaexPipeline
-        pipeline = VaexPipeline.from_dataframe(df=df, fit=fit, variables=variables, description=description)
+        pipeline = VaexPipeline.from_dataframe(df=df, fit=fit, variables=variables, description=description,
+                                               predict_column=predict_column)
         if validate:
             logger.info("validate pipeline")
             logger.info(f"pipeline valid: {pipeline.validate()}")
@@ -172,11 +176,24 @@ class Pipeline(TransformerMixin):
         meta_bytes, _ = Pipeline._read_file(path)
         return cloudpickle.loads(meta_bytes)
 
+    def _get_python_version(self):
+        return "{major}.{minor}.{micro}".format(major=version_info.major,
+                                                minor=version_info.minor,
+                                                micro=version_info.micro)
+
+    def _venv(self):
+        if os.getenv('CONDA_DEFAULT_ENV'):
+            return 'conda'
+        elif os.getenv('VIRTUAL_ENV'):
+            return 'venv'
+        return None
+
     def _get_meta(self):
         state = {
             PIPELINE_TYPE: self.pipeline_type,
             VERSION: goldilox.__version__,
-            PY_VERSION: sys.version.split(" ")[0],
+            VENV: self._venv(),
+            PY_VERSION: self._get_python_version(),
             PACKAGES: self._get_packages(),
             VARIABLES: self.variables.copy(),
             DESCRIPTION: self.description,

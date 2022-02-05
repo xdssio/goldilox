@@ -52,6 +52,9 @@ class VaexPipeline(HasState, Pipeline):
     variables = traitlets.Dict(
         default_value={}, help="Any variables to associate with a pipeline instance"
     )
+    predict_column = traitlets.Unicode(
+        default_value=None, allow_none=True, help="The column to return as numpy array in predict"
+    )
 
     @property
     def example(self):
@@ -143,7 +146,7 @@ class VaexPipeline(HasState, Pipeline):
         return value.tolist()
 
     @classmethod
-    def from_dataframe(cls, df, fit=None, variables=None, description=""):
+    def from_dataframe(cls, df, fit=None, predict_column=None, variables=None, description=""):
         """
        Get a Pipeline out of a vaex.dataframe.DataFrame, and validate serilization and missing values.
        @param df: vaex.dataframe.DataFrame
@@ -151,6 +154,7 @@ class VaexPipeline(HasState, Pipeline):
        @param variables: dict [optional]: Any variables we want to associate with the current pipeline.
               On top of the variables provided, the dataframe variables are added.
        @param description: str [optional]: Any text we want to associate with the current pipeline.
+       @param predict_column: str [optional]: The predict column to use in predict case
        @return: VaexPipeline
        """
         copy = VaexPipeline.verify_vaex_dataset(df)
@@ -166,12 +170,14 @@ class VaexPipeline(HasState, Pipeline):
         original_columns = VaexPipeline._get_original_columns(sample)
         variables = {**(state.get(VARIABLES) or {}), **(variables or {})}
 
+        predict_column = predict_column or df.get_column_names()[-1]
         pipeline = VaexPipeline(
             state=state,
             _original_columns=original_columns,
             raw=raw,
             description=description,
             variables=process_variables(variables),
+            predict_column=predict_column
         )
 
         return pipeline
@@ -412,6 +418,12 @@ class VaexPipeline(HasState, Pipeline):
         self.variables.update(self.state.get(VARIABLES, {}))
         self.updated = int(time())
         return self
+
+    def predict(self, df):
+        ret = self.inference(df, columns=self.predict_column)[self.predict_column]
+        if hasattr(ret, 'to_numpy'):
+            return ret.to_numpy()
+        return ret.tolist()
 
     def get_function_model(self, name):
         tmp = self.state["functions"][name]

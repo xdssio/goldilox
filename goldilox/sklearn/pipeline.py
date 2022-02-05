@@ -229,6 +229,17 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline, TransformerMixin):
             copy = pd.DataFrame(copy, columns=features)
         return copy
 
+    def predict(self, df):
+        copy = self.infer(df)
+        features = self.features or copy.columns
+        if features is None:
+            raise RuntimeError("Model is not trained yet")
+
+        if len(features) == 1:
+            features = features[0]
+        X = copy[features] if features else copy
+        return self.pipeline.predict(X)
+
     def inference(self, df, columns=None, passthrough=True, **kwargs):
         """
         Returns the transformed data.

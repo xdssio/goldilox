@@ -1,7 +1,26 @@
+import numpy as np
 import vaex
+from vaex.ml.lightgbm import LightGBMModel
 
+from goldilox.datasets import load_iris
 from goldilox.vaex import VaexPipeline
 from tests.test_utils import validate_persistence
+
+
+def test_vaex_pipeline_predict():
+    df, features, target = load_iris()
+    df = vaex.from_pandas(df)
+    model = LightGBMModel(features=features,
+                          target=target,
+                          prediction_name='predictions',
+                          num_boost_round=500, params={'verbose': -1,
+                                                       'application': 'binary'})
+    model.fit(df)
+    df = model.transform(df)
+    pipeline = VaexPipeline.from_dataframe(df, predict_column='predictions')
+    prediction = pipeline.predict(df)
+    assert len(prediction) == len(df)
+    assert isinstance(prediction, (list, np.ndarray))
 
 
 def test_advance_vaex():

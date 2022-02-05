@@ -32,6 +32,7 @@ PACKAGES = "packages"
 VALID_VAEX_HEADERS = ["*.csv", "*.hdf5", "*.parquet", "*.arrow"]
 DEFAULT_SUFFIX = ".parquet"
 BYTE_DELIMITER = b'###'
+VENV = 'venv'
 
 # App
 CORS_ORIGINS = os.getenv('ORIGINS', '*').split(',')
