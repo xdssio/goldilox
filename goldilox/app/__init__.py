@@ -78,6 +78,20 @@ def get_app(path):
 
         return process_response(ret)
 
+    @app.post("/invocations", response_model=List)
+    def invocations(data: List[Query]):
+        logger.info("/invocations")
+        data = parse_query(data)
+        if len(data) == 0:
+            raise HTTPException(status_code=400, detail="No data provided")
+        try:
+            ret = get_pipeline().predict(data)
+        except Exception as e:
+            logger.error(e)
+            raise HTTPException(status_code=400, detail=str(
+                f"Issue with invocations, try runing your pipeline locally with 'pipeline.inference(data)' to see what is the problem:\n{str(e)}"))
+        return to_nulls(ret)
+
     @app.get("/variables", response_model=dict)
     def variables():
         logger.info("/variables")
