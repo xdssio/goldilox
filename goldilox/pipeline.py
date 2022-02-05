@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import shutil
 import sys
 from copy import deepcopy as _copy
 from hashlib import sha256
@@ -54,6 +55,12 @@ class Pipeline(TransformerMixin):
         elif isinstance(df, pd.Series):  # pandas Series
             return {df.name: df[0]}
         return df.iloc[0].to_dict()  # pandas
+
+    def to_pandas(self, df):
+        df = self.infer(df)
+        if hasattr(df, 'to_pandas_df'):
+            df = df.to_pandas_df()
+        return df
 
     @classmethod
     def from_vaex(cls, df, fit=None, predict_column=None, variables=None, description="", validate=True):
@@ -308,3 +315,47 @@ class Pipeline(TransformerMixin):
         import subprocess
         return subprocess.check_output([sys.executable, '-m', 'pip',
                                         'freeze']).decode()
+
+    def export_mlflow(self, path):
+        import mlflow.pyfunc
+        from mlflow.models import infer_signature
+        env = {
+            'channels': ['defaults'],
+            'dependencies': [
+                f"python={self._get_python_version()}",
+                'pip',
+                {
+                    'pip': self._get_packages().split('\n'),
+                },
+            ],
+            'name': 'goldilox_env'
+        }
+
+        pipeline_path = str(TemporaryDirectory().name) + '/model.pkl'
+        self.save(pipeline_path)
+        artifacts = {
+            "pipeline": pipeline_path
+        }
+
+        class GoldiloxWrapper(mlflow.pyfunc.PythonModel):
+
+            def load_context(self, context):
+                from goldilox import Pipeline
+                self.pipeline = Pipeline.from_file(context.artifacts['pipeline'])
+
+            def predict(self, context, model_input):
+                return self.pipeline.predict(model_input)
+
+        raw = self.raw
+        data = self.infer(raw)
+        if hasattr(data, 'to_pandas_df'):
+            data = data.to_pandas_df()
+        signature = infer_signature(data, self.predict(raw))
+        if os.path.isdir(path):
+            shutil.rmtree(path)
+        mlflow.pyfunc.save_model(path=path, python_model=GoldiloxWrapper(),
+                                 artifacts=artifacts,
+                                 signature=signature,
+                                 conda_env=env,
+                                 input_example=raw)
+        return path
