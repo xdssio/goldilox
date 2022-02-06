@@ -157,5 +157,4 @@ class Server:
     def serve(self, options=None):
         options = self._validate_worker_class(options or self.options)
         WSGIApplication = get_wsgi_application(self.path)
-
         WSGIApplication(self.app, options).run()

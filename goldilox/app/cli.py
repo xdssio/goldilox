@@ -1,4 +1,5 @@
 import json
+import os.path
 import shutil
 import subprocess
 import sys
@@ -23,9 +24,10 @@ def process_option(s):
     splited = s.split('=')
     if len(splited) != 2:
         splited = s.split(' ')
-    if len(splited) != 2:
-        return None, None
-    key, value = splited[0], splited[1]
+    if len(splited) == 1:
+        key, value = splited[0], True
+    else:
+        key, value = splited[0], splited[1]
     if key.startswith('--'):
         key = key[2:]
     return key, value
@@ -38,15 +40,37 @@ def process_option(s):
 @click.argument('options', nargs=-1, type=click.UNPROCESSED)
 def serve(path, **options):
     """Serve a  pipeline with fastapi server"""
-    server_options = {}
-    for option in options['options']:
-        key, value = process_option(option)
-        if key is None:
-            print(f"option {option} was is illegal and was ignored ")
-        else:
-            server_options[key] = value
-    from goldilox.app import Server
-    Server(path, options=server_options).serve()
+    if os.path.isdir(path) and os.path.isfile(os.path.join(path, 'MLmodel')):
+        command = ['mlflow', 'models', 'serve', f"-m", os.path.abspath(path)] + list(options['options'])
+        click.echo(f"Running docker build as follow:")
+        click.echo(f"{' '.join(command)}")
+        click.echo(f" ")
+        subprocess.check_call(command)
+    else:
+        server_options = {}
+
+        def clean_key(key):
+            if key.startswith('--'):
+                key = key[2:]
+            elif key.startswith('-'):
+                key = key[1:]
+            return key
+
+        for option in options['options']:
+            splited = option.split('=')
+            if len(splited) == 2:
+                key, value = splited[0], splited[1]
+                server_options[clean_key(key)] = value
+            else:
+                print(f"(skip) - option {option} was not understood - use key=value version please ")
+
+        from goldilox.app import Server
+        if 'bind' not in server_options:
+            host = server_options.get('host', os.getenv('HOST', '127.0.0.1'))
+            port = server_options.get('port', os.getenv('PORT', 5000))
+            server_options['bind'] = f"{host}:{port}"
+
+        Server(path, options=server_options).serve()
 
 
 @main.command()
@@ -117,16 +141,19 @@ def freeze(path, output='requirements.txt'):
 @click.option('--platform', type=str, default=None)
 def build(path, name="goldilox", image=None, platform=None):
     """ build a docker server image"""
-    goldilox_path = Path(goldilox.__file__)
-    docker_file_path = str(goldilox_path.parent.absolute().joinpath('app').joinpath('Dockerfile'))
-    run_args = ['docker', 'build', f"-f={docker_file_path}", f"-t={name}"]
-    build_args = ["--build-arg", f"PIPELINE_FILE={path}"]
-    suffix_arg = ['.']
-    if image is not None:
-        build_args = build_args + ["--build-arg", f"PYTHON_IMAGE={image}"]
-    if platform is not None:
-        run_args = run_args + [f"--platform={platform}"]
-    command = run_args + build_args + suffix_arg
+    if os.path.isdir(path) and os.path.isfile(os.path.join(path, 'MLmodel')):
+        command = ['mlflow', 'models', 'build-docker', f"-m", os.path.abspath(path), f"-n", name, "--enable-mlserver"]
+    else:
+        goldilox_path = Path(goldilox.__file__)
+        docker_file_path = str(goldilox_path.parent.absolute().joinpath('app').joinpath('Dockerfile'))
+        run_args = ['docker', 'build', f"-f={docker_file_path}", f"-t={name}"]
+        build_args = ["--build-arg", f"PIPELINE_FILE={path}"]
+        suffix_arg = ['.']
+        if image is not None:
+            build_args = build_args + ["--build-arg", f"PYTHON_IMAGE={image}"]
+        if platform is not None:
+            run_args = run_args + [f"--platform={platform}"]
+        command = run_args + build_args + suffix_arg
     click.echo(f"Running docker build as follow:")
     click.echo(f"{' '.join(command)}")
     click.echo(f" ")
