@@ -195,13 +195,13 @@ class Pipeline(TransformerMixin):
             return 'venv'
         return None
 
-    def _get_meta(self):
+    def _get_meta(self, requirements=None):
         state = {
             PIPELINE_TYPE: self.pipeline_type,
             VERSION: goldilox.__version__,
             VENV: self._venv(),
             PY_VERSION: self._get_python_version(),
-            PACKAGES: self._get_packages(),
+            PACKAGES: self._get_packages(requirements),
             VARIABLES: self.variables.copy(),
             DESCRIPTION: self.description,
             RAW: self.raw,
@@ -213,25 +213,30 @@ class Pipeline(TransformerMixin):
         splited = b.split(BYTE_DELIMITER)
         return splited[0][len(Pipeline.BYTES_SIGNETURE):], splited[1]
 
-    def save(self, path):
-        """Save a pipeline to a file"""
-        state_to_write = Pipeline.BYTES_SIGNETURE + self._get_meta() + BYTE_DELIMITER + self._dumps()
+    def save(self, path, requirements=None, mlflow=False, **kwargs):
+        """
+        @param path: output path
+        @param requirements: a list of requirements. if None - takes from pip
+        @param mlflow: if True, export as mlflow project - not working on s3:path
+        @param kwargs: Extra parameters to pass to mlflow.*.save_model
+        @return: same path the pipeline was saved to
+        """
+        if mlflow:
+            return self._export_mlflow(path, **kwargs)
+        state_to_write = Pipeline.BYTES_SIGNETURE + self._get_meta(requirements) + BYTE_DELIMITER + self._dumps()
+        open_fs = open
         if _is_s3_url(path):
             import s3fs
             fs = s3fs.S3FileSystem(profile=AWS_PROFILE)
-            with fs.open(path, "wb") as outfile:
-                outfile.write(state_to_write)
+            open_fs = fs.open
         else:
             try:
-                import os
-
                 if "/" in path:
                     os.makedirs("/".join(path.split("/")[:-1]), exist_ok=True)
             except AttributeError as e:
                 pass
-            with open(path, "wb") as outfile:
-                outfile.write(state_to_write)
-
+        with open_fs(path, "wb") as outfile:
+            outfile.write(state_to_write)
         return path
 
     def validate(self, df=None, check_na=True, verbose=True):
@@ -310,32 +315,32 @@ class Pipeline(TransformerMixin):
         return json.dumps(items.to_records())
 
     @staticmethod
-    def _get_packages():
+    def _get_packages(requirements=None):
         """Run pip freeze and returns the results"""
+        if requirements is not None:
+            return '\n'.join(requirements)
         import subprocess
         return subprocess.check_output([sys.executable, '-m', 'pip',
                                         'freeze']).decode()
 
-    def export_mlflow(self, path):
+    def _export_mlflow(self, path, requirements=None, artifacts=None,
+                       conda_env=None, input_example=None, signature=None, **kwargs):
         import mlflow.pyfunc
         from mlflow.models import infer_signature
-        env = {
+        env = conda_env or {
             'channels': ['defaults'],
             'dependencies': [
                 f"python={self._get_python_version()}",
-                'pip',
                 {
-                    'pip': self._get_packages().split('\n'),
+                    'pip': self._get_packages(requirements).split('\n'),
                 },
             ],
             'name': 'goldilox_env'
         }
-
-        pipeline_path = str(TemporaryDirectory().name) + '/model.pkl'
-        self.save(pipeline_path)
-        artifacts = {
-            "pipeline": pipeline_path
-        }
+        if artifacts is None:
+            pipeline_path = str(TemporaryDirectory().name) + '/model.pkl'
+            self.save(pipeline_path)
+            artifacts = {"pipeline": pipeline_path}
 
         class GoldiloxWrapper(mlflow.pyfunc.PythonModel):
 
@@ -346,16 +351,19 @@ class Pipeline(TransformerMixin):
             def predict(self, context, model_input):
                 return self.pipeline.predict(model_input)
 
-        raw = self.raw
-        data = self.infer(raw)
-        if hasattr(data, 'to_pandas_df'):
-            data = data.to_pandas_df()
-        signature = infer_signature(data, self.predict(raw))
+        input_example = input_example or self.raw
+        if signature is None:
+            data = self.infer(input_example)
+            if hasattr(data, 'to_pandas_df'):
+                data = data.to_pandas_df()
+            signature = infer_signature(data, self.predict(input_example))
         if os.path.isdir(path):
             shutil.rmtree(path)
         mlflow.pyfunc.save_model(path=path, python_model=GoldiloxWrapper(),
                                  artifacts=artifacts,
                                  signature=signature,
                                  conda_env=env,
-                                 input_example=raw)
+                                 input_example=input_example,
+                                 **kwargs
+                                 )
         return path

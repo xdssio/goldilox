@@ -32,7 +32,7 @@ def test_mlflow():
     pipeline = Pipeline.from_vaex(df)
 
     path = str(TemporaryDirectory().name) + '/pipeline'
-    pipeline.export_mlflow(path)
+    pipeline.save(path, mlflow=True)
 
     """mlflow models serve -m <path> --no-conda"""
     import mlflow.pyfunc
