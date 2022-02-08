@@ -170,3 +170,4 @@ pipeline.pkl
 /models
 /docs/
 /.aim
+/notebooks/wandb
