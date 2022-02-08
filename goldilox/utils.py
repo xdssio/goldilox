@@ -107,3 +107,10 @@ def process_variables(variables):
         for key, value in variables.items()
         if (type(value) in valida_types or hasattr(value, 'tolist'))
     }
+
+
+def get_git_info():
+    from git import Repo
+    from git.cmd import Git
+    return {'branch': Repo().active_branch.name,
+            'remote': Git().remote(verbose=True).split('\t')[1].split(' ')[0]}
