@@ -5,6 +5,7 @@ import shutil
 import sys
 from copy import deepcopy as _copy
 from hashlib import sha256
+from pathlib import Path
 from sys import version_info
 from tempfile import TemporaryDirectory
 
@@ -213,7 +214,23 @@ class Pipeline(TransformerMixin):
         splited = b.split(BYTE_DELIMITER)
         return splited[0][len(Pipeline.BYTES_SIGNETURE):], splited[1]
 
-    def save(self, path, requirements=None, mlflow=False, **kwargs):
+    def _validate_path(self, path):
+        """
+        Make sure there is an empty dir there
+        @param path:
+        @return:
+        """
+        try:
+            if "/" in path:
+                os.makedirs("/".join(path.split("/")[:-1]), exist_ok=True)
+                ret = True
+        except AttributeError as e:
+            ret = False
+        if os.path.isdir(path):
+            shutil.rmtree(path)
+        return ret
+
+    def save(self, path, requirements=None):
         """
         @param path: output path
         @param requirements: a list of requirements. if None - takes from pip
@@ -221,8 +238,7 @@ class Pipeline(TransformerMixin):
         @param kwargs: Extra parameters to pass to mlflow.*.save_model
         @return: same path the pipeline was saved to
         """
-        if mlflow:
-            return self._export_mlflow(path, **kwargs)
+
         state_to_write = Pipeline.BYTES_SIGNETURE + self._get_meta(requirements) + BYTE_DELIMITER + self._dumps()
         open_fs = open
         if _is_s3_url(path):
@@ -230,11 +246,7 @@ class Pipeline(TransformerMixin):
             fs = s3fs.S3FileSystem(profile=AWS_PROFILE)
             open_fs = fs.open
         else:
-            try:
-                if "/" in path:
-                    os.makedirs("/".join(path.split("/")[:-1]), exist_ok=True)
-            except AttributeError as e:
-                pass
+            self._validate_path(path)
         with open_fs(path, "wb") as outfile:
             outfile.write(state_to_write)
         return path
@@ -323,8 +335,8 @@ class Pipeline(TransformerMixin):
         return subprocess.check_output([sys.executable, '-m', 'pip',
                                         'freeze']).decode()
 
-    def _export_mlflow(self, path, requirements=None, artifacts=None,
-                       conda_env=None, input_example=None, signature=None, **kwargs):
+    def export_mlflow(self, path, requirements=None, artifacts=None,
+                      conda_env=None, input_example=None, signature=None, **kwargs):
         import mlflow.pyfunc
         from mlflow.models import infer_signature
         env = conda_env or {
@@ -357,8 +369,7 @@ class Pipeline(TransformerMixin):
             if hasattr(data, 'to_pandas_df'):
                 data = data.to_pandas_df()
             signature = infer_signature(data, self.predict(input_example))
-        if os.path.isdir(path):
-            shutil.rmtree(path)
+        self._validate_path(path)
         mlflow.pyfunc.save_model(path=path, python_model=GoldiloxWrapper(),
                                  artifacts=artifacts,
                                  signature=signature,
@@ -367,3 +378,20 @@ class Pipeline(TransformerMixin):
                                  **kwargs
                                  )
         return path
+
+    def export_gunicorn(self, path, requirements=None):
+        open_fs = open
+        if _is_s3_url(path):
+            import s3fs
+            fs = s3fs.S3FileSystem(profile=AWS_PROFILE)
+            open_fs = fs.open
+        else:
+            os.makedirs(path, exist_ok=True)
+        with open_fs(os.path.join(path, 'requirements.txt'), 'w') as outfile:
+            outfile.write(self._get_packages(requirements))
+        self.save(os.path.join(path, 'pipeline.pkl'))
+        goldilox_path = Path(goldilox.__file__)
+        shutil.copyfile(str(goldilox_path.parent.absolute().joinpath('app').joinpath('main.py')),
+                        os.path.join(path, 'main.py'))
+        shutil.copyfile(str(goldilox_path.parent.absolute().joinpath('app').joinpath('gunicorn.conf.py')),
+                        os.path.join(path, 'gunicorn.conf.py'))

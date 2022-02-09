@@ -1,7 +1,6 @@
 import sklearn.pipeline
 import vaex
 from sklearn.linear_model import LogisticRegression
-from vaex.ml.datasets import load_iris
 from vaex.ml.sklearn import Predictor
 
 from goldilox.datasets import load_iris

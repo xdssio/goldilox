@@ -8,19 +8,19 @@ from river.linear_model import LogisticRegression
 from river.metrics import Accuracy
 from river.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.base import BaseEstimator, TransformerMixin
-from vaex.ml.datasets import load_titanic
+from vaex.datasets import titanic
 
 from goldilox import Pipeline
 
 
 @pytest.fixture()
-def titanic():
+def data():
     # df = load_titanic()
-    return load_titanic()
+    return titanic()
 
 
-def test_river_vaex(titanic):
-    df = titanic.copy()
+def test_river_vaex(data):
+    df = data.copy()
     features = df.get_column_names()
     features.remove('survived')
     num = compose.SelectType(Number) | StandardScaler()
@@ -48,8 +48,8 @@ def test_river_vaex(titanic):
     assert pipeline.inference(pipeline.raw).shape == (1, 15)
 
 
-def test_river_sklearn(titanic):
-    df = titanic.to_pandas_df()
+def test_river_sklearn(data):
+    df = data.to_pandas_df()
     features = list(df.columns)
     features.remove('survived')
     num = compose.SelectType(Number) | StandardScaler()

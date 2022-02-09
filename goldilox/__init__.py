@@ -1,3 +1,5 @@
-__version__ = '0.0.6'
+from goldilox.config import GOLDILOX_VERSION
+
+__version__ = GOLDILOX_VERSION
 
 from goldilox.pipeline import Pipeline

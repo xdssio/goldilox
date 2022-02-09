@@ -114,3 +114,8 @@ def get_git_info():
     from git.cmd import Git
     return {'branch': Repo().active_branch.name,
             'remote': Git().remote(verbose=True).split('\t')[1].split(' ')[0]}
+
+
+def get_goldilox_path():
+    import goldilox
+    return Path(goldilox.__file__)

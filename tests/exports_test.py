@@ -1,3 +1,4 @@
+from glob import glob
 from tempfile import TemporaryDirectory
 
 import numpy as np
@@ -5,6 +6,22 @@ import vaex
 
 from goldilox import Pipeline
 from goldilox.datasets import load_iris
+
+
+def test_export_gunicorn():
+    df, features, target = load_iris()
+    df = vaex.from_pandas(df)
+
+    pipeline = Pipeline.from_vaex(df)
+
+    path = str(TemporaryDirectory().name) + '/pipeline'
+
+    pipeline.export_gunicorn(path)
+    files_str = ' '.join(glob(path + "/*"))
+    assert "pipeline/requirements.txt" in files_str
+    assert "pipeline/pipeline.pkl" in files_str
+    assert "pipeline/gunicorn.conf.py" in files_str
+    assert "pipeline/main.py" in files_str
 
 
 def test_mlflow():
@@ -32,7 +49,7 @@ def test_mlflow():
     pipeline = Pipeline.from_vaex(df)
 
     path = str(TemporaryDirectory().name) + '/pipeline'
-    pipeline.save(path, mlflow=True)
+    pipeline.export_mlflow(path)
 
     """mlflow models serve -m <path> --no-conda"""
     import mlflow.pyfunc

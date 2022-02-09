@@ -2,13 +2,13 @@ import pandas as pd
 import pytest
 import vaex
 from imperio import BoxCoxTransformer
-from vaex.ml.datasets import load_iris
+from vaex.datasets import iris
 
 from goldilox import Pipeline
 
 
 def test_imperio_vaex():
-    df = load_iris()
+    df = iris()
     columns = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
     target = 'class_'
     tr = BoxCoxTransformer().fit(df[columns], df[target])
@@ -30,7 +30,7 @@ def test_imperio_vaex():
 
 @pytest.mark.skip("TODO")
 def test_imperio_skleran():
-    df = load_iris().to_pandas_df()
+    df = iris().to_pandas_df()
     columns = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
     target = 'class_'
 

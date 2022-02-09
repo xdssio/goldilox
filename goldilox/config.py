@@ -40,3 +40,6 @@ ALLOW_METHODS = os.getenv('ALLOW_METHODS', '*').split(',')
 ALLOW_HEADERS = os.getenv('ALLOW_HEADERS', '*').split(',')
 ALLOW_CREDENTIALS = bool(strtobool(os.getenv('ALLOW_CREDENTIALS', 'True')))
 ALLOW_CORS = bool(strtobool(os.getenv('ALLOW_CORS', 'True')))
+
+# package
+GOLDILOX_VERSION = "0.0.7"
