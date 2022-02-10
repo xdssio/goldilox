@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import shutil
+import subprocess
 import sys
 from copy import deepcopy as _copy
 from hashlib import sha256
@@ -17,7 +18,7 @@ from sklearn.utils.validation import check_is_fitted
 
 import goldilox
 from goldilox.config import AWS_PROFILE, PIPELINE_TYPE, VAEX, SKLEARN, BYTE_DELIMITER, VERSION, PY_VERSION, \
-    PACKAGES, VARIABLES, DESCRIPTION, RAW, VENV
+    REQUIREMEMTS, VARIABLES, DESCRIPTION, RAW, VENV, CONDA_ENV
 from goldilox.utils import _is_s3_url
 
 logger = logging.getLogger()
@@ -158,8 +159,8 @@ class Pipeline(TransformerMixin):
         """
         meta_bytes, state_bytes = Pipeline._read_file(path)
         try:
-            state = cloudpickle.loads(state_bytes)
-            meta = cloudpickle.loads(meta_bytes)
+            state = cls._unpickle(state_bytes)
+            meta = cls._unpickle(meta_bytes)
         except:
             import pickle
             logger.warning("issue with cloudpickle loads")
@@ -179,30 +180,56 @@ class Pipeline(TransformerMixin):
         return cls.from_file(path)
 
     @classmethod
+    def _unpickle(self, b):
+        try:
+            ret = cloudpickle.loads(b)
+        except:
+            try:
+                import pickle
+                ret = pickle.loads(b)
+            except:
+                try:
+                    import pickle5
+                    ret = pickle5.loads(b)
+                except Exception as e:
+                    raise RuntimeError("Could not unpickle")
+        return ret
+
+    @classmethod
     def load_meta(cls, path):
         """Read the meta information from a pipeline file without loading it"""
         meta_bytes, _ = Pipeline._read_file(path)
-        return cloudpickle.loads(meta_bytes)
+
+        return cls._unpickle(meta_bytes)
 
     def _get_python_version(self):
         return "{major}.{minor}.{micro}".format(major=version_info.major,
                                                 minor=version_info.minor,
                                                 micro=version_info.micro)
 
-    def _venv(self):
+    def _get_env_type(self):
         if os.getenv('CONDA_DEFAULT_ENV'):
             return 'conda'
         elif os.getenv('VIRTUAL_ENV'):
             return 'venv'
         return None
 
+    def _get_conda_env(self):
+        env = None
+        if self._get_env_type() == 'conda':
+            command = ['conda', 'env', 'export']
+            env = subprocess.check_output(command).decode()
+
+        return env
+
     def _get_meta(self, requirements=None):
         state = {
             PIPELINE_TYPE: self.pipeline_type,
             VERSION: goldilox.__version__,
-            VENV: self._venv(),
+            VENV: self._get_env_type(),
             PY_VERSION: self._get_python_version(),
-            PACKAGES: self._get_packages(requirements),
+            REQUIREMEMTS: self._get_requirements(requirements),
+            CONDA_ENV: self._get_conda_env(),
             VARIABLES: self.variables.copy(),
             DESCRIPTION: self.description,
             RAW: self.raw,
@@ -327,11 +354,10 @@ class Pipeline(TransformerMixin):
         return json.dumps(items.to_records())
 
     @staticmethod
-    def _get_packages(requirements=None):
+    def _get_requirements(requirements=None):
         """Run pip freeze and returns the results"""
         if requirements is not None:
             return '\n'.join(requirements)
-        import subprocess
         return subprocess.check_output([sys.executable, '-m', 'pip',
                                         'freeze']).decode()
 
@@ -344,7 +370,7 @@ class Pipeline(TransformerMixin):
             'dependencies': [
                 f"python={self._get_python_version()}",
                 {
-                    'pip': self._get_packages(requirements).split('\n'),
+                    'pip': self._get_requirements(requirements).split('\n'),
                 },
             ],
             'name': 'goldilox_env'
@@ -388,7 +414,7 @@ class Pipeline(TransformerMixin):
         else:
             os.makedirs(path, exist_ok=True)
         with open_fs(os.path.join(path, 'requirements.txt'), 'w') as outfile:
-            outfile.write(self._get_packages(requirements))
+            outfile.write(self._get_requirements(requirements))
         self.save(os.path.join(path, 'pipeline.pkl'))
         goldilox_path = Path(goldilox.__file__)
         shutil.copyfile(str(goldilox_path.parent.absolute().joinpath('app').joinpath('main.py')),

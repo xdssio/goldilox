@@ -5,6 +5,58 @@ from goldilox import Pipeline
 from goldilox.datasets import load_iris
 
 
+def quick_model():
+    from goldilox import Pipeline
+    from goldilox.datasets import load_iris
+    from lightgbm.sklearn import LGBMClassifier
+    import sklearn.pipeline
+
+    df, features, target = load_iris()
+
+    sk_pipeline = sklearn.pipeline.Pipeline([("classifier", LGBMClassifier())])
+    X = df[features]
+    y = df[target]
+    self = pipeline = Pipeline.from_sklearn(
+        sk_pipeline, description="Lightgbm with sklearn"
+    ).fit(X, y)
+    # pipeline.save("./pipeline.pkl")
+    pipeline.save("./conda_pipeline.pkl")
+
+    # CLI TODO remove
+    import goldilox
+    import subprocess
+    from pathlib import Path
+    from goldilox.config import *
+    name = 'goldilox'
+    path = "./pipeline.pkl"
+    goldilox_path = Path(goldilox.__file__)
+    docker_file_path = str(goldilox_path.parent.absolute().joinpath('app').joinpath('Dockerfile'))
+
+    # get meta
+    meta = goldilox.Pipeline.load_meta(path)
+    python_version = meta.get(PY_VERSION)
+    conda_env = meta.get(CONDA_ENV)
+    image = None
+    platform = 'linux/amd64'
+    run_args = ['docker', 'build', f"-f={docker_file_path}", f"-t={name}", "--build-arg",
+                f"PYTHON_VERSION={python_version}"]
+    if conda_env is not None:
+        run_args = run_args + ["--target", "conda-image"]
+    else:
+        run_args = run_args + ["--target", "venv-image"]
+
+    build_args = ["--build-arg", f"PIPELINE_FILE={path}"]
+    suffix_arg = ['.']
+    if image is not None:
+        build_args = build_args + ["--build-arg", f"PYTHON_IMAGE={image}"]
+    if platform is not None:
+        build_args = build_args + [f"--platform={platform}"]
+    command = run_args + build_args + suffix_arg
+
+    subprocess.check_call(command)
+    run_command = f"docker run --rm -it {name}" if platform is None else f"docker run --rm -it --platform={platform} -p 127.0.0.1:5000:8000 {name}"
+
+
 def lightgbm_vaex_fit():
     def fit(df):
         import vaex
@@ -15,7 +67,7 @@ def lightgbm_vaex_fit():
         train, test = df.ml.train_test_split(test_size=0.2, verbose=False)
 
         features = ["petal_length", "petal_width", "sepal_length", "sepal_width"]
-        target = "class_"
+        target = "target"
 
         booster = LightGBMModel(
             features=features,

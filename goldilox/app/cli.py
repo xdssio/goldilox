@@ -9,7 +9,7 @@ import click
 
 import goldilox
 from goldilox import Pipeline
-from goldilox.config import VARIABLES, RAW, DESCRIPTION, PACKAGES
+from goldilox.config import VARIABLES, RAW, DESCRIPTION, REQUIREMEMTS, PY_VERSION, CONDA_ENV
 from goldilox.utils import process_variables
 
 
@@ -42,10 +42,16 @@ def serve(path, **options):
     """Serve a  pipeline with fastapi server"""
     if os.path.isdir(path) and os.path.isfile(os.path.join(path, 'MLmodel')):
         command = ['mlflow', 'models', 'serve', f"-m", os.path.abspath(path)] + list(options['options'])
-        click.echo(f"Running docker build as follow:")
-        click.echo(f"{' '.join(command)}")
+        click.echo(f"Running serve as follow: {' '.join(command)}")
         click.echo(f" ")
         subprocess.check_call(command)
+    elif os.path.isdir(path) and os.path.isfile(os.path.join(path, 'pipeline.pkl')) and os.path.isfile(
+            os.path.join(path, 'main.py')):
+        command = ['gunicorn', 'main:app'] + list(options['options'])
+        click.echo(f"Running serve as follow: {' '.join(command)}")
+        click.echo(f" ")
+        subprocess.check_call(command)
+
     else:
         server_options = {}
 
@@ -54,7 +60,7 @@ def serve(path, **options):
                 key = key[2:]
             elif key.startswith('-'):
                 key = key[1:]
-            return key
+            return key.replace('-', '_')
 
         for option in options['options']:
             splited = option.split('=')
@@ -115,7 +121,7 @@ def variables(path):
 def packages(path):
     """print pipeline packages"""
     meta = Pipeline.load_meta(path)
-    click.echo(json.dumps(meta[PACKAGES], indent=4))
+    click.echo(json.dumps(meta[REQUIREMEMTS], indent=4))
 
 
 def _write_content(output, content):
@@ -126,12 +132,25 @@ def _write_content(output, content):
 
 @main.command()
 @click.argument("path", type=click.Path(exists=True))
-@click.argument("output", type=str)
+@click.argument("output", type=str, required=False, default='requirements.txt')
 def freeze(path, output='requirements.txt'):
     """write pipeline packages to a file (pip freeze > output)"""
-    packages = Pipeline.load_meta(path)[PACKAGES]
+    packages = Pipeline.load_meta(path)[REQUIREMEMTS]
     _write_content(output, packages)
     click.echo(f"checkout {output} for the requirements")
+
+
+@main.command()
+@click.argument("path", type=click.Path(exists=True))
+@click.argument("output", type=str, required=False, default='environment.yml')
+def environment(path, output='environment.yml'):
+    """write a codna packages to a file (conda env export > output)"""
+    env = Pipeline.load_meta(path)
+    if env is None:
+        raise RuntimeError(f"path: {path} has no valid conda environment in it's metadata")
+    env = env[CONDA_ENV]
+    _write_content(output, env)
+    click.echo(f"checkout {output} for the environment")
 
 
 @main.command()
@@ -146,6 +165,18 @@ def build(path, name="goldilox", image=None, platform=None):
     else:
         goldilox_path = Path(goldilox.__file__)
         docker_file_path = str(goldilox_path.parent.absolute().joinpath('app').joinpath('Dockerfile'))
+
+        # get meta
+        meta = Pipeline.load_meta(path)
+        python_version = meta.get(PY_VERSION)
+        conda_env = meta.get('conda_env')
+        run_args = ['docker', 'build', f"-f={docker_file_path}", f"-t={name}", "--build-arg",
+                    f"PYTHON_VERSION={python_version}"]
+        if conda_env is not None:
+            run_args = run_args + ["--target", "conda-image"]
+        else:
+            run_args = run_args + ["--target", "venv-image"]
+
         run_args = ['docker', 'build', f"-f={docker_file_path}", f"-t={name}"]
         build_args = ["--build-arg", f"PIPELINE_FILE={path}"]
         suffix_arg = ['.']

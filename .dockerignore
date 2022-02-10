@@ -160,3 +160,4 @@ flaml.log
 *.egg
 /.vscode/
 goldilox/__pycache__/
+/venvs

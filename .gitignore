@@ -171,3 +171,4 @@ pipeline.pkl
 /docs/
 /.aim
 /notebooks/wandb
+/venvs
