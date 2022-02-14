@@ -222,8 +222,8 @@ class Pipeline(TransformerMixin):
 
         return env
 
-    def _get_meta(self, requirements=None):
-        state = {
+    def _get_meta_dict(self, requirements=None):
+        return {
             PIPELINE_TYPE: self.pipeline_type,
             VERSION: goldilox.__version__,
             VENV: self._get_env_type(),
@@ -234,7 +234,9 @@ class Pipeline(TransformerMixin):
             DESCRIPTION: self.description,
             RAW: self.raw,
         }
-        return cloudpickle.dumps(_copy(state))
+
+    def _get_meta(self, requirements=None):
+        return cloudpickle.dumps(_copy(self._get_meta_dict(requirements)))
 
     @classmethod
     def _split_meta(cls, b):
@@ -244,13 +246,13 @@ class Pipeline(TransformerMixin):
     def _validate_path(self, path):
         """
         Make sure there is an empty dir there
-        @param path:
+        @param path: path to validate
         @return:
         """
+        ret = True
         try:
             if "/" in path:
                 os.makedirs("/".join(path.split("/")[:-1]), exist_ok=True)
-                ret = True
         except AttributeError as e:
             ret = False
         if os.path.isdir(path):
@@ -413,8 +415,13 @@ class Pipeline(TransformerMixin):
             open_fs = fs.open
         else:
             os.makedirs(path, exist_ok=True)
-        with open_fs(os.path.join(path, 'requirements.txt'), 'w') as outfile:
-            outfile.write(self._get_requirements(requirements))
+        env = self._get_conda_env()
+        if env is not None:
+            with open_fs(os.path.join(path, ' environment.yml'), 'w') as outfile:
+                outfile.write(env)
+        else:
+            with open_fs(os.path.join(path, 'requirements.txt'), 'w') as outfile:
+                outfile.write(self._get_requirements(requirements))
         self.save(os.path.join(path, 'pipeline.pkl'))
         goldilox_path = Path(goldilox.__file__)
         shutil.copyfile(str(goldilox_path.parent.absolute().joinpath('app').joinpath('main.py')),

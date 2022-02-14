@@ -9,7 +9,7 @@ import click
 
 import goldilox
 from goldilox import Pipeline
-from goldilox.config import VARIABLES, RAW, DESCRIPTION, REQUIREMEMTS, PY_VERSION, CONDA_ENV
+from goldilox.config import VARIABLES, RAW, DESCRIPTION, REQUIREMEMTS, PY_VERSION, CONDA_ENV, VERSION
 from goldilox.utils import process_variables
 
 
@@ -132,12 +132,19 @@ def _write_content(output, content):
 
 @main.command()
 @click.argument("path", type=click.Path(exists=True))
-@click.argument("output", type=str, required=False, default='requirements.txt')
-def freeze(path, output='requirements.txt'):
+@click.argument("output", type=click.Path())
+def freeze(path, output='requirements.txt', ):
     """write pipeline packages to a file (pip freeze > output)"""
-    packages = Pipeline.load_meta(path)[REQUIREMEMTS]
+    packages = Pipeline.load_meta(path).get(REQUIREMEMTS)
     _write_content(output, packages)
     click.echo(f"checkout {output} for the requirements")
+
+
+@main.command()
+@click.argument("path", type=click.Path(exists=True))
+def meta(path):
+    """print all meta data"""
+    click.echo(json.dumps(Pipeline.load_meta(path), indent=4).replace('\\n', ' '))
 
 
 @main.command()
@@ -169,28 +176,29 @@ def build(path, name="goldilox", image=None, platform=None):
         # get meta
         meta = Pipeline.load_meta(path)
         python_version = meta.get(PY_VERSION)
-        conda_env = meta.get('conda_env')
-        run_args = ['docker', 'build', f"-f={docker_file_path}", f"-t={name}", "--build-arg",
-                    f"PYTHON_VERSION={python_version}"]
-        if conda_env is not None:
-            run_args = run_args + ["--target", "conda-image"]
-        else:
-            run_args = run_args + ["--target", "venv-image"]
+        conda_env = meta.get(CONDA_ENV)
+        goldilox_version = meta.get(VERSION)
+        if image is None:
+            image = 'continuumio/anaconda3' if conda_env is not None else f"python:{python_version}-slim-bullseye"
+        target_args = ["--target", "conda-image"] if conda_env is not None else ["--target", "venv-image"]
 
-        run_args = ['docker', 'build', f"-f={docker_file_path}", f"-t={name}"]
+        run_args = ['docker', 'build', f"-f={docker_file_path}", f"-t={name}", "--build-arg",
+                    f"PYTHON_VERSION={python_version}", "--build-arg", f"PYTHON_IMAGE={image}",
+                    "--build-arg", f"GOLDILOX_VERSION={goldilox_version}"]
+
         build_args = ["--build-arg", f"PIPELINE_FILE={path}"]
         suffix_arg = ['.']
-        if image is not None:
-            build_args = build_args + ["--build-arg", f"PYTHON_IMAGE={image}"]
         if platform is not None:
-            run_args = run_args + [f"--platform={platform}"]
-        command = run_args + build_args + suffix_arg
+            build_args = build_args + [f"--platform={platform}"]
+        command = run_args + target_args + build_args + suffix_arg
     click.echo(f"Running docker build as follow:")
     click.echo(f"{' '.join(command)}")
     click.echo(f" ")
     subprocess.check_call(command)
-    run_command = f"docker run --rm -it {name}" if platform is None else f"docker run --rm -it --platform={platform} -p 127.0.0.1:5000:8000 {name}"
+    platform_str = f"--platform={platform} " if platform is not None else ''
+    run_command = f"docker run --rm -it {platform_str}-p 127.0.0.1:5000:5000 {name}"
     click.echo(f"Image {name} created - run with: '{run_command}'")
+    click.echo(f"* On m1 mac you might need to add '-e HOST=0.0.0.0'")
 
 
 @main.command()
