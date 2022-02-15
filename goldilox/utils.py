@@ -1,17 +1,21 @@
 import gc
 import logging
 import os
+import shutil
+import subprocess
+import sys
 from pathlib import Path
+from sys import version_info
 
 import numpy as np
 import pandas as pd
 
-from goldilox.config import DEFAULT_SUFFIX
+from goldilox.config import DEFAULT_SUFFIX, AWS_PROFILE
 
 valida_types = {type(None), dict, list, int, float, str, bool}
 
 
-def _is_s3_url(path):
+def is_s3_url(path):
     if hasattr(path, 'dirname'):
         path = path.dirname
     return path.startswith('s3://')
@@ -119,3 +123,90 @@ def get_git_info():
 def get_goldilox_path():
     import goldilox
     return Path(goldilox.__file__)
+
+
+def validate_path(path):
+    """
+    Make sure there is an empty dir there
+    @param path: path to validate
+    @return:
+    """
+    ret = True
+    try:
+        if "/" in path:
+            os.makedirs("/".join(path.split("/")[:-1]), exist_ok=True)
+    except AttributeError as e:
+        ret = False
+    if os.path.isdir(path):
+        shutil.rmtree(path)
+    return ret
+
+
+def read_bytes(path):
+    open_fs = get_open(path)
+    with open_fs(path, 'rb') as f:
+        ret = f.read()
+    return ret
+
+
+def write_bytes(path, bytes_to_write):
+    open_fs = get_open(path)
+    with open_fs(path, "wb") as outfile:
+        outfile.write(bytes_to_write)
+    return path
+
+
+def get_open(path):
+    open_fs = open
+    if is_s3_url(path):
+        import s3fs
+        fs = s3fs.S3FileSystem(profile=AWS_PROFILE)
+        open_fs = fs.open
+    return open_fs
+
+
+def unpickle(b):
+    try:
+        import cloudpickle
+        ret = cloudpickle.loads(b)
+    except:
+        try:
+            import pickle
+            ret = pickle.loads(b)
+        except:
+            try:
+                import pickle5
+                ret = pickle5.loads(b)
+            except Exception as e:
+                raise RuntimeError("Could not unpickle")
+    return ret
+
+
+def get_requirements(requirements=None):
+    """Run pip freeze and returns the results"""
+    if requirements is not None:
+        return '\n'.join(requirements)
+    return subprocess.check_output([sys.executable, '-m', 'pip',
+                                    'freeze']).decode()
+
+
+def get_python_version():
+    return "{major}.{minor}.{micro}".format(major=version_info.major,
+                                            minor=version_info.minor,
+                                            micro=version_info.micro)
+
+
+def get_env_type():
+    if os.getenv('CONDA_DEFAULT_ENV'):
+        return 'conda'
+    elif os.getenv('VIRTUAL_ENV'):
+        return 'venv'
+    return None
+
+
+def get_conda_env():
+    env = None
+    if get_env_type() == 'conda':
+        command = ['conda', 'env', 'export', '--no-builds']
+        env = subprocess.check_output(command).decode()
+    return env

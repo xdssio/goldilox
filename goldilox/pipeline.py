@@ -2,12 +2,9 @@ import json
 import logging
 import os
 import shutil
-import subprocess
-import sys
 from copy import deepcopy as _copy
 from hashlib import sha256
 from pathlib import Path
-from sys import version_info
 from tempfile import TemporaryDirectory
 
 import cloudpickle
@@ -17,9 +14,10 @@ from sklearn.base import TransformerMixin
 from sklearn.utils.validation import check_is_fitted
 
 import goldilox
-from goldilox.config import AWS_PROFILE, PIPELINE_TYPE, VAEX, SKLEARN, BYTE_DELIMITER, VERSION, PY_VERSION, \
+from goldilox.config import PIPELINE_TYPE, VAEX, SKLEARN, VERSION, PY_VERSION, \
     REQUIREMEMTS, VARIABLES, DESCRIPTION, RAW, VENV, CONDA_ENV
-from goldilox.utils import _is_s3_url
+from goldilox.utils import is_s3_url, read_bytes, unpickle, validate_path, write_bytes, get_requirements, \
+    get_python_version, get_conda_env, get_env_type, get_open
 
 logger = logging.getLogger()
 
@@ -28,6 +26,7 @@ class Pipeline(TransformerMixin):
     pipeline_type: str
     description: str
     BYTES_SIGNETURE = b"Goldilox"
+    BYTE_DELIMITER = b'###'
 
     @classmethod
     def check_hash(cls, file_path):
@@ -135,19 +134,8 @@ class Pipeline(TransformerMixin):
         return ret
 
     @classmethod
-    def _read_file(cls, path):
-        def open_state():
-            return open(path, "rb")
-
-        if _is_s3_url(path):
-            import s3fs
-            fs = s3fs.S3FileSystem(profile=AWS_PROFILE)
-
-            def open_state():
-                return fs.open(path, "rb")
-
-        with open_state() as f:
-            state_bytes = f.read()
+    def _read_pipeline_file(cls, path):
+        state_bytes = read_bytes(path)
         return Pipeline._split_meta(state_bytes)
 
     @classmethod
@@ -157,15 +145,9 @@ class Pipeline(TransformerMixin):
         @param path: path to pipeline file.
         @return: SkleranPipeline or VaexPipeline.
         """
-        meta_bytes, state_bytes = Pipeline._read_file(path)
-        try:
-            state = cls._unpickle(state_bytes)
-            meta = cls._unpickle(meta_bytes)
-        except:
-            import pickle
-            logger.warning("issue with cloudpickle loads")
-            state = pickle.loads(state_bytes)
-            meta = pickle.loads(meta_bytes)
+        meta_bytes, state_bytes = Pipeline._read_pipeline_file(path)
+        state = unpickle(state_bytes)
+        meta = unpickle(meta_bytes)
         pipeline_type = meta.get(PIPELINE_TYPE)
         if pipeline_type == SKLEARN:
             return state
@@ -180,56 +162,20 @@ class Pipeline(TransformerMixin):
         return cls.from_file(path)
 
     @classmethod
-    def _unpickle(self, b):
-        try:
-            ret = cloudpickle.loads(b)
-        except:
-            try:
-                import pickle
-                ret = pickle.loads(b)
-            except:
-                try:
-                    import pickle5
-                    ret = pickle5.loads(b)
-                except Exception as e:
-                    raise RuntimeError("Could not unpickle")
-        return ret
-
-    @classmethod
     def load_meta(cls, path):
         """Read the meta information from a pipeline file without loading it"""
-        meta_bytes, _ = Pipeline._read_file(path)
+        meta_bytes, _ = Pipeline._read_pipeline_file(path)
 
-        return cls._unpickle(meta_bytes)
-
-    def _get_python_version(self):
-        return "{major}.{minor}.{micro}".format(major=version_info.major,
-                                                minor=version_info.minor,
-                                                micro=version_info.micro)
-
-    def _get_env_type(self):
-        if os.getenv('CONDA_DEFAULT_ENV'):
-            return 'conda'
-        elif os.getenv('VIRTUAL_ENV'):
-            return 'venv'
-        return None
-
-    def _get_conda_env(self):
-        env = None
-        if self._get_env_type() == 'conda':
-            command = ['conda', 'env', 'export']
-            env = subprocess.check_output(command).decode()
-
-        return env
+        return unpickle(meta_bytes)
 
     def _get_meta_dict(self, requirements=None):
         return {
             PIPELINE_TYPE: self.pipeline_type,
             VERSION: goldilox.__version__,
-            VENV: self._get_env_type(),
-            PY_VERSION: self._get_python_version(),
-            REQUIREMEMTS: self._get_requirements(requirements),
-            CONDA_ENV: self._get_conda_env(),
+            VENV: get_env_type(),
+            PY_VERSION: get_python_version(),
+            REQUIREMEMTS: get_requirements(requirements),
+            CONDA_ENV: get_conda_env(),
             VARIABLES: self.variables.copy(),
             DESCRIPTION: self.description,
             RAW: self.raw,
@@ -240,24 +186,14 @@ class Pipeline(TransformerMixin):
 
     @classmethod
     def _split_meta(cls, b):
-        splited = b.split(BYTE_DELIMITER)
+        splited = b.split(Pipeline.BYTE_DELIMITER)
         return splited[0][len(Pipeline.BYTES_SIGNETURE):], splited[1]
 
-    def _validate_path(self, path):
-        """
-        Make sure there is an empty dir there
-        @param path: path to validate
-        @return:
-        """
-        ret = True
-        try:
-            if "/" in path:
-                os.makedirs("/".join(path.split("/")[:-1]), exist_ok=True)
-        except AttributeError as e:
-            ret = False
-        if os.path.isdir(path):
-            shutil.rmtree(path)
-        return ret
+    @classmethod
+    def _save_state(cls, path, state):
+        if not is_s3_url(path):
+            validate_path(path)
+        return write_bytes(path, state)
 
     def save(self, path, requirements=None):
         """
@@ -268,17 +204,9 @@ class Pipeline(TransformerMixin):
         @return: same path the pipeline was saved to
         """
 
-        state_to_write = Pipeline.BYTES_SIGNETURE + self._get_meta(requirements) + BYTE_DELIMITER + self._dumps()
-        open_fs = open
-        if _is_s3_url(path):
-            import s3fs
-            fs = s3fs.S3FileSystem(profile=AWS_PROFILE)
-            open_fs = fs.open
-        else:
-            self._validate_path(path)
-        with open_fs(path, "wb") as outfile:
-            outfile.write(state_to_write)
-        return path
+        state_to_write = Pipeline.BYTES_SIGNETURE + self._get_meta(
+            requirements) + Pipeline.BYTE_DELIMITER + self._dumps()
+        return self._save_state(path, state_to_write)
 
     def validate(self, df=None, check_na=True, verbose=True):
         """
@@ -355,14 +283,6 @@ class Pipeline(TransformerMixin):
         # vaex
         return json.dumps(items.to_records())
 
-    @staticmethod
-    def _get_requirements(requirements=None):
-        """Run pip freeze and returns the results"""
-        if requirements is not None:
-            return '\n'.join(requirements)
-        return subprocess.check_output([sys.executable, '-m', 'pip',
-                                        'freeze']).decode()
-
     def export_mlflow(self, path, requirements=None, artifacts=None,
                       conda_env=None, input_example=None, signature=None, **kwargs):
         import mlflow.pyfunc
@@ -370,9 +290,9 @@ class Pipeline(TransformerMixin):
         env = conda_env or {
             'channels': ['defaults'],
             'dependencies': [
-                f"python={self._get_python_version()}",
+                f"python={get_python_version()}",
                 {
-                    'pip': self._get_requirements(requirements).split('\n'),
+                    'pip': get_requirements(requirements).split('\n'),
                 },
             ],
             'name': 'goldilox_env'
@@ -397,7 +317,7 @@ class Pipeline(TransformerMixin):
             if hasattr(data, 'to_pandas_df'):
                 data = data.to_pandas_df()
             signature = infer_signature(data, self.predict(input_example))
-        self._validate_path(path)
+        validate_path(path)
         mlflow.pyfunc.save_model(path=path, python_model=GoldiloxWrapper(),
                                  artifacts=artifacts,
                                  signature=signature,
@@ -408,20 +328,17 @@ class Pipeline(TransformerMixin):
         return path
 
     def export_gunicorn(self, path, requirements=None):
-        open_fs = open
-        if _is_s3_url(path):
-            import s3fs
-            fs = s3fs.S3FileSystem(profile=AWS_PROFILE)
-            open_fs = fs.open
-        else:
+
+        if not is_s3_url(path):
             os.makedirs(path, exist_ok=True)
-        env = self._get_conda_env()
+        env = get_conda_env()
+        open_fs = get_open(path)
         if env is not None:
             with open_fs(os.path.join(path, ' environment.yml'), 'w') as outfile:
                 outfile.write(env)
         else:
             with open_fs(os.path.join(path, 'requirements.txt'), 'w') as outfile:
-                outfile.write(self._get_requirements(requirements))
+                outfile.write(get_requirements(requirements))
         self.save(os.path.join(path, 'pipeline.pkl'))
         goldilox_path = Path(goldilox.__file__)
         shutil.copyfile(str(goldilox_path.parent.absolute().joinpath('app').joinpath('main.py')),

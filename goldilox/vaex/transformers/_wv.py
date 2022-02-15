@@ -8,13 +8,14 @@ logger = logging.getLogger(name='VowpalWabbit')
 CATEGORICAL = 'categorical'
 TEXT = 'text'
 
+
 @vaex.register_dataframe_accessor('vw', override=True)
 class DataFrameAccessorTensorflow(object):
     def __init__(self, df):
         self.df = df
         self.column_map = None
         self.numeric_features_indices = None
-        self.categotical_features_indices = None
+        self.categorical_features_indices = None
         self.text_features_indices = None
         self.target_index = None
         self.weight_index = None
@@ -46,7 +47,7 @@ class DataFrameAccessorTensorflow(object):
         assert len(categotical_features_indices) + len(text_features_indices) + len(numeric_features_indices) == len(
             features)
         self.numeric_features_indices = numeric_features_indices
-        self.categotical_features_indices = categotical_features_indices
+        self.categorical_features_indices = categotical_features_indices
         self.text_features_indices = text_features_indices
         self.row_length = len(features)
         if target is not None:
@@ -54,10 +55,10 @@ class DataFrameAccessorTensorflow(object):
         if weights is not None:
             self.row_length += 1
 
-
     def to_vw_generator(self, features, target=None, weights=None, categorical_features=[], text_features=[], epochs=5,
                         verbose=True):
-        self.init_generator(features=features,target=target,weights=weights,categorical_features=categorical_features,text_features=text_features)
+        self.init_generator(features=features, target=target, weights=weights,
+                            categorical_features=categorical_features, text_features=text_features)
 
         def _generator(verbose=verbose):
             length = len(self.df)
@@ -98,7 +99,7 @@ class DataFrameAccessorTensorflow(object):
                 if np.isnan(value):
                     continue
                 numeric_strings.append(f"{name}:{value}")
-            elif index in self.categotical_features_indices:
+            elif index in self.categorical_features_indices:
                 categorical_strings.append(f"{name}_{str(value).replace(' ', '_')}")
             elif index in self.text_features_indices:
                 text_strings.append(f"{value}")
@@ -108,7 +109,7 @@ class DataFrameAccessorTensorflow(object):
         if 0 < len(categorical_strings):
             values.append(' '.join([CATEGORICAL] + categorical_strings))
         if 0 < len(text_strings):
-            values.append(' '.join([TEXT]+ text_strings))
+            values.append(' '.join([TEXT] + text_strings))
 
         ex = '|'.join(values)
         return ex

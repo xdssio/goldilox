@@ -6,11 +6,12 @@ import sys
 from pathlib import Path
 
 import click
+import cloudpickle
 
 import goldilox
 from goldilox import Pipeline
 from goldilox.config import VARIABLES, RAW, DESCRIPTION, REQUIREMEMTS, PY_VERSION, CONDA_ENV, VERSION
-from goldilox.utils import process_variables
+from goldilox.utils import process_variables, unpickle, get_open
 
 
 @click.group()
@@ -124,6 +125,13 @@ def packages(path):
     click.echo(json.dumps(meta[REQUIREMEMTS], indent=4))
 
 
+def _read_content(path):
+    open_fs = get_open(path)
+    with open_fs(path, 'r') as f:
+        ret = f.read()
+    return ret
+
+
 def _write_content(output, content):
     with open(output, 'w') as outfile:
         outfile.write(content)
@@ -199,6 +207,46 @@ def build(path, name="goldilox", image=None, platform=None):
     run_command = f"docker run --rm -it {platform_str}-p 127.0.0.1:5000:5000 {name}"
     click.echo(f"Image {name} created - run with: '{run_command}'")
     click.echo(f"* On m1 mac you might need to add '-e HOST=0.0.0.0'")
+
+
+@main.command(context_settings=dict(
+    ignore_unknown_options=True,
+))
+@click.argument("path", type=click.Path(exists=True))
+@click.argument('options', nargs=-1, type=click.UNPROCESSED)
+def update(path, **options):
+    options = options['options']
+    meta_bytes, state_bytes = Pipeline._read_pipeline_file(path)
+    meta = unpickle(meta_bytes)
+    variable_flag = '--variable'
+    is_variable = False
+    for option in options:
+        if option == variable_flag:
+            is_variable = True
+        else:
+            try:
+                key_value = option.split('=')
+                key, value = key_value[0], key_value[1]
+            except:
+                click.echo(
+                    f"{option} was invalid and ignored - use 'key=value' format")
+                continue
+            if is_variable:
+                meta[VARIABLES][key] = value
+                click.echo(f"variable {key} was update to {value}")
+            elif key in meta:
+                tmp_value = value
+                if os.path.isfile(value):
+                    click.echo(f"{value} is considered as a file")
+                    tmp_value = _read_content(value)
+                meta[key] = tmp_value
+                click.echo(f"{key} was update to {value}")
+            else:
+                click.echo(
+                    f"{key} was invalid and ignored - for updating a variable use the format '--variable key=value'")
+            is_variable = False
+    state_to_write = Pipeline.BYTES_SIGNETURE + cloudpickle.dumps(meta) + Pipeline.BYTE_DELIMITER + state_bytes
+    Pipeline._save_state(path, state_to_write)
 
 
 @main.command()

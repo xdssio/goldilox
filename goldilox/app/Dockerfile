@@ -13,7 +13,7 @@ RUN apt-get update && apt update && apt install -y git gcc python3-pip
 
 #RUN --mount=type=cache,mode=0755,target=/root/.cache pip install -U pip \
 #    && pip3 install --no-cache-dir scikit-learn pydantic fastapi click vaex-core vaex-ml vaex-hdf5 gunicorn uvicorn cloudpickle numpy pandas pickle5
-ARG GOLDILOX_VERSION='0.0.9'
+ARG GOLDILOX_VERSION='0.0.10'
 
 RUN --mount=type=cache,mode=0755,target=/root/.cache pip install -U pip \
     && pip3 install scikit-learn pydantic fastapi click gunicorn uvicorn cloudpickle numpy pandas pickle5
@@ -52,15 +52,26 @@ FROM $PYTHON_IMAGE AS conda-image
 
 RUN echo 'export PS1="\[\e[36m\]goldilox>\[\e[m\] "' >> /root/.bashrc
 
-RUN pip3 install -U goldilox
+RUN apt-get update && apt update && apt install -y git gcc python3-pip
 
-ARG PYTHON_VERSION="3.8"
+ARG GOLDILOX_VERSION='0.0.10'
+
+RUN --mount=type=cache,mode=0755,target=/root/.cache pip install -U pip \
+    && pip3 install scikit-learn pydantic fastapi click gunicorn uvicorn cloudpickle numpy pandas pickle5
+
+RUN --mount=type=cache,mode=0755,target=/root/.cache pip3 install -U goldilox==$GOLDILOX_VERSION
+
+RUN mkdir -p /home/app
+
+WORKDIR /home/app
 
 ARG PIPELINE_FILE
 
-ENV PIPELINE_PATH "/home/pipeline.pkl"
+ARG PYTHON_VERSION="3.8"
 
-ENV ENVIRONMENT "/home/environment.yml"
+ENV PIPELINE_PATH "/home/app/pipeline.pkl"
+
+ENV ENVIRONMENT "/home/app/environment.yml"
 
 COPY $PIPELINE_FILE $PIPELINE_PATH
 
@@ -71,9 +82,9 @@ RUN conda env create --name=conda_env python=$PYTHON_VERSION -f $ENVIRONMENT
 # todo is needed?
 SHELL ["conda", "run", "-n", "conda_env", "/bin/bash", "-c"]
 
-RUN ln -s /home/pipeline.pkl pipeline
+RUN ln -s /home/app/pipeline.pkl pipeline
 
 EXPOSE 8000 5000
 
-ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "conda_env", "glx", "serve", "/home/pipeline.pkl"]
+ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "conda_env", "glx", "serve", "/home/app/pipeline.pkl"]
 
