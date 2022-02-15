@@ -27,8 +27,6 @@ WORKDIR /home/app
 
 ARG PIPELINE_FILE
 
-ARG REQUIRMENTS_FILE
-
 ENV PIPELINE_PATH "/home/app/pipeline.pkl"
 
 ENV REQUIRMENTS "/home/app/requirements.txt"
@@ -46,7 +44,7 @@ EXPOSE 8000 5000
 CMD ["glx", "serve", "/home/app/pipeline.pkl"]
 
 # TODO
-ARG PYTHON_IMAGE="continuumio/anaconda3"
+ARG PYTHON_IMAGE="conda-forge/mambaforge-pypy3"
 
 FROM $PYTHON_IMAGE AS conda-image
 
@@ -73,18 +71,28 @@ ENV PIPELINE_PATH "/home/app/pipeline.pkl"
 
 ENV ENVIRONMENT "/home/app/environment.yml"
 
+ENV REQUIRMENTS "/home/app/requirements.txt"
+
 COPY $PIPELINE_FILE $PIPELINE_PATH
 
 RUN glx environment $PIPELINE_PATH $ENVIRONMENT
 
 RUN conda env create --name=conda_env python=$PYTHON_VERSION -f $ENVIRONMENT
 
+RUN echo "done creating conda env"
+
 # todo is needed?
 SHELL ["conda", "run", "-n", "conda_env", "/bin/bash", "-c"]
+
+# RUN glx freeze $PIPELINE_PATH $REQUIRMENTS
+
+#RUN --mount=type=cache,mode=0755,target=/root/.cache pip install -U pip \
+#    && conda run -n conda_env  pip3 install scikit-learn pydantic fastapi click gunicorn uvicorn cloudpickle numpy pandas pickle5 traitlets
+#RUN --mount=type=cache,mode=0755,target=/root/.cache conda run -n conda_env conda install -r $REQUIRMENTS
 
 RUN ln -s /home/app/pipeline.pkl pipeline
 
 EXPOSE 8000 5000
 
-ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "conda_env", "glx", "serve", "/home/app/pipeline.pkl"]
-
+#ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "conda_env", "glx", "serve", "/home/app/pipeline.pkl"]
+CMD ["conda", "run", "--no-capture-output", "-n", "conda_env", "glx", "serve", "/home/app/pipeline.pkl"]

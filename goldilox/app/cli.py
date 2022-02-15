@@ -172,14 +172,15 @@ def environment(path, output='environment.yml'):
 @click.argument("path", type=click.Path(exists=True))
 @click.option("--name", type=str, default="goldilox")
 @click.option('--image', type=str, default=None)
+@click.option('--dockerfile', type=click.Path(), default=None)
 @click.option('--platform', type=str, default=None)
-def build(path, name="goldilox", image=None, platform=None):
+def build(path, name="goldilox", image=None, dockerfile=None, platform=None):
     """ build a docker server image"""
     if os.path.isdir(path) and os.path.isfile(os.path.join(path, 'MLmodel')):
         command = ['mlflow', 'models', 'build-docker', f"-m", os.path.abspath(path), f"-n", name, "--enable-mlserver"]
     else:
         goldilox_path = Path(goldilox.__file__)
-        docker_file_path = str(goldilox_path.parent.absolute().joinpath('app').joinpath('Dockerfile'))
+        dockerfile = dockerfile or str(goldilox_path.parent.absolute().joinpath('app').joinpath('Dockerfile'))
 
         # get meta
         meta = Pipeline.load_meta(path)
@@ -187,10 +188,10 @@ def build(path, name="goldilox", image=None, platform=None):
         conda_env = meta.get(CONDA_ENV)
         goldilox_version = meta.get(VERSION)
         if image is None:
-            image = 'continuumio/anaconda3' if conda_env is not None else f"python:{python_version}-slim-bullseye"
+            image = 'condaforge/mambaforge' if conda_env is not None else f"python:{python_version}-slim-bullseye"
         target_args = ["--target", "conda-image"] if conda_env is not None else ["--target", "venv-image"]
 
-        run_args = ['docker', 'build', f"-f={docker_file_path}", f"-t={name}", "--build-arg",
+        run_args = ['docker', 'build', f"-f={dockerfile}", f"-t={name}", "--build-arg",
                     f"PYTHON_VERSION={python_version}", "--build-arg", f"PYTHON_IMAGE={image}",
                     "--build-arg", f"GOLDILOX_VERSION={goldilox_version}"]
 
@@ -257,8 +258,8 @@ def dockerfile(output):
     docker_file_path = str(goldilox_path.parent.absolute().joinpath('app').joinpath('Dockerfile'))
     docker_output = output or './Dockerfile'
     shutil.copyfile(docker_file_path, docker_output)
-    with open(docker_output, 'r') as f:
-        click.echo(f.read())
+    content = _read_content(docker_output)
+    click.echo(content)
     click.echo("##################\nDockerfile was writen to './dockerfile'\n")
     click.echo(
         "Use 'docker build -f=Dockerfile -t=<image-name> --build-arg PIPELINE_FILE=<pipeline-path> --build-arg PYTHON_IMAGE=<base-image> .' to build a docker image")

@@ -182,10 +182,14 @@ def unpickle(b):
     return ret
 
 
-def get_requirements(requirements=None):
+def get_requirements(environment_type=None, requirements=None):
     """Run pip freeze and returns the results"""
+    if environment_type is None:
+        environment_type = get_env_type()
     if requirements is not None:
         return '\n'.join(requirements)
+    if environment_type == 'conda':
+        return subprocess.check_output(['conda', 'list', '--export']).decode()
     return subprocess.check_output([sys.executable, '-m', 'pip',
                                     'freeze']).decode()
 
@@ -207,6 +211,6 @@ def get_env_type():
 def get_conda_env():
     env = None
     if get_env_type() == 'conda':
-        command = ['conda', 'env', 'export', '--no-builds']
+        command = ['conda', 'env', 'export', '--from-history']
         env = subprocess.check_output(command).decode()
     return env

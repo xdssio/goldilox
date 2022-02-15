@@ -16,8 +16,8 @@ from sklearn.utils.validation import check_is_fitted
 import goldilox
 from goldilox.config import PIPELINE_TYPE, VAEX, SKLEARN, VERSION, PY_VERSION, \
     REQUIREMEMTS, VARIABLES, DESCRIPTION, RAW, VENV, CONDA_ENV
-from goldilox.utils import is_s3_url, read_bytes, unpickle, validate_path, write_bytes, get_requirements, \
-    get_python_version, get_conda_env, get_env_type, get_open
+from goldilox.utils import is_s3_url, read_bytes, unpickle, validate_path, write_bytes, \
+    get_python_version, get_conda_env, get_env_type, get_open, get_requirements
 
 logger = logging.getLogger()
 
@@ -169,12 +169,13 @@ class Pipeline(TransformerMixin):
         return unpickle(meta_bytes)
 
     def _get_meta_dict(self, requirements=None):
+        environment_type = get_env_type()
         return {
             PIPELINE_TYPE: self.pipeline_type,
             VERSION: goldilox.__version__,
-            VENV: get_env_type(),
+            VENV: environment_type,
             PY_VERSION: get_python_version(),
-            REQUIREMEMTS: get_requirements(requirements),
+            REQUIREMEMTS: get_requirements(environment_type, requirements=requirements),
             CONDA_ENV: get_conda_env(),
             VARIABLES: self.variables.copy(),
             DESCRIPTION: self.description,
