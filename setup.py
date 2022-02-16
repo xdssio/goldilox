@@ -7,7 +7,7 @@ setup(
     name="goldilox",
     packages=packages,
     include_package_data=True,
-    install_requires=["scikit-learn", "pandas", "numpy", "cloudpickle",
+    install_requires=["scikit-learn", "pandas", "numpy", "cloudpickle", "traitlets",
                       "gunicorn", "Click", "fastapi", "uvicorn", "pickle5"],
     version=goldilox.__version__,
     url="https://github.com/xdssio/goldilox",

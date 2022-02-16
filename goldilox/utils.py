@@ -189,7 +189,8 @@ def get_requirements(environment_type=None, requirements=None):
     if requirements is not None:
         return '\n'.join(requirements)
     if environment_type == 'conda':
-        return subprocess.check_output(['conda', 'list', '--export']).decode()
+        # return subprocess.check_output(['conda env export | cut -d "=" -f1'], shell=True).decode()
+        return subprocess.check_output(['conda list --export | cut -d"=" -f1'], shell=True).decode()
     return subprocess.check_output([sys.executable, '-m', 'pip',
                                     'freeze']).decode()
 
@@ -211,6 +212,10 @@ def get_env_type():
 def get_conda_env():
     env = None
     if get_env_type() == 'conda':
-        command = ['conda', 'env', 'export', '--from-history']
-        env = subprocess.check_output(command).decode()
+        command = ["conda env export | cut -f 1 -d '=' "]
+        env = subprocess.check_output(command, shell=True).decode()
+        splited = env.split('\n')
+        splited[0] = 'name: conda_env'
+        splited[-2] = 'prefix: conda_env'
+        env = '\n'.join(splited)
     return env

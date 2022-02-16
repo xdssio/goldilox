@@ -11,17 +11,11 @@ ENV PYTHONUNBUFFERED=TRUE PYTHONDONTWRITEBYTECODE=TRUE PYTHONUNBUFFERED=1  PYTHO
 
 RUN apt-get update && apt update && apt install -y git gcc python3-pip
 
-#RUN --mount=type=cache,mode=0755,target=/root/.cache pip install -U pip \
-#    && pip3 install --no-cache-dir scikit-learn pydantic fastapi click vaex-core vaex-ml vaex-hdf5 gunicorn uvicorn cloudpickle numpy pandas pickle5
 ARG GOLDILOX_VERSION='0.0.10'
-
-RUN --mount=type=cache,mode=0755,target=/root/.cache pip install -U pip \
-    && pip3 install scikit-learn pydantic fastapi click gunicorn uvicorn cloudpickle numpy pandas pickle5
 
 RUN --mount=type=cache,mode=0755,target=/root/.cache pip3 install -U goldilox==$GOLDILOX_VERSION
 
-RUN mkdir -p /home/app \
-    && mkdir -p /home/app/models
+RUN mkdir -p /home/app
 
 WORKDIR /home/app
 
@@ -37,13 +31,12 @@ RUN glx freeze $PIPELINE_PATH $REQUIRMENTS
 
 RUN --mount=type=cache,mode=0755,target=/root/.cache pip3 install -r $REQUIRMENTS
 
-RUN ln -s /home/pipeline.pkl pipeline
+RUN ln -s /home/app/pipeline.pkl pipeline
 
 EXPOSE 8000 5000
 
-CMD ["glx", "serve", "/home/app/pipeline.pkl"]
+CMD ["glx", "serve", "pipeline"]
 
-# TODO
 ARG PYTHON_IMAGE="conda-forge/mambaforge-pypy3"
 
 FROM $PYTHON_IMAGE AS conda-image
@@ -53,9 +46,6 @@ RUN echo 'export PS1="\[\e[36m\]goldilox>\[\e[m\] "' >> /root/.bashrc
 RUN apt-get update && apt update && apt install -y git gcc python3-pip
 
 ARG GOLDILOX_VERSION='0.0.10'
-
-RUN --mount=type=cache,mode=0755,target=/root/.cache pip install -U pip \
-    && pip3 install scikit-learn pydantic fastapi click gunicorn uvicorn cloudpickle numpy pandas pickle5
 
 RUN --mount=type=cache,mode=0755,target=/root/.cache pip3 install -U goldilox==$GOLDILOX_VERSION
 
@@ -81,18 +71,20 @@ RUN conda env create --name=conda_env python=$PYTHON_VERSION -f $ENVIRONMENT
 
 RUN echo "done creating conda env"
 
-# todo is needed?
+SHELL ["/bin/bash","-c"]
+
+RUN conda init
+
+RUN echo 'conda activate conda_env' >> ~/.bashrc
+
 SHELL ["conda", "run", "-n", "conda_env", "/bin/bash", "-c"]
 
-# RUN glx freeze $PIPELINE_PATH $REQUIRMENTS
+ARG GOLDILOX_VERSION='0.0.10'
 
-#RUN --mount=type=cache,mode=0755,target=/root/.cache pip install -U pip \
-#    && conda run -n conda_env  pip3 install scikit-learn pydantic fastapi click gunicorn uvicorn cloudpickle numpy pandas pickle5 traitlets
-#RUN --mount=type=cache,mode=0755,target=/root/.cache conda run -n conda_env conda install -r $REQUIRMENTS
+RUN --mount=type=cache,mode=0755,target=/root/.cache pip3 install -U goldilox==$GOLDILOX_VERSION
 
 RUN ln -s /home/app/pipeline.pkl pipeline
 
 EXPOSE 8000 5000
 
-#ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "conda_env", "glx", "serve", "/home/app/pipeline.pkl"]
-CMD ["conda", "run", "--no-capture-output", "-n", "conda_env", "glx", "serve", "/home/app/pipeline.pkl"]
+CMD ["conda", "run", "--no-capture-output", "-n", "conda_env", "glx", "serve", "pipeline"]

@@ -1,9 +1,7 @@
-from tempfile import TemporaryDirectory
-
 import pytest
 
 
-@pytest.mark.skip("run manually for now")
+@pytest.mark.skip("run manually from venvs")
 def build_test_conda():
     import sklearn.pipeline
     from lightgbm.sklearn import LGBMClassifier
@@ -21,7 +19,13 @@ def build_test_conda():
     path = 'conda_pipeline.pkl'
     pipeline.save(path)
 
-    path = str(TemporaryDirectory().name) + '/conda_pipeline.pkl'
-    pipeline.save(path)
-    from goldilox.app.cli import build
-    build(path, "goldilox-conda-test")
+    """
+    glx environment conda_pipeline.pkl 
+    delete:
+    - backports
+    - backports.functools_lru_cache
+    - appnope
+   
+    glx build conda_pipeline.pkl --platform=linux/amd64
+    
+    """

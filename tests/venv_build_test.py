@@ -18,7 +18,7 @@ def build_test_venv():
     pipeline = Pipeline.from_sklearn(
         sk_pipeline, description="Lightgbm with sklearn"
     ).fit(X, y)
-    # pipeline.save("venv_pipeline.pkl")
+    pipeline.save("venv_pipeline.pkl")
 
     path = str(TemporaryDirectory().name) + '/venv_pipeline.pkl'
     pipeline.save(path)
