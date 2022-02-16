@@ -43,4 +43,4 @@ ALLOW_CREDENTIALS = bool(strtobool(os.getenv('ALLOW_CREDENTIALS', 'True')))
 ALLOW_CORS = bool(strtobool(os.getenv('ALLOW_CORS', 'True')))
 
 # package
-GOLDILOX_VERSION = "0.0.10"
+GOLDILOX_VERSION = "0.0.11"
