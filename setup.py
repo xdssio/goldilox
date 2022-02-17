@@ -1,7 +1,5 @@
 from setuptools import setup, find_packages
 
-import goldilox
-
 packages = find_packages()
 setup(
     name="goldilox",
@@ -9,7 +7,7 @@ setup(
     include_package_data=True,
     install_requires=["scikit-learn", "pandas", "numpy", "cloudpickle", "traitlets",
                       "gunicorn", "Click", "fastapi", "uvicorn", "pickle5"],
-    version=goldilox.__version__,
+    version="0.0.15",
     url="https://github.com/xdssio/goldilox",
     description="A tool for deploying machine learning",
     author="Yonatan Alexander",

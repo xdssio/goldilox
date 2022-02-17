@@ -10,15 +10,21 @@ import cloudpickle
 
 import goldilox
 from goldilox import Pipeline
-from goldilox.config import VARIABLES, RAW, DESCRIPTION, REQUIREMEMTS, PY_VERSION, CONDA_ENV, VERSION
+from goldilox.config import VARIABLES, RAW, DESCRIPTION, REQUIREMEMTS, PY_VERSION, VERSION, VENV_TYPE
 from goldilox.utils import process_variables, unpickle, get_open
 
 
-@click.group()
-@click.version_option("1.0.0")
-def main():
-    """This runs every time"""
-    pass
+def _read_content(path):
+    open_fs = get_open(path)
+    with open_fs(path, 'r') as f:
+        ret = f.read()
+    return ret
+
+
+def _write_content(output, content):
+    with open(output, 'w') as outfile:
+        outfile.write(content)
+    return output
 
 
 def process_option(s):
@@ -32,6 +38,13 @@ def process_option(s):
     if key.startswith('--'):
         key = key[2:]
     return key, value
+
+
+@click.group()
+@click.version_option("1.0.0")
+def main():
+    """This runs every time"""
+    pass
 
 
 @main.command(context_settings=dict(
@@ -106,7 +119,7 @@ def example(path):
 def raw(path):
     """print pipeline input example (raw data)"""
     meta = Pipeline.load_meta(path)
-    click.echo(json.dumps(meta[RAW], indent=4))
+    click.echo(json.dumps(meta.get(RAW), indent=4))
 
 
 @main.command()
@@ -114,7 +127,7 @@ def raw(path):
 def variables(path):
     """print pipeline variables"""
     meta = Pipeline.load_meta(path)
-    click.echo(json.dumps(process_variables(meta[VARIABLES]), indent=4))
+    click.echo(json.dumps(process_variables(meta.get(VARIABLES)), indent=4))
 
 
 @main.command()
@@ -125,27 +138,19 @@ def packages(path):
     click.echo(json.dumps(meta[REQUIREMEMTS], indent=4))
 
 
-def _read_content(path):
-    open_fs = get_open(path)
-    with open_fs(path, 'r') as f:
-        ret = f.read()
-    return ret
-
-
-def _write_content(output, content):
-    with open(output, 'w') as outfile:
-        outfile.write(content)
-    return output
-
-
 @main.command()
 @click.argument("path", type=click.Path(exists=True))
-@click.argument("output", type=click.Path())
-def freeze(path, output='requirements.txt', ):
+@click.option('-o', "--output", type=click.Path())
+def freeze(path, output=None):
     """write pipeline packages to a file (pip freeze > output)"""
-    packages = Pipeline.load_meta(path).get(REQUIREMEMTS)
+    meta = Pipeline.load_meta(path)
+    if output is None:
+        venv = meta.get(VENV_TYPE)
+        output = 'environment.yaml' if venv == 'conda' else 'requirements.txt'
+
+    packages = meta.get(REQUIREMEMTS)
     _write_content(output, packages)
-    click.echo(f"checkout {output} for the requirements")
+    click.echo(f"checkout {output}")
 
 
 @main.command()
@@ -153,19 +158,6 @@ def freeze(path, output='requirements.txt', ):
 def meta(path):
     """print all meta data"""
     click.echo(json.dumps(Pipeline.load_meta(path), indent=4).replace('\\n', ' '))
-
-
-@main.command()
-@click.argument("path", type=click.Path(exists=True))
-@click.argument("output", type=str, required=False, default='environment.yml')
-def environment(path, output='environment.yml'):
-    """write a codna packages to a file (conda env export > output)"""
-    env = Pipeline.load_meta(path)
-    if env is None:
-        raise RuntimeError(f"path: {path} has no valid conda environment in it's metadata")
-    env = env[CONDA_ENV]
-    _write_content(output, env)
-    click.echo(f"checkout {output} for the environment")
 
 
 @main.command()
@@ -185,11 +177,12 @@ def build(path, name="goldilox", image=None, dockerfile=None, platform=None):
         # get meta
         meta = Pipeline.load_meta(path)
         python_version = meta.get(PY_VERSION)
-        conda_env = meta.get(CONDA_ENV)
+        venv_type = meta.get(VENV_TYPE)
         goldilox_version = meta.get(VERSION)
+        is_conda = venv_type == 'conda'
         if image is None:
-            image = 'condaforge/mambaforge' if conda_env is not None else f"python:{python_version}-slim-bullseye"
-        target_args = ["--target", "conda-image"] if conda_env is not None else ["--target", "venv-image"]
+            image = 'condaforge/mambaforge' if is_conda else f"python:{python_version}-slim-bullseye"
+        target_args = ["--target", "conda-image"] if is_conda else ["--target", "venv-image"]
 
         run_args = ['docker', 'build', f"-f={dockerfile}", f"-t={name}", "--build-arg",
                     f"PYTHON_VERSION={python_version}", "--build-arg", f"PYTHON_IMAGE={image}",
@@ -214,44 +207,43 @@ def build(path, name="goldilox", image=None, dockerfile=None, platform=None):
     ignore_unknown_options=True,
 ))
 @click.argument("path", type=click.Path(exists=True))
-@click.argument('options', nargs=-1, type=click.UNPROCESSED)
-def update(path, **options):
-    options = options['options']
+@click.argument('key', type=str)
+@click.argument('value', type=str)
+@click.option('-v', '--variable', is_flag=True)
+@click.option('-f', '--file', is_flag=True)
+def update(path, key, value, variable, file):
+    """
+    Update is a tool for updating metadata and variables for a pipeline file.
+    Examples:
+    $ glx update pipeline.pkl requirements requirements.txt --file # Read the requirements.txt and update the pipeline.pkl file
+    $ glx update pipeline.pkl accuracy 0.8 --variable # update the 'accuracy' variable to 0.8 in the pipeline.pkl file
+    """
+
     meta_bytes, state_bytes = Pipeline._read_pipeline_file(path)
     meta = unpickle(meta_bytes)
-    variable_flag = '--variable'
-    is_variable = False
-    for option in options:
-        if option == variable_flag:
-            is_variable = True
-        else:
-            try:
-                key_value = option.split('=')
-                key, value = key_value[0], key_value[1]
-            except:
-                click.echo(
-                    f"{option} was invalid and ignored - use 'key=value' format")
-                continue
-            if is_variable:
-                meta[VARIABLES][key] = value
-                click.echo(f"variable {key} was update to {value}")
-            elif key in meta:
-                tmp_value = value
-                if os.path.isfile(value):
-                    click.echo(f"{value} is considered as a file")
-                    tmp_value = _read_content(value)
-                meta[key] = tmp_value
-                click.echo(f"{key} was update to {value}")
-            else:
-                click.echo(
-                    f"{key} was invalid and ignored - for updating a variable use the format '--variable key=value'")
-            is_variable = False
+    tmp_value = value
+    if file and not os.path.isfile(value):
+        click.echo(f"{value} is not a file - skip")
+    if file and os.path.isfile(value):
+        tmp_value = _read_content(value)
+        click.echo(f"{value} is considered as a file")
+    if os.path.isfile(value) and not file:
+        click.echo(f"{value} is a file - if you want to load it as such, use the '--file' flag")
+        click.echo(f"{value} is considered as a string")
+    if variable:
+        meta[VARIABLES][key] = tmp_value
+    elif key in meta:
+        meta[key] = tmp_value
+    else:
+        click.echo(f"{key} was invalid and ignored - for updating a variable use the '--variable' flag")
+    click.echo(f"{key} was update to {value}")
+
     state_to_write = Pipeline.BYTES_SIGNETURE + cloudpickle.dumps(meta) + Pipeline.BYTE_DELIMITER + state_bytes
     Pipeline._save_state(path, state_to_write)
 
 
 @main.command()
-@click.option('--output', type=str, default=None)
+@click.option('-o', '--output', type=str, default=None)
 def dockerfile(output):
     """Create a Dockerfile for you to work with"""
     goldilox_path = Path(goldilox.__file__)
@@ -262,7 +254,13 @@ def dockerfile(output):
     click.echo(content)
     click.echo("##################\nDockerfile was writen to './dockerfile'\n")
     click.echo(
-        "Use 'docker build -f=Dockerfile -t=<image-name> --build-arg PIPELINE_FILE=<pipeline-path> --build-arg PYTHON_IMAGE=<base-image> .' to build a docker image")
+        "Run 'docker build -f=Dockerfile -t=<image-name> \
+            --build-arg PIPELINE_FILE=<pipeline-path> \
+            --build-arg PYTHON_VERSION=<python-version> \
+            --build-arg PYTHON_IMAGE=<base-image> \
+            --build-arg GOLDILOX_VERSION=<goldilox-version> \
+            --target <venv-image/conda-env> .'\
+            to build a docker image")
 
 
 if __name__ == '__main__':

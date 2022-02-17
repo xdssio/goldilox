@@ -182,26 +182,44 @@ def unpickle(b):
     return ret
 
 
-def get_requirements(environment_type=None, requirements=None):
-    """Run pip freeze and returns the results"""
-    if environment_type is None:
-        environment_type = get_env_type()
+def get_requirements(venv_type=None, requirements=None, clean=True):
+    """Run pip freeze  for venv and conda env export for conda
+    @return requirements
+    """
     if requirements is not None:
         return '\n'.join(requirements)
-    if environment_type == 'conda':
-        # return subprocess.check_output(['conda env export | cut -d "=" -f1'], shell=True).decode()
-        return subprocess.check_output(['conda list --export | cut -d"=" -f1'], shell=True).decode()
-    return subprocess.check_output([sys.executable, '-m', 'pip',
-                                    'freeze']).decode()
+    if venv_type is None:
+        venv_type = get_env_type()
+    if venv_type == 'conda':
+        command = ["conda env export | cut -f 1 -d '=' "]
+        env = subprocess.check_output(command, shell=True).decode()
+        if clean:
+            env = env.replace('\n  - appnope', '')
+        splited = env.split('\n')
+        splited[0] = 'name: conda_env'
+        splited[-2] = 'prefix: conda_env'
+        return '\n'.join(splited)
+    ret = subprocess.check_output([sys.executable, '-m', 'pip',
+                                   'freeze']).decode()
+    if clean:
+        import re
+        ret = re.sub("appnope==(.[\d \.]*)\\n", '', ret)
+    return ret
 
 
 def get_python_version():
+    """
+    @return: current python version
+    """
     return "{major}.{minor}.{micro}".format(major=version_info.major,
                                             minor=version_info.minor,
                                             micro=version_info.micro)
 
 
 def get_env_type():
+    """
+    @return 'conda' if running in a conda environment, 'venv' if in a virtual env, and None otherwise
+    """
     if os.getenv('CONDA_DEFAULT_ENV'):
         return 'conda'
     elif os.getenv('VIRTUAL_ENV'):
@@ -209,11 +227,14 @@ def get_env_type():
     return None
 
 
-def get_conda_env():
+def get_conda_env(clean=True):
+    """run conda env export | cut -f 1 -d '='  and clean problematic packages (for docker) like 'appnope'"""
     env = None
     if get_env_type() == 'conda':
         command = ["conda env export | cut -f 1 -d '=' "]
         env = subprocess.check_output(command, shell=True).decode()
+        if clean:
+            env = env.replace('\n  - appnope', '')
         splited = env.split('\n')
         splited[0] = 'name: conda_env'
         splited[-2] = 'prefix: conda_env'

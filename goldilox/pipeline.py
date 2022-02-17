@@ -15,7 +15,7 @@ from sklearn.utils.validation import check_is_fitted
 
 import goldilox
 from goldilox.config import PIPELINE_TYPE, VAEX, SKLEARN, VERSION, PY_VERSION, \
-    REQUIREMEMTS, VARIABLES, DESCRIPTION, RAW, VENV, CONDA_ENV
+    REQUIREMEMTS, VARIABLES, DESCRIPTION, RAW, VENV_TYPE
 from goldilox.utils import is_s3_url, read_bytes, unpickle, validate_path, write_bytes, \
     get_python_version, get_conda_env, get_env_type, get_open, get_requirements
 
@@ -165,25 +165,23 @@ class Pipeline(TransformerMixin):
     def load_meta(cls, path):
         """Read the meta information from a pipeline file without loading it"""
         meta_bytes, _ = Pipeline._read_pipeline_file(path)
-
         return unpickle(meta_bytes)
 
-    def _get_meta_dict(self, requirements=None):
+    def _get_meta_dict(self, requirements=None, clean=True):
         environment_type = get_env_type()
         return {
             PIPELINE_TYPE: self.pipeline_type,
             VERSION: goldilox.__version__,
-            VENV: environment_type,
+            VENV_TYPE: environment_type,
             PY_VERSION: get_python_version(),
-            REQUIREMEMTS: get_requirements(environment_type, requirements=requirements),
-            CONDA_ENV: get_conda_env(),
+            REQUIREMEMTS: get_requirements(environment_type, requirements=requirements, clean=clean),
             VARIABLES: self.variables.copy(),
             DESCRIPTION: self.description,
             RAW: self.raw,
         }
 
-    def _get_meta(self, requirements=None):
-        return cloudpickle.dumps(_copy(self._get_meta_dict(requirements)))
+    def _get_meta(self, requirements=None, clean=True):
+        return cloudpickle.dumps(_copy(self._get_meta_dict(requirements, clean)))
 
     @classmethod
     def _split_meta(cls, b):
@@ -196,17 +194,18 @@ class Pipeline(TransformerMixin):
             validate_path(path)
         return write_bytes(path, state)
 
-    def save(self, path, requirements=None):
+    def save(self, path, requirements=None, clean=True):
         """
-        @param path: output path
-        @param requirements: a list of requirements. if None - takes from pip
-        @param mlflow: if True, export as mlflow project - not working on s3:path
+        @param path: str : output path
+        @param requirements: list[str]: a list of requirements. if None - takes from pip
+        @param clean: str: If True, clean some packages which are not available for conda in docker (ignored if not on conda)
+        @param mlflow: bool: if True, export as mlflow project - not working on s3:path
         @param kwargs: Extra parameters to pass to mlflow.*.save_model
         @return: same path the pipeline was saved to
         """
 
         state_to_write = Pipeline.BYTES_SIGNETURE + self._get_meta(
-            requirements) + Pipeline.BYTE_DELIMITER + self._dumps()
+            requirements, clean) + Pipeline.BYTE_DELIMITER + self._dumps()
         return self._save_state(path, state_to_write)
 
     def validate(self, df=None, check_na=True, verbose=True):
@@ -293,7 +292,7 @@ class Pipeline(TransformerMixin):
             'dependencies': [
                 f"python={get_python_version()}",
                 {
-                    'pip': get_requirements(requirements).split('\n'),
+                    'pip': get_requirements(venv_type='venv', requirements=requirements).split('\n'),
                 },
             ],
             'name': 'goldilox_env'
@@ -328,7 +327,7 @@ class Pipeline(TransformerMixin):
                                  )
         return path
 
-    def export_gunicorn(self, path, requirements=None):
+    def export_gunicorn(self, path, requirements=None, clean=True):
 
         if not is_s3_url(path):
             os.makedirs(path, exist_ok=True)
@@ -339,7 +338,7 @@ class Pipeline(TransformerMixin):
                 outfile.write(env)
         else:
             with open_fs(os.path.join(path, 'requirements.txt'), 'w') as outfile:
-                outfile.write(get_requirements(requirements))
+                outfile.write(get_requirements(requirements, clean=clean))
         self.save(os.path.join(path, 'pipeline.pkl'))
         goldilox_path = Path(goldilox.__file__)
         shutil.copyfile(str(goldilox_path.parent.absolute().joinpath('app').joinpath('main.py')),

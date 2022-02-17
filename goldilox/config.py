@@ -33,7 +33,7 @@ CONDA_ENV = "conda_env"
 VALID_VAEX_HEADERS = ["*.csv", "*.hdf5", "*.parquet", "*.arrow"]
 DEFAULT_SUFFIX = ".parquet"
 BYTE_DELIMITER = b'###'
-VENV = 'venv'
+VENV_TYPE = 'venv_type'
 
 # App
 CORS_ORIGINS = os.getenv('ORIGINS', '*').split(',')
@@ -43,4 +43,4 @@ ALLOW_CREDENTIALS = bool(strtobool(os.getenv('ALLOW_CREDENTIALS', 'True')))
 ALLOW_CORS = bool(strtobool(os.getenv('ALLOW_CORS', 'True')))
 
 # package
-GOLDILOX_VERSION = "0.0.11"
+GOLDILOX_VERSION = "0.0.15"

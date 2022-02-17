@@ -11,9 +11,9 @@ ENV PYTHONUNBUFFERED=TRUE PYTHONDONTWRITEBYTECODE=TRUE PYTHONUNBUFFERED=1  PYTHO
 
 RUN apt-get update && apt update && apt install -y git gcc python3-pip
 
-ARG GOLDILOX_VERSION='0.0.10'
+ARG GOLDILOX_VERSION='0.0.15'
 
-RUN --mount=type=cache,mode=0755,target=/root/.cache pip3 install -U goldilox==$GOLDILOX_VERSION
+RUN --mount=type=cache,mode=0755,target=/root/.cache pip3 install goldilox==$GOLDILOX_VERSION
 
 RUN mkdir -p /home/app
 
@@ -27,7 +27,7 @@ ENV REQUIRMENTS "/home/app/requirements.txt"
 
 COPY $PIPELINE_FILE $PIPELINE_PATH
 
-RUN glx freeze $PIPELINE_PATH $REQUIRMENTS
+RUN glx freeze $PIPELINE_PATH --output $REQUIRMENTS
 
 RUN --mount=type=cache,mode=0755,target=/root/.cache pip3 install -r $REQUIRMENTS
 
@@ -45,9 +45,9 @@ RUN echo 'export PS1="\[\e[36m\]goldilox>\[\e[m\] "' >> /root/.bashrc
 
 RUN apt-get update && apt update && apt install -y git gcc python3-pip
 
-ARG GOLDILOX_VERSION='0.0.10'
+ARG GOLDILOX_VERSION='0.0.15'
 
-RUN --mount=type=cache,mode=0755,target=/root/.cache pip3 install -U goldilox==$GOLDILOX_VERSION
+RUN --mount=type=cache,mode=0755,target=/root/.cache pip3 install goldilox==$GOLDILOX_VERSION
 
 RUN mkdir -p /home/app
 
@@ -59,17 +59,13 @@ ARG PYTHON_VERSION="3.8"
 
 ENV PIPELINE_PATH "/home/app/pipeline.pkl"
 
-ENV ENVIRONMENT "/home/app/environment.yml"
-
-ENV REQUIRMENTS "/home/app/requirements.txt"
+ENV REQUIRMENTS "/home/app/environment.yaml"
 
 COPY $PIPELINE_FILE $PIPELINE_PATH
 
-RUN glx environment $PIPELINE_PATH $ENVIRONMENT
+RUN glx freeze $PIPELINE_PATH --output $REQUIRMENTS
 
-RUN conda env create --name=conda_env python=$PYTHON_VERSION -f $ENVIRONMENT
-
-RUN echo "done creating conda env"
+RUN --mount=type=cache,mode=0755,target=/opt/conda/pkgs conda env create --name=conda_env python=$PYTHON_VERSION -f $REQUIRMENTS
 
 SHELL ["/bin/bash","-c"]
 
@@ -79,9 +75,9 @@ RUN echo 'conda activate conda_env' >> ~/.bashrc
 
 SHELL ["conda", "run", "-n", "conda_env", "/bin/bash", "-c"]
 
-ARG GOLDILOX_VERSION='0.0.10'
+ARG GOLDILOX_VERSION='0.0.15'
 
-RUN --mount=type=cache,mode=0755,target=/root/.cache pip3 install -U goldilox==$GOLDILOX_VERSION
+RUN --mount=type=cache,mode=0755,target=/root/.cache pip3 install goldilox==$GOLDILOX_VERSION
 
 RUN ln -s /home/app/pipeline.pkl pipeline
 
