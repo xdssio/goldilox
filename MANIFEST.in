@@ -1,0 +1,9 @@
+exclude tests/*
+exclude notebooks/*
+exclude assets/*
+exclude docs/*/*
+exclude .dockerignore
+exclude .gitignore
+exclude MANIFEST.in
+exclude requirements*
+exclude goldilox.egg-info/*
