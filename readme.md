@@ -335,6 +335,3 @@ See [contributing](https://github.com/xdssio/goldilox/wiki/Contributing) page.
 # Roadmap
 
 See [roadmap](https://github.com/xdssio/goldilox/wiki/Roadmap) page.
-
-docker build -f=/Users/yonatanalexander/development/xdss/goldilox/goldilox/app/Dockerfile -t=goldilox
---platform=linux/amd64 --build-arg PIPELINE_PATH=pipeline.pkl .
