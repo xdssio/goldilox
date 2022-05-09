@@ -10,11 +10,11 @@ import cloudpickle
 
 import goldilox
 from goldilox import Pipeline
-from goldilox.config import VARIABLES, RAW, DESCRIPTION, REQUIREMEMTS, PY_VERSION, VERSION, VENV_TYPE
+from goldilox.config import CONSTANTS
 from goldilox.utils import process_variables, unpickle, get_open
 
 
-def _read_content(path):
+def _read_content(path: str) -> str:
     open_fs = get_open(path)
     with open_fs(path, 'r') as f:
         ret = f.read()
@@ -27,7 +27,7 @@ def _write_content(output, content):
     return output
 
 
-def process_option(s):
+def process_option(s: str) -> tuple:
     splited = s.split('=')
     if len(splited) != 2:
         splited = s.split(' ')
@@ -52,7 +52,7 @@ def main():
 ))
 @click.argument("path", type=click.Path(exists=True))
 @click.argument('options', nargs=-1, type=click.UNPROCESSED)
-def serve(path, **options):
+def serve(path: str, **options):
     """Serve a  pipeline with fastapi server"""
     if os.path.isdir(path) and os.path.isfile(os.path.join(path, 'MLmodel')):
         command = ['mlflow', 'models', 'serve', f"-m", os.path.abspath(path)] + list(options['options'])
@@ -101,61 +101,61 @@ def arguments():
 
 @main.command()
 @click.argument("path", type=click.Path(exists=True))
-def description(path):
+def description(path: str):
     """print pipeline description"""
     meta = Pipeline.load_meta(path)
-    click.echo(meta[DESCRIPTION])
+    click.echo(meta[CONSTANTS.DESCRIPTION])
 
 
 @main.command()
 @click.argument("path", type=click.Path(exists=True))
-def example(path):
+def example(path: str):
     """print pipeline output example with all possible outputs"""
     click.echo(json.dumps(Pipeline.load(path).example, indent=4))
 
 
 @main.command()
 @click.argument("path", type=click.Path(exists=True))
-def raw(path):
+def raw(path: str):
     """print pipeline input example (raw data)"""
     meta = Pipeline.load_meta(path)
-    click.echo(json.dumps(meta.get(RAW), indent=4))
+    click.echo(json.dumps(meta.get(CONSTANTS.RAW), indent=4))
 
 
 @main.command()
 @click.argument("path", type=click.Path(exists=True))
-def variables(path):
+def variables(path: str):
     """print pipeline variables"""
     meta = Pipeline.load_meta(path)
-    click.echo(json.dumps(process_variables(meta.get(VARIABLES)), indent=4))
+    click.echo(json.dumps(process_variables(meta.get(CONSTANTS.VARIABLES)), indent=4))
 
 
 @main.command()
 @click.argument("path", type=click.Path(exists=True))
-def packages(path):
+def packages(path: str):
     """print pipeline packages"""
     meta = Pipeline.load_meta(path)
-    click.echo(json.dumps(meta[REQUIREMEMTS], indent=4))
+    click.echo(json.dumps(meta[CONSTANTS.REQUIREMEMTS], indent=4))
 
 
 @main.command()
 @click.argument("path", type=click.Path(exists=True))
 @click.option('-o', "--output", type=click.Path())
-def freeze(path, output=None):
+def freeze(path: str, output: str = None):
     """write pipeline packages to a file (pip freeze > output)"""
     meta = Pipeline.load_meta(path)
     if output is None:
-        venv = meta.get(VENV_TYPE)
+        venv = meta.get(CONSTANTS.VENV_TYPE)
         output = 'environment.yaml' if venv == 'conda' else 'requirements.txt'
 
-    packages = meta.get(REQUIREMEMTS)
+    packages = meta.get(CONSTANTS.REQUIREMEMTS)
     _write_content(output, packages)
     click.echo(f"checkout {output}")
 
 
 @main.command()
 @click.argument("path", type=click.Path(exists=True))
-def meta(path):
+def meta(path: str):
     """print all meta data"""
     click.echo(json.dumps(Pipeline.load_meta(path), indent=4).replace('\\n', ' '))
 
@@ -166,7 +166,7 @@ def meta(path):
 @click.option('--image', type=str, default=None)
 @click.option('--dockerfile', type=click.Path(), default=None)
 @click.option('--platform', type=str, default=None)
-def build(path, name="goldilox", image=None, dockerfile=None, platform=None):
+def build(path: str, name: str = "goldilox", image: str = None, dockerfile: str = None, platform: str = None):
     """ build a docker server image"""
     if os.path.isdir(path) and os.path.isfile(os.path.join(path, 'MLmodel')):
         command = ['mlflow', 'models', 'build-docker', f"-m", os.path.abspath(path), f"-n", name, "--enable-mlserver"]
@@ -176,9 +176,9 @@ def build(path, name="goldilox", image=None, dockerfile=None, platform=None):
 
         # get meta
         meta = Pipeline.load_meta(path)
-        python_version = meta.get(PY_VERSION)
-        venv_type = meta.get(VENV_TYPE)
-        goldilox_version = meta.get(VERSION)
+        python_version = meta.get(CONSTANTS.PY_VERSION)
+        venv_type = meta.get(CONSTANTS.VENV_TYPE)
+        goldilox_version = meta.get(CONSTANTS.VERSION)
         is_conda = venv_type == 'conda'
         if image is None:
             image = 'condaforge/mambaforge' if is_conda else f"python:{python_version}-slim-bullseye"
@@ -211,7 +211,7 @@ def build(path, name="goldilox", image=None, dockerfile=None, platform=None):
 @click.argument('value', type=str)
 @click.option('-v', '--variable', is_flag=True)
 @click.option('-f', '--file', is_flag=True)
-def update(path, key, value, variable, file):
+def update(path: str, key: str, value: str, variable: bool, file: bool):
     """
     Update is a tool for updating metadata and variables for a pipeline file.
     Examples:
@@ -244,7 +244,7 @@ def update(path, key, value, variable, file):
 
 @main.command()
 @click.option('-o', '--output', type=str, default=None)
-def dockerfile(output):
+def dockerfile(output: str):
     """Create a Dockerfile for you to work with"""
     goldilox_path = Path(goldilox.__file__)
     docker_file_path = str(goldilox_path.parent.absolute().joinpath('app').joinpath('Dockerfile'))

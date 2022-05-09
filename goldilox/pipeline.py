@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import logging
 import os
@@ -6,6 +8,7 @@ from copy import deepcopy as _copy
 from hashlib import sha256
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import List
 
 import cloudpickle
 import numpy as np
@@ -14,8 +17,7 @@ from sklearn.base import TransformerMixin
 from sklearn.utils.validation import check_is_fitted
 
 import goldilox
-from goldilox.config import PIPELINE_TYPE, VAEX, SKLEARN, VERSION, PY_VERSION, \
-    REQUIREMEMTS, VARIABLES, DESCRIPTION, RAW, VENV_TYPE
+from goldilox.config import CONSTANTS
 from goldilox.utils import is_s3_url, read_bytes, unpickle, validate_path, write_bytes, \
     get_python_version, get_conda_env, get_env_type, get_open, get_requirements
 
@@ -29,7 +31,7 @@ class Pipeline(TransformerMixin):
     BYTE_DELIMITER = b'###'
 
     @classmethod
-    def check_hash(cls, file_path):
+    def check_hash(cls, file_path: str) -> int:
         h = sha256()
 
         with open(file_path, "rb") as file:
@@ -43,7 +45,7 @@ class Pipeline(TransformerMixin):
         return h.hexdigest()
 
     @staticmethod
-    def to_raw(df):
+    def to_raw(df) -> dict:
         """
         Retrinve
         @param df: a Pandas Dataframe, Pandas Series, Vaex Dataframe, or numpy array.
@@ -64,7 +66,12 @@ class Pipeline(TransformerMixin):
         return df
 
     @classmethod
-    def from_vaex(cls, df, fit=None, predict_column=None, variables=None, description="", validate=True):
+    def from_vaex(cls, df,
+                  fit=None,
+                  predict_column: str = None,
+                  variables: dict = None,
+                  description: str = "",
+                  validate: bool = True) -> Pipeline:
         """
         Get a Pipeline out of a vaex.dataframe.DataFrame, and validate serilization and missing values.
         @param df: vaex.dataframe.DataFrame
@@ -84,7 +91,7 @@ class Pipeline(TransformerMixin):
         return pipeline
 
     @staticmethod
-    def _is_sklearn_fitted(pipeline):
+    def _is_sklearn_fitted(pipeline) -> bool:
         try:
             check_is_fitted(pipeline)
             return True
@@ -95,15 +102,15 @@ class Pipeline(TransformerMixin):
     def from_sklearn(
             cls,
             pipeline,
-            raw=None,
-            target=None,
-            features=None,
-            output_columns=None,
-            variables=None,
-            fit_params=None,
-            description="",
-            validate=True
-    ):
+            raw: dict = None,
+            target: str = None,
+            features: List[str] = None,
+            output_columns: List[str] = None,
+            variables: dict = None,
+            fit_params: dict = None,
+            description: str = "",
+            validate: bool = True
+    ) -> Pipeline:
         """
         :param sklearn.preprocessing.pipeline.Pipeline pipeline: The skleran pipeline
         :param raw: dict [optional]: An example of data which will be queried in production (only the features)
@@ -134,12 +141,12 @@ class Pipeline(TransformerMixin):
         return ret
 
     @classmethod
-    def _read_pipeline_file(cls, path):
+    def _read_pipeline_file(cls, path: str) -> tuple:
         state_bytes = read_bytes(path)
         return Pipeline._split_meta(state_bytes)
 
     @classmethod
-    def from_file(cls, path):
+    def from_file(cls, path: str) -> Pipeline:
         """
         Read a pipeline from file.
         @param path: path to pipeline file.
@@ -148,53 +155,53 @@ class Pipeline(TransformerMixin):
         meta_bytes, state_bytes = Pipeline._read_pipeline_file(path)
         state = unpickle(state_bytes)
         meta = unpickle(meta_bytes)
-        pipeline_type = meta.get(PIPELINE_TYPE)
-        if pipeline_type == SKLEARN:
+        pipeline_type = meta.get(CONSTANTS.PIPELINE_TYPE)
+        if pipeline_type == CONSTANTS.SKLEARN:
             return state
-        elif pipeline_type == VAEX:
+        elif pipeline_type == CONSTANTS.VAEX:
             from goldilox.vaex.pipeline import VaexPipeline
             return VaexPipeline.load_state(state)
         raise RuntimeError(f"Cannot load pipeline of type {pipeline_type} from {path}")
 
     @classmethod
-    def load(cls, path):
+    def load(cls, path: str) -> Pipeline:
         """Alias to from_file()"""
         return cls.from_file(path)
 
     @classmethod
-    def load_meta(cls, path):
+    def load_meta(cls, path: str) -> dict:
         """Read the meta information from a pipeline file without loading it"""
         meta_bytes, _ = Pipeline._read_pipeline_file(path)
         return unpickle(meta_bytes)
 
-    def _get_meta_dict(self, requirements=None, clean=True):
+    def _get_meta_dict(self, requirements: List[str] = None, clean: bool = True) -> dict:
         environment_type = get_env_type()
         return {
-            PIPELINE_TYPE: self.pipeline_type,
-            VERSION: goldilox.__version__,
-            VENV_TYPE: environment_type,
-            PY_VERSION: get_python_version(),
-            REQUIREMEMTS: get_requirements(environment_type, requirements=requirements, clean=clean),
-            VARIABLES: self.variables.copy(),
-            DESCRIPTION: self.description,
-            RAW: self.raw,
+            CONSTANTS.PIPELINE_TYPE: self.pipeline_type,
+            CONSTANTS.VERSION: goldilox.__version__,
+            CONSTANTS.VENV_TYPE: environment_type,
+            CONSTANTS.PY_VERSION: get_python_version(),
+            CONSTANTS.REQUIREMEMTS: get_requirements(environment_type, requirements=requirements, clean=clean),
+            CONSTANTS.VARIABLES: self.variables.copy(),
+            CONSTANTS.DESCRIPTION: self.description,
+            CONSTANTS.RAW: self.raw,
         }
 
-    def _get_meta(self, requirements=None, clean=True):
+    def _get_meta(self, requirements: List[str] = None, clean: bool = True) -> bytes:
         return cloudpickle.dumps(_copy(self._get_meta_dict(requirements, clean)))
 
     @classmethod
-    def _split_meta(cls, b):
+    def _split_meta(cls, b: str) -> tuple:
         splited = b.split(Pipeline.BYTE_DELIMITER)
         return splited[0][len(Pipeline.BYTES_SIGNETURE):], splited[1]
 
     @classmethod
-    def _save_state(cls, path, state):
+    def _save_state(cls, path: str, state: dict) -> str:
         if not is_s3_url(path):
             validate_path(path)
         return write_bytes(path, state)
 
-    def save(self, path, requirements=None, clean=True):
+    def save(self, path: str, requirements: List[str] = None, clean: bool = True) -> str:
         """
         @param path: str : output path
         @param requirements: list[str]: a list of requirements. if None - takes from pip
@@ -208,7 +215,7 @@ class Pipeline(TransformerMixin):
             requirements, clean) + Pipeline.BYTE_DELIMITER + self._dumps()
         return self._save_state(path, state_to_write)
 
-    def validate(self, df=None, check_na=True, verbose=True):
+    def validate(self, df=None, check_na: bool = True, verbose: bool = True) -> bool:
         """
         Validate the pieline can be saved, reload, and run predictions.
         Can also check if missing value are handled.
@@ -234,7 +241,7 @@ class Pipeline(TransformerMixin):
             logger.warning("WARNING: No data provided for inference validation - skip")
         return True
 
-    def _validate_na(self):
+    def _validate_na(self) -> bool:
         ret = True
         copy = self.raw.copy()
         for column in copy:
@@ -264,7 +271,7 @@ class Pipeline(TransformerMixin):
         raise NotImplementedError(f"Not implemented for {self.pipeline_type}")
 
     @classmethod
-    def to_records(cls, items):
+    def to_records(cls, items) -> List[dict]:
         """Return data as records: [{key: value, ...}, ...]"""
         if isinstance(items, pd.DataFrame):
             return items.to_dict(orient="records")
@@ -274,7 +281,7 @@ class Pipeline(TransformerMixin):
         return items.to_records()
 
     @classmethod
-    def jsonify(cls, items):
+    def jsonify(cls, items) -> List[dict]:
         """Return data as json: '[{key: value, ...}, ...]'"""
         if isinstance(items, pd.DataFrame):
             return items.to_json(orient="records")
@@ -283,8 +290,8 @@ class Pipeline(TransformerMixin):
         # vaex
         return json.dumps(items.to_records())
 
-    def export_mlflow(self, path, requirements=None, artifacts=None,
-                      conda_env=None, input_example=None, signature=None, **kwargs):
+    def export_mlflow(self, path: str, requirements: List[str] = None, artifacts: dict = None,
+                      conda_env: dict = None, input_example: dict = None, signature: dict = None, **kwargs) -> str:
         import mlflow.pyfunc
         from mlflow.models import infer_signature
         env = conda_env or {
@@ -327,7 +334,7 @@ class Pipeline(TransformerMixin):
                                  )
         return path
 
-    def export_gunicorn(self, path, requirements=None, clean=True):
+    def export_gunicorn(self, path: str, requirements: List[str] = None, clean: bool = True) -> str:
 
         if not is_s3_url(path):
             os.makedirs(path, exist_ok=True)

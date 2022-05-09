@@ -29,7 +29,7 @@ def process_response(items):
     return items
 
 
-def get_app(path):
+def get_app(path: str):
     from fastapi import FastAPI, HTTPException
     from goldilox.config import ALLOW_CORS, CORS_ORIGINS, ALLOW_HEADERS, ALLOW_METHODS, ALLOW_CREDENTIALS
     logger = logging.getLogger(__name__)
@@ -110,7 +110,7 @@ def get_app(path):
     return app
 
 
-def get_wsgi_application(path):
+def get_wsgi_application(path: str):
     from gunicorn.app.base import BaseApplication
 
     class WSGIApplication(BaseApplication):

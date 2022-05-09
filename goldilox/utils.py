@@ -10,7 +10,7 @@ from sys import version_info
 import numpy as np
 import pandas as pd
 
-from goldilox.config import DEFAULT_SUFFIX, AWS_PROFILE
+from goldilox.config import CONSTANTS
 
 valida_types = {type(None), dict, list, int, float, str, bool}
 
@@ -58,7 +58,7 @@ def open_many(paths):
     return concat_vaex
 
 
-def read_data(path, prefix=None, suffix=DEFAULT_SUFFIX):
+def read_data(path, prefix=None, suffix=CONSTANTS.DEFAULT_SUFFIX):
     import vaex
     prefix = prefix or ''
     logger.info(f"read data from {path} and prefix {prefix} and suffix {suffix}")
@@ -160,7 +160,7 @@ def get_open(path):
     open_fs = open
     if is_s3_url(path):
         import s3fs
-        fs = s3fs.S3FileSystem(profile=AWS_PROFILE)
+        fs = s3fs.S3FileSystem(profile=CONSTANTS.AWS_PROFILE)
         open_fs = fs.open
     return open_fs
 

@@ -11,7 +11,7 @@ def load_iris():
     return df, features, 'target'
 
 
-def make_blobs(n_features=10):
+def make_blobs(n_features: int = 10):
     features = [f"feature{i}" for i in range(n_features)]
     blobs, labels = sklearn.datasets.make_blobs(n_samples=2000, n_features=n_features)
     df = pd.DataFrame(blobs, columns=features)

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import inspect
 import json
 import logging
@@ -6,6 +8,7 @@ from copy import deepcopy, copy as _copy
 from glob import glob
 from numbers import Number
 from time import time
+from typing import List, Union
 
 import cloudpickle
 import numpy as np
@@ -57,11 +60,11 @@ class VaexPipeline(HasState, Pipeline):
     )
 
     @property
-    def example(self):
+    def example(self) -> dict:
         return self.inference(self.raw).to_records(0)
 
     @classmethod
-    def _get_original_columns(cls, df):
+    def _get_original_columns(cls, df: vaex.dataframe.DataFrame) -> List[str]:
         return list(df.dataset._columns.keys())
 
     @classmethod
@@ -82,13 +85,13 @@ class VaexPipeline(HasState, Pipeline):
         return data_type
 
     @classmethod
-    def _get_original_dtypes(cls, df):
+    def _get_original_dtypes(cls, df: vaex.dataframe.DataFrame) -> dict:
         return {
             column: cls._data_type(data)
             for column, data in df.head(1).dataset._columns.items()
         }
 
-    def state_set(self, state):
+    def state_set(self, state: dict) -> VaexPipeline:
         HasState.state_set(self, state)
         self.updated = int(time())
         return self
@@ -97,7 +100,7 @@ class VaexPipeline(HasState, Pipeline):
         return None
 
     @property
-    def virtual_columns(self):
+    def virtual_columns(self) -> List[str]:
         return self.state.get("virtual_columns")
 
     @property
@@ -105,7 +108,7 @@ class VaexPipeline(HasState, Pipeline):
         return self.state.get("functions")
 
     @classmethod
-    def verify_vaex_dataset(cls, df):
+    def verify_vaex_dataset(cls, df) -> vaex.dataframe.DataFrame:
         if not cls.is_vaex_dataset(df):
             raise ValueError(
                 "ds should be a vaex.dataset.DatasetArrays or vaex.hdf5.dataset.Hdf5MemoryMapped"
@@ -113,14 +116,14 @@ class VaexPipeline(HasState, Pipeline):
         return df.copy()
 
     @classmethod
-    def from_dict(cls, state):
+    def from_dict(cls, state: dict) -> VaexPipeline:
         if "state" in state:
             ret = VaexPipeline()
             ret.state_set(state)
             return ret
         return VaexPipeline(state=state, example=None, fit_func=None)
 
-    def sample_first(self, df):
+    def sample_first(self, df: vaex.dataframe.DataFrame) -> bool:
         if len(df) == 0:
             raise RuntimeError("cannot sample from empty dataframe")
         try:
@@ -135,7 +138,7 @@ class VaexPipeline(HasState, Pipeline):
         return False
 
     @classmethod
-    def _tolist(cls, value):
+    def _tolist(cls, value) -> List:
         if hasattr(value, "ar"):
             return value.ar.tolist()
         elif hasattr(value, "to_numpy"):
@@ -146,7 +149,8 @@ class VaexPipeline(HasState, Pipeline):
         return value.tolist()
 
     @classmethod
-    def from_dataframe(cls, df, fit=None, predict_column=None, variables=None, description=""):
+    def from_dataframe(cls, df: vaex.dataframe.DataFrame, fit=None, predict_column: str = None, variables: dict = None,
+                       description: str = "") -> VaexPipeline:
         """
        Get a Pipeline out of a vaex.dataframe.DataFrame, and validate serilization and missing values.
        @param df: vaex.dataframe.DataFrame
@@ -182,31 +186,31 @@ class VaexPipeline(HasState, Pipeline):
 
         return pipeline
 
-    def copy(self):
+    def copy(self) -> VaexPipeline:
         pipeline = VaexPipeline(state={})
         pipeline.state_set(deepcopy(self.state_get()))
         pipeline.updated = int(time())
         return pipeline
 
     @classmethod
-    def from_file(cls, path):
+    def from_file(cls, path: str) -> VaexPipeline:
         return Pipeline.from_file(path)
 
-    def _dumps(self):
+    def _dumps(self) -> bytes:
         return cloudpickle.dumps(_copy(self.state_get()))
 
     @classmethod
-    def json_load(cls, state):
+    def json_load(cls, state: dict):
         from vaex.json import VaexJsonDecoder
 
-        return json.loads(state[STATE], cls=VaexJsonDecoder)
+        return json.loads(state[CONSTANTS.STATE], cls=VaexJsonDecoder)
 
     @classmethod
-    def is_vaex_dataset(cls, ds):
+    def is_vaex_dataset(cls, ds) -> bool:
         return isinstance(ds, vaex.dataframe.DataFrame)
 
     @classmethod
-    def load_state(cls, state):
+    def load_state(cls, state) -> VaexPipeline:
         instance = VaexPipeline()
         if not isinstance(state, dict):
             state = VaexPipeline.json_load(state)
@@ -222,19 +226,19 @@ class VaexPipeline(HasState, Pipeline):
         df[name] = df.func.where(df[first_column] == value, value, value)
         return df
 
-    def add_memmory_column(self, df, name, value, length=None):
+    def add_memory_column(self, df: vaex.dataframe.DataFrame, name: str, value, length: int = None):
         if length is None:
             length = len(df)
         df[name] = np.array([value] * length)
         return df
 
-    def na_column(self, length):
+    def na_column(self, length: int) -> pa.Array:
         return pa.array([None] * length)
 
     def preprocess_transform(
             self,
-            df,
-    ):
+            df: Union[vaex.dataframe.DataFrame, pd.DataFrame],
+    ) -> vaex.dataframe.DataFrame:
         copy = self.infer(df)
         length = len(copy)
 
@@ -246,7 +250,8 @@ class VaexPipeline(HasState, Pipeline):
                 copy[key] = self.na_column(length)
         return copy
 
-    def transform_state(self, df, keep_columns=None, state=None, set_filter=False):
+    def transform_state(self, df, keep_columns: bool = None, state: dict = None,
+                        set_filter: bool = False) -> vaex.dataframe.DataFrame:
         copy = df.copy()
         state = state or self.state
         if state is not None:
@@ -263,14 +268,16 @@ class VaexPipeline(HasState, Pipeline):
             copy.state_set(state, keep_columns=keep_columns, set_filter=set_filter)
         return copy
 
-    def transform(self, df, keep_columns=False, state=None, set_filter=True):
+    def transform(self, df: Union[vaex.dataframe.DataFrame, pd.DataFrame], keep_columns: bool = False,
+                  state: dict = None,
+                  set_filter: bool = True) -> vaex.dataframe.DataFrame:
         copy = self.preprocess_transform(df)
         copy = self.transform_state(
             copy, keep_columns=keep_columns, state=state, set_filter=set_filter
         )
         return copy
 
-    def fill_columns(self, df, columns=None, length=None):
+    def fill_columns(self, df: vaex.dataframe.DataFrame, columns: List[str] = None, length: int = None):
         if columns is None:
             return df
         if length is None:
@@ -279,12 +286,12 @@ class VaexPipeline(HasState, Pipeline):
             if column not in df:
                 value = self.values.get(column)
                 if value is not None:
-                    self.add_memmory_column(df, column, value, length)
+                    self.add_memory_column(df, column, value, length)
         return df
 
     def inference(
-            self, df, columns=None, passthrough=True, set_filter=False,
-    ):
+            self, df, columns: List[str] = None, passthrough: bool = True, set_filter: bool = False,
+    ) -> vaex.dataframe.DataFrame:
         if isinstance(columns, str):
             columns = [columns]
         copy = self.preprocess_transform(df)
@@ -373,19 +380,19 @@ class VaexPipeline(HasState, Pipeline):
     def get_variable(self, key, default=None):
         return self.variables.get(key, default)
 
-    def get_columns_names(self, virtual=True, strings=True, hidden=False, regex=None):
+    def get_columns_names(self, virtual: bool = True, strings: bool = True, hidden: bool = False, regex: str = None):
         return self.inference(self.raw).get_column_names(
             virtual=virtual, strings=strings, hidden=hidden, regex=regex
         )
 
-    def fit_transform(self, data):
+    def fit_transform(self, data) -> vaex.dataframe.DataFrame:
         self.fit(data)
         return self.transform(data)
 
-    def is_valid_fit(self, f):
+    def is_valid_fit(self, f) -> bool:
         return f is not None and callable(f) and len(inspect.getfullargspec(f)[0]) > 0
 
-    def set_fit(self, f=None):
+    def set_fit(self, f=None) -> None:
         if self.is_valid_fit(f):
             self.fit_func = f
 
@@ -394,7 +401,7 @@ class VaexPipeline(HasState, Pipeline):
 
         return from_dict(self.state.get(FUNCTIONS, {}).get(name), trusted=True).f
 
-    def fit(self, df):
+    def fit(self, df: vaex.dataframe.DataFrame) -> VaexPipeline:
         copy = df.copy()
         self.verify_vaex_dataset(copy)
         self.sample_first(copy)
@@ -419,13 +426,13 @@ class VaexPipeline(HasState, Pipeline):
         self.updated = int(time())
         return self
 
-    def predict(self, df):
+    def predict(self, df: Union[vaex.dataframe.DataFrame, pd.DataFrame]):
         ret = self.inference(df, columns=self.predict_column)[self.predict_column]
         if hasattr(ret, 'to_numpy'):
             return ret.to_numpy()
         return ret.tolist()
 
-    def get_function_model(self, name):
+    def get_function_model(self, name: str):
         tmp = self.state["functions"][name]
         model = eval(tmp["cls"])()
         model.state_set(state=tmp["state"])

@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import logging
 from time import time
+from typing import List
 
 import cloudpickle
 import numpy as np
@@ -8,11 +11,9 @@ import traitlets
 from sklearn.base import TransformerMixin
 
 from goldilox import Pipeline
-from goldilox.config import STATE
+from goldilox.config import CONSTANTS
 
 DEFAULT_OUTPUT_COLUMN = "prediction"
-TRAITS = "_trait_values"
-
 logger = logging.getLogger()
 
 
@@ -60,14 +61,14 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline, TransformerMixin):
     def from_sklearn(
             cls,
             pipeline,
-            raw=None,
-            features=None,
-            target=None,
-            output_columns=None,
-            variables=None,
-            fit_params=None,
-            description="",
-    ):
+            raw: dict = None,
+            features: List[str] = None,
+            target: str = None,
+            output_columns: List[str] = None,
+            variables: dict = None,
+            fit_params: dict = None,
+            description: str = "",
+    ) -> SklearnPipeline:
         """
         :param sklearn.preprocessing.pipeline.Pipeline pipeline: The sklearn pipeline
         :param raw: dict [optional]: An example of data which will be queried in production (only the features)
@@ -113,11 +114,11 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline, TransformerMixin):
         )
 
     @property
-    def fitted(self):
+    def fitted(self) -> bool:
         """Returns True is the pipeline/model is fitted"""
         return self.pipeline is not None and self.pipeline.__sklearn_is_fitted__()
 
-    def infer(self, df):
+    def infer(self, df) -> pd.DataFrame:
         """Turn many inputs into a dataframes"""
         if isinstance(df, pd.DataFrame):
             return df.copy()
@@ -148,20 +149,20 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline, TransformerMixin):
             pass
         raise RuntimeError(f"could not infer type:{type(df)}")
 
-    def _dumps(self):
+    def _dumps(self) -> bytes:
         return cloudpickle.dumps(self)
 
     @classmethod
-    def loads(cls, state):
+    def loads(cls, state) -> dict:
         if isinstance(state, bytes):
             state = cloudpickle.loads(state)
-        return state[STATE]
+        return state[CONSTANTS.STATE]
 
     @classmethod
-    def from_file(cls, path):
+    def from_file(cls, path: str) -> SklearnPipeline:
         return Pipeline.from_file(path)
 
-    def _to_pandas(self, X, y=None):
+    def _to_pandas(self, X, y=None) -> tuple:
         try:
             import vaex
             if isinstance(X, vaex.dataframe.DataFrame):
@@ -206,7 +207,7 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline, TransformerMixin):
             self.output_columns = self.features
         return X
 
-    def fit(self, df, y=None, validate=True, check_na=True):
+    def fit(self, df, y=None, validate: bool = True, check_na: bool = True) -> SklearnPipeline:
         X, y = self._to_pandas(df, y)
         self.raw = self.to_raw(X)
         params = self.fit_params or {}
@@ -215,11 +216,11 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline, TransformerMixin):
             self.validate(check_na=check_na)
         return self
 
-    def transform(self, df, **kwargs):
+    def transform(self, df, **kwargs) -> pd.DataFrame:
         """
         Transform the data based on the the pipeline.
-        @param df: [DataFrame] data to tranform
-        @param kwargs: Tranform
+        @param df: [DataFrame] data to transform
+        @param kwargs: Transform
         @return:
         """
         copy = self.infer(df)
@@ -229,7 +230,7 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline, TransformerMixin):
             copy = pd.DataFrame(copy, columns=features)
         return copy
 
-    def predict(self, df):
+    def predict(self, df) -> np.ndarray:
         copy = self.infer(df)
         features = self.features or copy.columns
         if features is None:
@@ -240,7 +241,7 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline, TransformerMixin):
         X = copy[features] if features else copy
         return self.pipeline.predict(X)
 
-    def inference(self, df, columns=None, passthrough=True, **kwargs):
+    def inference(self, df, columns: List[str] = None, passthrough: bool = True, **kwargs) -> pd.DataFrame:
         """
         Returns the transformed data.
         Always tries to return a dataframe.

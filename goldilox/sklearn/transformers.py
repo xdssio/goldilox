@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import List, Union
+
 import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
@@ -9,7 +13,7 @@ from goldilox.sklearn.pipeline import SklearnPipeline, Pipeline
 class Imputer(SklearnPipeline):
     IMPUTER = "imputer"
 
-    def __init__(self, features=None, target=None, strategy='mean', fill_value=None):
+    def __init__(self, features: List[str] = None, target: str = None, strategy: str = 'mean', fill_value=None):
         """
 
         @param features: The columns to impute
@@ -25,12 +29,12 @@ class Imputer(SklearnPipeline):
             raise RuntimeError("If 'strategy' sets to 'constant- please set a fill_value")
         self.model = None
 
-    def _create_imputer(self):
+    def _create_imputer(self) -> Pipeline:
         return Pipeline.from_sklearn(ColumnTransformer([
             (Imputer.IMPUTER, SimpleImputer(strategy=self.strategy, fill_value=self.fill_value),
              self.features)], remainder='passthrough'), features=self.features)
 
-    def _get_features(self, X):
+    def _get_features(self, X: Union[np.ndarray, pd.DataFrame]) -> List[str]:
         features = self.features
         if isinstance(features, str):
             features = [features]
@@ -48,7 +52,7 @@ class Imputer(SklearnPipeline):
                     raise RuntimeError("Please provide features ot the imputer")
         return features
 
-    def fit(self, X, y=None):
+    def fit(self, X: Union[np.ndarray, pd.DataFrame], y=None) -> Imputer:
         X, y = self._to_pandas(X, y)
         self.model = self._create_imputer()
         self.model.fit(X, y)
