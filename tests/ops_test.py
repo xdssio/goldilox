@@ -120,9 +120,8 @@ def test_lightgbm_sklearn():
     sk_pipeline = sklearn.pipeline.Pipeline([("classifier", LGBMClassifier())])
     X = df[features]
     y = df[target]
-    self = pipeline = Pipeline.from_sklearn(
-        sk_pipeline, description="Lightgbm with sklearn"
-    ).fit(X, y)
+    pipeline = Pipeline.from_sklearn(sk_pipeline).fit(X, y)
+    pipeline.set_variable('description', "Lightgbm with sklearn")
 
     assert pipeline.inference(X).head(10).shape == (10, 5)
     assert pipeline.inference(X.values[:10]).shape == (10, 5)
@@ -135,12 +134,11 @@ def test_lightgbm_sklearn():
 
     # with a trained sklearn pipeline
     sample = X.head(1).to_records()[0]
-    self = pipeline = Pipeline.from_sklearn(
-        sk_pipeline, raw=sample, description="Lightgbm with sklearn"
-    ).fit(X, y)
+    pipeline = Pipeline.from_sklearn(sk_pipeline, raw=sample).fit(X, y)
+    pipeline.set_variable('description', "Lightgbm with sklearn")
     assert pipeline.inference(X).head(10).shape == (10, 5)
     assert pipeline.inference(X.values[:10]).shape == (10, 5)
-    assert pipeline.inference(self.raw).shape == (1, 5)
+    assert pipeline.inference(pipeline.raw).shape == (1, 5)
     assert "Lightgbm" in pipeline.description
     pipeline.save("../goldilox-ops/models/sk.pkl")
 

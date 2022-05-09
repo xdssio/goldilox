@@ -38,12 +38,13 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline, TransformerMixin):
     fit_params = traitlets.Dict(
         allow_none=True, default_value={}, help="params to use on fit time"
     )
-    description = traitlets.Unicode(allow_none=True,
-                                    default_value="", help="Any notes to associate with a pipeline instance"
-                                    )
     variables = traitlets.Dict(
         default_value={}, help="Any variables to associate with a pipeline instance"
     )
+
+    @property
+    def description(self):
+        return self.variables.get(CONSTANTS.DESCRIPTION, "")
 
     @property
     def example(self):
@@ -66,8 +67,7 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline, TransformerMixin):
             target: str = None,
             output_columns: List[str] = None,
             variables: dict = None,
-            fit_params: dict = None,
-            description: str = "",
+            fit_params: dict = None
     ) -> SklearnPipeline:
         """
         :param sklearn.preprocessing.pipeline.Pipeline pipeline: The sklearn pipeline
@@ -77,7 +77,6 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline, TransformerMixin):
         :param target: str [optional]: The name of the target column - Used for retraining
         :param output_columns: List[str] [optional]: For sklearn estimator which predict a numpy.ndarray, name the output columns.
         :param variables: dict [optional]: Variables to associate with the pipeline - fit_params automatically are added
-        :param description: str [optional]: A pipeline description and notes in text
         :return: SkleranPipeline object
         """
         if isinstance(features, pd.core.indexes.base.Index):
@@ -110,7 +109,6 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline, TransformerMixin):
             output_columns=output_columns,
             fit_params=fit_params,
             variables=variables,
-            description=description,
         )
 
     @property

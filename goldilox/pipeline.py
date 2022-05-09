@@ -26,7 +26,7 @@ logger = logging.getLogger()
 
 class Pipeline(TransformerMixin):
     pipeline_type: str
-    description: str
+    variables: dict
     BYTES_SIGNETURE = b"Goldilox"
     BYTE_DELIMITER = b'###'
 
@@ -65,12 +65,15 @@ class Pipeline(TransformerMixin):
             df = df.to_pandas_df()
         return df
 
+    @property
+    def description(self):
+        return self.variables.get(CONSTANTS.DESCRIPTION, "")
+
     @classmethod
     def from_vaex(cls, df,
                   fit=None,
                   predict_column: str = None,
                   variables: dict = None,
-                  description: str = "",
                   validate: bool = True) -> Pipeline:
         """
         Get a Pipeline out of a vaex.dataframe.DataFrame, and validate serilization and missing values.
@@ -83,7 +86,7 @@ class Pipeline(TransformerMixin):
         @return: VaexPipeline
         """
         from goldilox.vaex.pipeline import VaexPipeline as VaexPipeline
-        pipeline = VaexPipeline.from_dataframe(df=df, fit=fit, variables=variables, description=description,
+        pipeline = VaexPipeline.from_dataframe(df=df, fit=fit, variables=variables,
                                                predict_column=predict_column)
         if validate:
             logger.info("validate pipeline")
@@ -132,8 +135,7 @@ class Pipeline(TransformerMixin):
             raw=raw,
             output_columns=output_columns,
             variables=variables,
-            fit_params=fit_params,
-            description=description,
+            fit_params=fit_params
         )
         if validate and Pipeline._is_sklearn_fitted(pipeline):
             logger.info("validate pipeline")
