@@ -9,7 +9,6 @@ hnswlib
 implicit
 hdbscan
 nmslib
-faiss
 vowpalwabbit
 lightfm
 river
