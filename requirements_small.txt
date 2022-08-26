@@ -1,6 +1,0 @@
-vaex
-catboost
-lightgbm
-xgboost
-sklearn
-pytest
