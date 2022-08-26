@@ -173,3 +173,4 @@ pipeline.pkl
 /notebooks/wandb
 /venvs
 /tests/venvs
+.venv*
