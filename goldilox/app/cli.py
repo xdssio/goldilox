@@ -231,7 +231,7 @@ def update(path: str, key: str, value: str, variable: bool, file: bool):
         click.echo(f"{value} is a file - if you want to load it as such, use the '--file' flag")
         click.echo(f"{value} is considered as a string")
     if variable:
-        meta[VARIABLES][key] = tmp_value
+        meta[CONSTANTS.VARIABLES][key] = tmp_value
     elif key in meta:
         meta[key] = tmp_value
     else:
