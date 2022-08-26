@@ -18,3 +18,5 @@ spacy
 huggingface
 gunicorn
 imperio
+mlflow
+GitPython
