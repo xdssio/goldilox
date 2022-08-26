@@ -33,7 +33,7 @@ def fetch_train():
     return to_vaex(data['train']), to_vaex(data['test'])
 """
 
-skip = os.path.isfile('data/imdb100k_train.parquet')
+skip = not os.path.isfile('data/imdb100k_train.parquet')
 
 
 # TODO clean and explain

@@ -11,12 +11,15 @@ from scipy.sparse import csr_matrix
 from goldilox import Pipeline
 from tests.test_utils import validate_persistence
 
-skip = os.path.isfile('data/imdb.parquet')
+skip = not os.path.isfile('data/imdb.parquet')
 
 
 @pytest.mark.skipif(skip, reason="data is not available")
 def test_implicit_als(tmpdir):
-    df = vaex.open('data/imdb.parquet')
+    try:
+        df = vaex.open('data/imdb.parquet')
+    except:
+        df = None
     userid = 'userId'
     itemid = 'movieId'
     counts = df[itemid].value_counts()

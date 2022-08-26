@@ -9,7 +9,7 @@ from sklearn.linear_model import LogisticRegression
 from goldilox.sklearn.pipeline import Pipeline as SklearnPipeline
 from goldilox.vaex.pipeline import VaexPipeline as VaexPipeline
 
-skip = os.path.isfile('data/news.hdf5')
+skip = not os.path.isfile('data/news.hdf5')
 
 
 @pytest.fixture()
