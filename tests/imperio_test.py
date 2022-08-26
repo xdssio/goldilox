@@ -1,10 +1,16 @@
 import pandas as pd
 import pytest
 import vaex
-from imperio import BoxCoxTransformer
 from vaex.datasets import iris
 
 from goldilox import Pipeline
+
+try:
+    from imperio import BoxCoxTransformer
+
+    skip = False
+except:
+    skip = True
 
 
 def test_imperio_vaex():
@@ -28,7 +34,7 @@ def test_imperio_vaex():
     assert pipeline.inference(pipeline.raw).shape == (1, 9)
 
 
-@pytest.mark.skip("TODO")
+@pytest.mark.skipif(skip, reason="imperio not installed")
 def test_imperio_skleran():
     df = iris().to_pandas_df()
     columns = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
