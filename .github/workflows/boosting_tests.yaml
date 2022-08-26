@@ -2,13 +2,23 @@ name: Python package
 
 on: [ push ]
 
-jobs:
-  build:
+# to make bash use ~/.bashrc, see https://github.com/marketplace/actions/setup-miniconda#example-5-custom-installer
+defaults:
+  run:
+    shell: bash -l {0}
 
+jobs:
+  main:
+    env:
+      CACHE_NUMBER_COMPILE: 6
+      MAMBA_ROOT_PREFIX: /dev/shm/mambaroot
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
+      max-parallel: 12
       matrix:
-        python-version: [ "3.7", "3.8", "3.9", "3.10" ]
+        os: [ ubuntu-latest, windows-latest, macOS-latest ]
+        python-version: [ 3.7, 3.8, 3.9 ]
 
     steps:
       - uses: actions/checkout@v3
@@ -20,7 +30,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install flake8 pytest
-          pip install -U vaex xgboost catboost lightgbm sklearn
+          pip install -U vaex-core vaex-ml vaex-hdf5 xgboost catboost lightgbm sklearn
       - name: Lint with flake8
         run: |
           # stop the build if there are Python syntax errors or undefined names
