@@ -8,7 +8,7 @@ from scipy.sparse import csr_matrix
 from sklearn.base import TransformerMixin, BaseEstimator
 
 from goldilox import Pipeline
-from tests.test_utils import validate_persistence
+from tests.tests_utils import validate_persistence
 
 features = ["x", "y", "z", "vx", "vy", "vz", "E", "L", "Lz", "FeH"]
 

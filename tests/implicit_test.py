@@ -9,7 +9,7 @@ from implicit.nearest_neighbours import bm25_weight
 from scipy.sparse import csr_matrix
 
 from goldilox import Pipeline
-from tests.test_utils import validate_persistence
+from tests.tests_utils import validate_persistence
 
 skip = not os.path.isfile('data/imdb.parquet')
 

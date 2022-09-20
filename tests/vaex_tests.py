@@ -4,7 +4,7 @@ from vaex.ml.lightgbm import LightGBMModel
 
 from goldilox.datasets import load_iris
 from goldilox.vaex import VaexPipeline
-from tests.test_utils import validate_persistence
+from tests.tests_utils import validate_persistence
 
 
 def test_vaex_pipeline_predict():

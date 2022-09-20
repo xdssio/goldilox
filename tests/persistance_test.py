@@ -6,7 +6,7 @@ from vaex.ml.sklearn import Predictor
 from goldilox.datasets import load_iris
 from goldilox.sklearn.pipeline import SklearnPipeline
 from goldilox.vaex.pipeline import VaexPipeline
-from tests.test_utils import validate_persistence
+from tests.tests_utils import validate_persistence
 
 
 def test_skleran_save_load(tmpdir):
