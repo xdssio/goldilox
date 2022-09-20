@@ -2,11 +2,8 @@ from __future__ import annotations
 
 import json
 import logging
-import os
-import shutil
 from copy import deepcopy as _copy
 from hashlib import sha256
-from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import List
 
@@ -19,7 +16,7 @@ from sklearn.utils.validation import check_is_fitted
 import goldilox
 from goldilox.config import CONSTANTS
 from goldilox.utils import is_s3_url, read_bytes, unpickle, validate_path, write_bytes, \
-    get_python_version, get_conda_env, get_env_type, get_open, get_requirements
+    get_python_version, get_env_type, get_requirements
 
 logger = logging.getLogger()
 
@@ -292,64 +289,14 @@ class Pipeline(TransformerMixin):
 
     def export_mlflow(self, path: str, requirements: List[str] = None, artifacts: dict = None,
                       conda_env: dict = None, input_example: dict = None, signature: dict = None, **kwargs) -> str:
-        import mlflow.pyfunc
-        from mlflow.models import infer_signature
-        env = conda_env or {
-            'channels': ['defaults'],
-            'dependencies': [
-                f"python={get_python_version()}",
-                {
-                    'pip': get_requirements(venv_type='venv', requirements=requirements).split('\n'),
-                },
-            ],
-            'name': 'goldilox_env'
-        }
-        if artifacts is None:
-            pipeline_path = str(TemporaryDirectory().name) + '/model.pkl'
-            self.save(pipeline_path)
-            artifacts = {"pipeline": pipeline_path}
-
-        class GoldiloxWrapper(mlflow.pyfunc.PythonModel):
-
-            def load_context(self, context):
-                from goldilox import Pipeline
-                self.pipeline = Pipeline.from_file(context.artifacts['pipeline'])
-
-            def predict(self, context, model_input):
-                return self.pipeline.predict(model_input)
-
-        input_example = input_example or self.raw
-        if signature is None:
-            data = self.infer(input_example)
-            if hasattr(data, 'to_pandas_df'):
-                data = data.to_pandas_df()
-            signature = infer_signature(data, self.predict(input_example))
-        validate_path(path)
-        mlflow.pyfunc.save_model(path=path, python_model=GoldiloxWrapper(),
-                                 artifacts=artifacts,
-                                 signature=signature,
-                                 conda_env=env,
-                                 input_example=input_example,
-                                 **kwargs
-                                 )
-        return path
+        from goldilox.mlops.mlflow import export_mlflow
+        return export_mlflow(self, path=path, requirements=requirements, artifacts=artifacts, conda_env=conda_env,
+                             input_example=input_example, signature=signature, **kwargs)
 
     def export_gunicorn(self, path: str, requirements: List[str] = None, clean: bool = True) -> str:
+        from goldilox.mlops import export_gunicorn
+        return export_gunicorn(self, path=path, requirements=requirements, clean=clean)
 
-        if not is_s3_url(path):
-            os.makedirs(path, exist_ok=True)
-        env = get_conda_env()
-        open_fs = get_open(path)
-        if env is not None:
-            with open_fs(os.path.join(path, ' environment.yml'), 'w') as outfile:
-                outfile.write(env)
-        else:
-            with open_fs(os.path.join(path, 'requirements.txt'), 'w') as outfile:
-                outfile.write(get_requirements(requirements, clean=clean))
-        self.save(os.path.join(path, 'pipeline.pkl'))
-        goldilox_path = Path(goldilox.__file__)
-        shutil.copyfile(str(goldilox_path.parent.absolute().joinpath('app').joinpath('main.py')),
-                        os.path.join(path, 'main.py'))
-        shutil.copyfile(str(goldilox_path.parent.absolute().joinpath('app').joinpath('gunicorn.conf.py')),
-                        os.path.join(path, 'gunicorn.conf.py'))
-        return path
+    def export_ray(self, path: str, requirements: List[str] = None, **kwargs) -> str:
+        from goldilox.mlops import export_ray
+        return export_ray(self, path=path, requirements=requirements, **kwargs)
