@@ -3,16 +3,23 @@ import pickle
 
 import numpy as np
 import pyarrow as pa
+import pytest
 import vaex
 from implicit.nearest_neighbours import bm25_weight
 from scipy.sparse import csr_matrix
 
 from goldilox import Pipeline
-from tests.test_utils import validate_persistence
+from tests.tests_utils import validate_persistence
+
+skip = not os.path.isfile('data/imdb.parquet')
 
 
+@pytest.mark.skipif(skip, reason="data is not available")
 def test_implicit_als(tmpdir):
-    df = vaex.open('data/imdb.parquet')
+    try:
+        df = vaex.open('data/imdb.parquet')
+    except:
+        df = None
     userid = 'userId'
     itemid = 'movieId'
     counts = df[itemid].value_counts()

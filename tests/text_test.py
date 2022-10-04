@@ -1,3 +1,5 @@
+import os
+
 import pytest
 import sklearn.pipeline
 import vaex
@@ -7,6 +9,8 @@ from sklearn.linear_model import LogisticRegression
 from goldilox.sklearn.pipeline import Pipeline as SklearnPipeline
 from goldilox.vaex.pipeline import VaexPipeline as VaexPipeline
 
+skip = not os.path.isfile('data/news.hdf5')
+
 
 @pytest.fixture()
 def news():
@@ -14,6 +18,7 @@ def news():
     return vaex.open('data/news.hdf5').head(1000)
 
 
+@pytest.mark.skipif(skip, reason="data is not available")
 def test_text_vaex(news, tmpdir):
     df = news.copy()
     sk_pipeline = sklearn.pipeline.Pipeline([('tfidf', TfidfVectorizer()), ('classifier', LogisticRegression())])
@@ -35,6 +40,7 @@ def test_text_vaex(news, tmpdir):
     assert pipeline.inference(pipeline.raw).shape == (1, 3)
 
 
+@pytest.mark.skipif(skip, reason="data is not available")
 def test_text_sklearn(news, tmpdir):
     df = news.copy()
 

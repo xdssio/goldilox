@@ -13,7 +13,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OrdinalEncoder, StandardScaler
 
 from goldilox import Pipeline
-from tests.test_utils import validate_persistence
+from tests.tests_utils import validate_persistence
 
 logger = logging.getLogger(__name__)
 warnings.filterwarnings("ignore")

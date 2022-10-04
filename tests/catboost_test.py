@@ -8,7 +8,7 @@ from goldilox import Pipeline
 from goldilox.datasets import load_iris
 from goldilox.sklearn.pipeline import Pipeline as SklearnPipeline
 from goldilox.vaex.pipeline import VaexPipeline as VaexPipeline
-from tests.test_utils import validate_persistence
+from tests.tests_utils import validate_persistence
 
 
 @pytest.fixture()

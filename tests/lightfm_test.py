@@ -1,7 +1,9 @@
+import os.path
 from collections import defaultdict
 
 import numpy as np
 import pyarrow as pa
+import pytest
 import vaex
 from lightfm import LightFM
 from scipy.sparse import csr_matrix
@@ -31,8 +33,11 @@ def fetch_train():
     return to_vaex(data['train']), to_vaex(data['test'])
 """
 
+skip = not os.path.isfile('data/imdb100k_train.parquet')
+
 
 # TODO clean and explain
+@pytest.mark.skipif(skip, reason="data is not available")
 def test_lightfm():
     # Load the MovieLens 100k dataset. Only five
     # stared ratings are treated as positive.

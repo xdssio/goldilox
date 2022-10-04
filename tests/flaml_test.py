@@ -5,7 +5,7 @@ import vaex
 
 from goldilox import Pipeline
 from goldilox.datasets import load_iris
-from tests.test_utils import validate_persistence
+from tests.tests_utils import validate_persistence
 
 
 @pytest.fixture()

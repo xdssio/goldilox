@@ -24,9 +24,6 @@ def is_s3_url(path):
 logger = logging.getLogger()
 
 
-# s3_client = boto3.client('s3')
-
-
 def open_many(paths):
     import vaex
     dfs = [vaex.open(path) for path in paths]
@@ -58,7 +55,7 @@ def open_many(paths):
     return concat_vaex
 
 
-def read_data(path, prefix=None, suffix=CONSTANTS.DEFAULT_SUFFIX):
+def read_data(path, prefix='', suffix=''):
     import vaex
     prefix = prefix or ''
     logger.info(f"read data from {path} and prefix {prefix} and suffix {suffix}")
