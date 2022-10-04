@@ -13,7 +13,7 @@ except:
     skip = True
 
 
-@pytest.mark.skip(reason="imperio is on the todo list")
+@pytest.mark.skipif(skip, reason="imperio not installed")
 def test_imperio_vaex():
     df = iris()
     columns = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
@@ -35,7 +35,7 @@ def test_imperio_vaex():
     assert pipeline.inference(pipeline.raw).shape == (1, 9)
 
 
-@pytest.mark.skip(skip, reason="imperio not installed")
+@pytest.mark.skipif(skip, reason="imperio not installed")
 def test_imperio_skleran():
     df = iris().to_pandas_df()
     columns = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
