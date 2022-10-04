@@ -2,7 +2,12 @@ import numpy as np
 import pandas as pd
 import pytest
 import vaex
-from hdbscan import HDBSCAN, approximate_predict
+
+skip = False
+try:
+    from hdbscan import HDBSCAN, approximate_predict
+except:
+    skip = True
 from sklearn.base import TransformerMixin, BaseEstimator
 from sklearn.datasets import make_blobs
 
@@ -20,7 +25,7 @@ def data():
     return df
 
 
-@pytest.mark.skip(reason="https://github.com/scikit-learn-contrib/hdbscan/issues/565")
+@pytest.mark.skipif(skip, reason="https://github.com/scikit-learn-contrib/hdbscan/issues/565")
 def test_hdbscan_vaex(data):
     df = vaex.from_pandas(data)
     model = HDBSCAN(prediction_data=True)
@@ -39,7 +44,7 @@ def test_hdbscan_vaex(data):
     assert 'label' in pipeline.inference(pipeline.raw)
 
 
-@pytest.mark.skip(reason="https://github.com/scikit-learn-contrib/hdbscan/issues/565")
+@pytest.mark.skipif(skip, reason="https://github.com/scikit-learn-contrib/hdbscan/issues/565")
 def test_hdbscan_sklearn(data):
     df = data.copy()
     features = [f"f{i}" for i in range(n_features)]
