@@ -20,6 +20,7 @@ def data():
     return df
 
 
+@pytest.mark.skip(reason="https://github.com/scikit-learn-contrib/hdbscan/issues/565")
 def test_hdbscan_vaex(data):
     df = vaex.from_pandas(data)
     model = HDBSCAN(prediction_data=True)
@@ -38,6 +39,7 @@ def test_hdbscan_vaex(data):
     assert 'label' in pipeline.inference(pipeline.raw)
 
 
+@pytest.mark.skip(reason="https://github.com/scikit-learn-contrib/hdbscan/issues/565")
 def test_hdbscan_sklearn(data):
     df = data.copy()
     features = [f"f{i}" for i in range(n_features)]

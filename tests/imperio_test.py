@@ -13,6 +13,7 @@ except:
     skip = True
 
 
+@pytest.mark.skip(reason="imperio is on the todo list")
 def test_imperio_vaex():
     df = iris()
     columns = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
