@@ -29,6 +29,14 @@ def process_response(items):
     return items
 
 
+def get_query_class(raw):
+    return create_model(
+        "Query",
+        **{k: (type(v), None) for k, v in raw.items()},
+        __config__=type("QueryConfig", (object,), {"schema_extra": {"example": raw}}),
+    )
+
+
 def get_app(path: str):
     from fastapi import FastAPI, HTTPException
     from goldilox.config import ALLOW_CORS, CORS_ORIGINS, ALLOW_HEADERS, ALLOW_METHODS, ALLOW_CREDENTIALS
@@ -44,19 +52,11 @@ def get_app(path: str):
             allow_headers=ALLOW_HEADERS,
         )
     PIPELINE = "pipeline"
-    RAW = "raw"
 
     pipeline = Pipeline.from_file(path)
     # A dynamic way to create a pydanic model based on the raw data
     raw = process_response(pipeline.raw)[0]
-    Query = create_model(
-        "Query",
-        **{k: (type(v), None) for k, v in raw.items()},
-        __config__=type("QueryConfig", (object,), {"schema_extra": {"example": raw}}),
-    )
-
-    def get_raw():
-        return app.state._state.get(RAW, {})
+    Query = get_query_class(raw)
 
     def get_pipeline():
         return app.state._state.get(PIPELINE, pipeline)
@@ -78,19 +78,9 @@ def get_app(path: str):
 
         return process_response(ret)
 
-    @app.post("/invocations", response_model=List)
-    def invocations(data: List[Query]):
-        logger.info("/invocations")
-        data = parse_query(data)
-        if len(data) == 0:
-            raise HTTPException(status_code=400, detail="No data provided")
-        try:
-            ret = get_pipeline().predict(data)
-        except Exception as e:
-            logger.error(e)
-            raise HTTPException(status_code=400, detail=str(
-                f"Issue with invocations, try runing your pipeline locally with 'pipeline.inference(data)' to see what is the problem:\n{str(e)}"))
-        return to_nulls(ret)
+    # @app.post("/invocations", response_model=List): TODO
+    #  https://github.com/aws/amazon-sagemaker-examples/blob/main/advanced_functionality/scikit_bring_your_own
+    #  /container/decision_trees/predictor.py
 
     @app.get("/variables", response_model=dict)
     def variables():

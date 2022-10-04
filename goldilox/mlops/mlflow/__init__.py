@@ -19,7 +19,7 @@ def export_mlflow(self, path: str, requirements: List[str] = None, artifacts: di
         'name': 'goldilox_env'
     }
     if artifacts is None:
-        pipeline_path = str(TemporaryDirectory().name) + '/model.pkl'
+        pipeline_path = str(TemporaryDirectory().name) + '/pipeline.pkl'
         self.save(pipeline_path)
         artifacts = {"pipeline": pipeline_path}
 

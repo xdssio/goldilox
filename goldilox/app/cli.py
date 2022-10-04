@@ -47,6 +47,23 @@ def main():
     pass
 
 
+def is_mlflow_dir(path: str) -> bool:
+    return os.path.isfile(os.path.join(path, 'MLmodel'))
+
+
+def is_gunicorn_dir(path: str) -> bool:
+    return os.path.isfile(os.path.join(path, 'pipeline.pkl')) and \
+           os.path.isfile(os.path.join(path, 'main.py')) and \
+           os.path.isfile(os.path.join(path, 'gunicorn.conf.py'))
+
+
+def is_ray_dir(path: str) -> bool:
+    main_path = os.path.join(path, 'main.py')
+    return os.path.isfile(os.path.join(path, 'pipeline.pkl')) and \
+           os.path.isfile(main_path) and \
+           'ray.init' in Path(main_path).read_text()
+
+
 @main.command(context_settings=dict(
     ignore_unknown_options=True,
 ))
@@ -54,18 +71,28 @@ def main():
 @click.argument('options', nargs=-1, type=click.UNPROCESSED)
 def serve(path: str, **options):
     """Serve a  pipeline with fastapi server"""
-    if os.path.isdir(path) and os.path.isfile(os.path.join(path, 'MLmodel')):
-        command = ['mlflow', 'models', 'serve', f"-m", os.path.abspath(path)] + list(options['options'])
-        click.echo(f"Running serve as follow: {' '.join(command)}")
-        click.echo(f" ")
-        subprocess.check_call(command)
-    elif os.path.isdir(path) and os.path.isfile(os.path.join(path, 'pipeline.pkl')) and os.path.isfile(
-            os.path.join(path, 'main.py')):
-        command = ['gunicorn', 'main:app'] + list(options['options'])
-        click.echo(f"Running serve as follow: {' '.join(command)}")
-        click.echo(f" ")
-        subprocess.check_call(command)
-
+    if os.path.isdir(path):
+        if is_mlflow_dir(path):
+            meta = Pipeline.load_meta(os.path.join(path, 'artifacts', 'pipeline.pkl'))
+            environment_param = ['--no-conda'] if meta['venv_type'] == 'venv' else []
+            command = ['mlflow', 'models', 'serve', f"-m", os.path.abspath(path)] + environment_param + list(
+                options['options'])
+            click.echo(f"Running serve (MLflow) as follow: {' '.join(command)}")
+            click.echo(f" ")
+            subprocess.check_call(command)
+        elif is_gunicorn_dir(path):
+            command = ['gunicorn', 'main:app'] + list(options['options'])
+            click.echo(f"Running serve (Gunicorn) as follow: {' '.join(command)}")
+            click.echo(f" ")
+            subprocess.check_call(command)
+        elif is_ray_dir(path):
+            command = ['python', 'main.py'] + list(options['options'])
+            click.echo(f"Running serve (Ray) as follow: {' '.join(command)}")
+            click.echo(f" ")
+            subprocess.check_call(command)
+        else:
+            click.echo(
+                f"A directory was given, but no pipeline was found in it. \nPlease provide the pipeline file directly or provide a 'gunicorn', 'mlflow' or 'ray' directory.\nCheck out")
     else:
         server_options = {}
 

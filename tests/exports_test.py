@@ -60,14 +60,17 @@ def test_mlflow():
 def test_export_ray():
     df, features, target = load_iris()
     df = vaex.from_pandas(df)
+    df['predictions'] = df['target'] + 0
 
     pipeline = Pipeline.from_vaex(df)
 
     path = str(TemporaryDirectory().name) + '/pipeline'
 
-    pipeline.export_ray(path, route_prefix='/inference')
+    pipeline.export_ray(path)
     files_str = ' '.join(glob(path + "/*"))
     assert "pipeline/requirements.txt" in files_str
     assert "pipeline/pipeline.pkl" in files_str
     assert "pipeline/main.py" in files_str
-    assert "pipeline/params.json" in files_str
+
+    # import requests
+    # requests.post('http://127.0.0.1:5002/PipelineDeployment/inference', json=pipeline.raw).text

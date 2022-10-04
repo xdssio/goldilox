@@ -174,3 +174,4 @@ pipeline.pkl
 /venvs
 /tests/venvs
 .venv*
+/tests/mlops/
