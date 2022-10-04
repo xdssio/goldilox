@@ -21,3 +21,5 @@ imperio
 mlflow
 GitPython
 ray
+fastapi
+starlette
