@@ -362,7 +362,7 @@ class VaexPipeline(HasState, Pipeline):
             if len(sizes) == 0 or min(sizes) == 0:
                 data = data.copy()
                 for key, value in data.items():
-                    if isinstance(value, list) or isinstance(value, np.ndarray):
+                    if isinstance(value, (list, np.ndarray)):
                         data[key] = np.array([value])
                     else:
                         data[key] = [value]

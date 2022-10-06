@@ -272,7 +272,7 @@ class Pipeline(TransformerMixin):
         """Return data as records: [{key: value, ...}, ...]"""
         if isinstance(items, pd.DataFrame):
             return items.to_dict(orient="records")
-        elif isinstance(items, list) or isinstance(items, dict):
+        elif isinstance(items, (list, dict)):
             return items
         # vaex
         return items.to_records()
@@ -282,7 +282,7 @@ class Pipeline(TransformerMixin):
         """Return data as json: '[{key: value, ...}, ...]'"""
         if isinstance(items, pd.DataFrame):
             return items.to_json(orient="records")
-        elif isinstance(items, list) or isinstance(items, dict):
+        elif isinstance(items, (list, dict)):
             return json.dumps(items)
         # vaex
         return json.dumps(items.to_records())

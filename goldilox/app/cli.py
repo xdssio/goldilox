@@ -11,20 +11,7 @@ import cloudpickle
 import goldilox
 from goldilox import Pipeline
 from goldilox.config import CONSTANTS
-from goldilox.utils import process_variables, unpickle, get_open
-
-
-def _read_content(path: str) -> str:
-    open_fs = get_open(path)
-    with open_fs(path, 'r') as f:
-        ret = f.read()
-    return ret
-
-
-def _write_content(output, content):
-    with open(output, 'w') as outfile:
-        outfile.write(content)
-    return output
+from goldilox.utils import process_variables, unpickle
 
 
 def process_option(s: str) -> tuple:
@@ -176,7 +163,7 @@ def freeze(path: str, output: str = None):
         output = 'environment.yaml' if venv == 'conda' else 'requirements.txt'
 
     packages = meta.get(CONSTANTS.REQUIREMEMTS)
-    _write_content(output, packages)
+    Path(output).write_text(packages)
     click.echo(f"checkout {output}")
 
 
@@ -252,7 +239,7 @@ def update(path: str, key: str, value: str, variable: bool, file: bool):
     if file and not os.path.isfile(value):
         click.echo(f"{value} is not a file - skip")
     if file and os.path.isfile(value):
-        tmp_value = _read_content(value)
+        tmp_value = Path(value).read_text()
         click.echo(f"{value} is considered as a file")
     if os.path.isfile(value) and not file:
         click.echo(f"{value} is a file - if you want to load it as such, use the '--file' flag")
@@ -277,7 +264,7 @@ def dockerfile(output: str):
     docker_file_path = str(goldilox_path.parent.absolute().joinpath('app').joinpath('Dockerfile'))
     docker_output = output or './Dockerfile'
     shutil.copyfile(docker_file_path, docker_output)
-    content = _read_content(docker_output)
+    content = Path(dockerfile).read_text()
     click.echo(content)
     click.echo("##################\nDockerfile was writen to './dockerfile'\n")
     click.echo(

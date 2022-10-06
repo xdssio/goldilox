@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import logging
+from contextlib import suppress
 from time import time
-from typing import List
+from typing import List, Any
 
 import cloudpickle
 import numpy as np
@@ -118,7 +119,7 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline, TransformerMixin):
         """Returns True is the pipeline/model is fitted"""
         return self.pipeline is not None and self.pipeline.__sklearn_is_fitted__()
 
-    def infer(self, df) -> pd.DataFrame:
+    def infer(self, df: Any) -> pd.DataFrame:
         """Turn many inputs into a dataframes"""
         if isinstance(df, pd.DataFrame):
             return df.copy()
@@ -141,12 +142,11 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline, TransformerMixin):
                 ret.columns):
                 ret.columns = self.features
             return ret
-        try:
+        with suppress():
             import vaex
             if isinstance(df, vaex.dataframe.DataFrame):
                 return df.to_pandas_df()
-        except:
-            pass
+
         raise RuntimeError(f"could not infer type:{type(df)}")
 
     def _dumps(self) -> bytes:
@@ -163,7 +163,7 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline, TransformerMixin):
         return Pipeline.from_file(path)
 
     def _to_pandas(self, X, y=None) -> tuple:
-        try:
+        with suppress():
             import vaex
             if isinstance(X, vaex.dataframe.DataFrame):
                 X = X.to_pandas_df()
@@ -178,8 +178,6 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline, TransformerMixin):
                 y = y.to_pandas_series()
                 y.name = name
                 self.target = name
-        except:
-            pass
         if isinstance(X, np.ndarray):
             X = self.infer(X)
         if y is None:
@@ -268,7 +266,7 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline, TransformerMixin):
                 passthrough_columns = [column for column in copy.columns if column not in features]
                 if columns is not None and len(columns) > 0:
                     passthrough_columns = [column for column in passthrough_columns if column in columns]
-                if len(passthrough_columns) > 0:
+                if passthrough_columns:
                     passthrough_data = copy[passthrough_columns]
             copy = self.pipeline.transform(X)
             if isinstance(copy, np.ndarray) and self.output_columns and copy.shape[1] == len(self.output_columns):

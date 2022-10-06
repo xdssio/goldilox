@@ -62,7 +62,7 @@ class PipelineDeployment:
         except Exception as e:
             logger.error(e)
             raise HTTPException(status_code=400, detail=str(
-                f"Issue with inference, try runing your pipeline locally with 'pipeline.inference(data)' to see what is the problem:\n{str(e)}"))
+                f"Issue with inference, try runing your pipeline locally with 'pipeline.inference(data)' to see what is the problem:\n{e}"))
 
         return process_response(ret)
 

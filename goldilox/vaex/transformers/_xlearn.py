@@ -12,19 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 # coding: utf-8
 import tempfile
 import warnings
+from copy import copy as _copy
+from pathlib import Path
+from threading import Lock
 
 import numpy as np
 from sklearn.base import BaseEstimator
 from sklearn.utils import check_array, check_X_y
 from xlearn import create_linear, create_fm, create_ffm
 from xlearn.data import DMatrix
-from copy import copy as _copy
-import os
 
-from threading import Lock
+
 class PickableLock():
     def __init__(self):
         self.lock = Lock()
@@ -36,8 +38,11 @@ class PickableLock():
         self.lock.release()
 
     def __reduce__(self):
-        return (self.__class__,())
+        return (self.__class__, ())
+
+
 lock = PickableLock()
+
 
 def write_data_to_xlearn_format(X, y, filepath, fields=None):
     """ Write data to xlearn format (libsvm or libffm). Modified from
@@ -97,7 +102,6 @@ def write_data_to_xlearn_format(X, y, filepath, fields=None):
                 labels_str = label_pattern % y[i]
 
             f_handle.write((line_pattern % (labels_str, s)).encode('ascii'))
-
 
 
 class BaseXLearnModel(BaseEstimator):
@@ -258,7 +262,7 @@ class BaseXLearnModel(BaseEstimator):
             self._XLearnModel.setQuiet()
 
         if not is_instance_norm:
-            if self.model_type in ['fm', 'ffm']:
+            if self.model_type in ('fm', 'ffm'):
                 self._XLearnModel.disableNorm()
             else:
                 warnings.warn('Setting is_instance_norm to False is ignored. It only applies to fm or ffm.')
@@ -341,7 +345,7 @@ class BaseXLearnModel(BaseEstimator):
         num_lines = sum(1 for line in open(file_name))
         num_features = int((num_lines - 1) / 2)
 
-        if self.model_type in ['fm', 'ffm']:
+        if self.model_type in ('fm', 'ffm'):
             weight_vec = np.genfromtxt(file_name, skip_footer=num_features)
             weight_mtx = np.genfromtxt(file_name, skip_header=num_features + 1)
         else:
@@ -393,13 +397,11 @@ class BaseXLearnModel(BaseEstimator):
         self.__dict__ = state
         _temp_model_file = tempfile.NamedTemporaryFile(delete=False)
         if self._temp_model_file is not None:
-            with open(_temp_model_file.name, 'wb') as f:
-                f.write(self._temp_model_file)
+            Path(_temp_model_file.name).write_bytes(self._temp_model_file)
             self._temp_model_file = _temp_model_file
         _temp_weight_file = tempfile.NamedTemporaryFile(delete=True)
         if self._temp_weight_file is not None:
-            with open(_temp_weight_file.name, 'wb') as f:
-                f.write(self._temp_weight_file)
+            Path(_temp_weight_file.name).write_bytes(self._temp_weight_file)
             self._temp_weight_file = _temp_weight_file
         self.init_model()
 

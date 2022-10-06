@@ -1,5 +1,6 @@
 import logging
 import re
+from contextlib import suppress
 from uuid import uuid4
 
 import vaex
@@ -62,7 +63,7 @@ class Imputer(TransformerBase):
     @staticmethod
     def new_value(ar):
         if ar.dtype.is_string:
-            return f"NA_{str(uuid4())}"
+            return f"NA_{uuid4()}"
         elif ar.dtype.is_numeric:
             return int(ar.max()) + 1
         raise ValueError(f"Can not create a new value for {ar.expression} of {ar.dtype} dtype")
@@ -179,11 +180,9 @@ class Imputer(TransformerBase):
             return ''
         if dtype.is_numeric:
             return 0
-        try:
+        with suppress():
             if dtype.name == 'bool':
                 return False
-        except:
-            pass
         if dtype == object:
             return {}
         if self.warnings:
