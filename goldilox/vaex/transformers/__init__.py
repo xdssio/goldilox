@@ -1,8 +1,11 @@
-from contextlib import suppress
-
 from ._transformers import *
 
-with suppress():
+try:  # noqa: FURB107
     from ._keras import *
-with suppress():
+except (ImportError, ModuleNotFoundError):
+    pass
+
+try:  # noqa: FURB107
     from ._wv import *
+except (ImportError, ModuleNotFoundError):
+    pass

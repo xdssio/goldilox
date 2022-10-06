@@ -35,7 +35,7 @@ def test_imperio_vaex():
     assert pipeline.inference(pipeline.raw).shape == (1, 9)
 
 
-@pytest.mark.skipif(skip, reason="imperio not installed")
+@pytest.mark.skip("imperio is not ready yet")
 def test_imperio_skleran():
     df = iris().to_pandas_df()
     columns = ['petal_length', 'petal_width', 'sepal_length', 'sepal_width']
