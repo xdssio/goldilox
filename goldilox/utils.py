@@ -55,9 +55,47 @@ def open_many(paths):
     return concat_vaex
 
 
-def read_data(path, prefix='', suffix=''):
+def read_sklearn_data(path, prefix='', suffix='', shuffle=True):
+    files = [str(path) for path in Path(path).rglob(f"{prefix}*{suffix}")]
+    logger.info(f"relevant files: {files}")
+    logger.info(f"found {len(files)} files")
+    if len(files) == 0:
+        logger.error(f"found no data files")
+        return None
+
+    bad_files = []
+    valid_files = []
+    for file in files:
+        if file.endswith('.csv'):
+            read = pd.read_csv
+        elif file.endswith('.parquet'):
+            read = pd.read_parquet
+        elif file.endswith('.feather'):
+            read = pd.read_feather
+        elif file.endswith(('.hdf', '.hdf5', '.h5')):
+            read = pd.read_hdf
+        elif file.endswith('.pkl'):
+            read = pd.read_pickle
+        else:
+            logger.error(f"file {file} is broken")
+            bad_files.append(file)
+            continue
+        try:
+            valid_files.append(read(file))
+        except:
+            logger.error(f"file {file} is broken")
+            bad_files.append(file)
+    logger.info(f"found {len(bad_files)} malformed files")
+    logger.info(f"opened {len(valid_files)} files")
+    df = pd.concat(valid_files, ignore_index=True)
+    if shuffle:
+        df = df.sample(frac=1).reset_index(drop=True)
+    logger.info(f"data shape {df.shape}")
+    return df
+
+
+def read_vaex_data(path, prefix='', suffix='', shuffle=True):
     import vaex
-    prefix = prefix or ''
     logger.info(f"read data from {path} and prefix {prefix} and suffix {suffix}")
     if os.path.isdir(path):
         files = [str(path) for path in Path(path).rglob(f"{prefix}*{suffix}")]
@@ -81,7 +119,7 @@ def read_data(path, prefix='', suffix=''):
         logger.info(f"open {len(paths)} files")
         df = vaex.open_many(paths)
     else:
-        df = vaex.open(path, shuffle=True)
+        df = vaex.open(path, shuffle=shuffle)
     logger.info(f"data shape {df.shape}")
     return df
 

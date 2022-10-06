@@ -21,7 +21,7 @@ from vaex.ml.state import HasState, serialize_pickle
 
 from goldilox.config import *
 from goldilox.pipeline import Pipeline
-from goldilox.utils import process_variables
+from goldilox.utils import process_variables, read_vaex_data
 
 logging.basicConfig()
 logger = logging.getLogger(__name__)
@@ -372,6 +372,7 @@ class VaexPipeline(HasState, Pipeline):
             return vaex.from_arrays(**data)
 
         raise RuntimeError("Could not infer a vaex type")
+        raise RuntimeError("Could not infer a vaex type")
 
     def set_variable(self, key, value):
         self.variables[key] = value
@@ -401,7 +402,9 @@ class VaexPipeline(HasState, Pipeline):
 
         return from_dict(self.state.get(FUNCTIONS, {}).get(name), trusted=True).f
 
-    def fit(self, df: vaex.dataframe.DataFrame) -> VaexPipeline:
+    def fit(self, df: Union[vaex.dataframe.DataFrame, pd.DataFrame, str]) -> VaexPipeline:
+        if isinstance(df, str):
+            df = read_vaex_data(df)
         copy = df.copy()
         self.verify_vaex_dataset(copy)
         self.sample_first(copy)
@@ -418,9 +421,7 @@ class VaexPipeline(HasState, Pipeline):
                 self.state = trained
             else:
                 raise ValueError(
-                    "'fit_func' should return a vaex dataset or a state, got {}".format(
-                        type(trained)
-                    )
+                    f"'fit_func' should return a vaex dataset or a state, got {type(trained)} instead"
                 )
         self.variables.update(self.state.get(VARIABLES, {}))
         self.updated = int(time())

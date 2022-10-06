@@ -13,6 +13,7 @@ from sklearn.base import TransformerMixin
 
 from goldilox import Pipeline
 from goldilox.config import CONSTANTS
+from goldilox.utils import read_sklearn_data
 
 DEFAULT_OUTPUT_COLUMN = "prediction"
 logger = logging.getLogger()
@@ -206,6 +207,8 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline, TransformerMixin):
         return X
 
     def fit(self, df, y=None, validate: bool = True, check_na: bool = True) -> SklearnPipeline:
+        if isinstance(df, str):
+            df = read_sklearn_data(df)
         X, y = self._to_pandas(df, y)
         self.raw = self.to_raw(X)
         params = self.fit_params or {}
