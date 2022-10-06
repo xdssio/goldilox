@@ -1,0 +1,28 @@
+[
+  {
+    "ChannelName": "training",
+    "DataSource": {
+      "S3DataSource": {
+        "S3DataType": "S3Prefix",
+        "S3Uri": "",
+        "S3DataDistributionType": "FullyReplicated"
+      }
+    },
+    "CompressionType": "None",
+    "RecordWrapperType": "None",
+    "InputMode": "File"
+  },
+  {
+    "ChannelName": "pipeline",
+    "DataSource": {
+      "S3DataSource": {
+        "S3DataType": "S3Prefix",
+        "S3Uri": "",
+        "S3DataDistributionType": "FullyReplicated"
+      }
+    },
+    "CompressionType": "None",
+    "RecordWrapperType": "None",
+    "InputMode": "File"
+  }
+]

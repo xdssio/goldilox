@@ -1,0 +1,4 @@
+#!/bin/bash
+
+#PORT=8080 python main.py
+glx serve pipeline --bind=0.0.0.0:8080

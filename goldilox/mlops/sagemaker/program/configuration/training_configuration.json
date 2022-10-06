@@ -1,0 +1,31 @@
+{
+  "AlgorithmName": "goldilocks-v2",
+  "TrainingInputMode": "File",
+  "EnableSageMakerMetricsTimeSeries": false,
+  "MetricDefinitions": [
+    {
+      "Name": "teddy_accuracy",
+      "Regex": "teddy_accuracy=(.*?);"
+    },
+    {
+      "Name": "teddy_auc",
+      "Regex": "teddy_auc=(.*?);"
+    },
+    {
+      "Name": "teddy_class_count",
+      "Regex": "teddy_class_count=(.*?);"
+    },
+    {
+      "Name": "winnie_accuracy",
+      "Regex": "winnie_accuracy=(.*?);"
+    },
+    {
+      "Name": "winnie_auc",
+      "Regex": "winnie_auc=(.*?);"
+    },
+    {
+      "Name": "winnie_class_count",
+      "Regex": "winnie_class_count=(.*?);"
+    }
+  ]
+}
