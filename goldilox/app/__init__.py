@@ -65,7 +65,7 @@ def get_app(path: str):
     def inference(data: List[Query], columns: str = ""):
         logger.info("/inference")
         data = parse_query(data)
-        if len(data) == 0:
+        if not data:
             raise HTTPException(status_code=400, detail="No data provided")
         try:
             columns = None if not columns else columns.split(",")
@@ -74,7 +74,7 @@ def get_app(path: str):
         except Exception as e:
             logger.error(e)
             raise HTTPException(status_code=400, detail=str(
-                f"Issue with inference, try runing your pipeline locally with 'pipeline.inference(data)' to see what is the problem:\n{str(e)}"))
+                f"Issue with inference, try runing your pipeline locally with 'pipeline.inference(data)' to see what is the problem:\n{e}"))
 
         return process_response(ret)
 
