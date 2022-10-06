@@ -117,7 +117,7 @@ class GoldiloxModel(FrameworkModel):
         self.model_server_workers = model_server_workers
 
     # TODO: Remove the following function
-    # botocore needs to add hugginface to the list of valid neo compilable frameworks.
+    # botocore needs to add "goldilox" to the list of valid neo compilable frameworks.
     # Ideally with inferentia framewrok, call to .compile( ... ) method will create the image_uri.
     # currently, call to compile( ... ) method is causing `ValidationException`
     def deploy(
@@ -415,3 +415,17 @@ class GoldiloxModel(FrameworkModel):
             image_scope="inference",
             serverless_inference_config=serverless_inference_config,
         )
+
+
+class ConfigurationFactory:
+    def __init__(self, meta):
+        self.meta = meta
+
+    def create_algorithm_configuration(self):
+        raise NotImplementedError()
+
+    def create_training_configuration(self):
+        raise NotImplementedError()
+
+    def create_metric_defenistions(self):
+        raise NotImplementedError()
