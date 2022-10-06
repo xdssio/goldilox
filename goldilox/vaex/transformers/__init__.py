@@ -1,9 +1,8 @@
+from contextlib import suppress
+
 from ._transformers import *
-try:
+
+with suppress():
     from ._keras import *
-except:
-    pass
-try:
+with suppress():
     from ._wv import *
-except:
-    pass

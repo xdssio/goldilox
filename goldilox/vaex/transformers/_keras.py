@@ -1,5 +1,6 @@
 import logging
 import os
+from contextlib import suppress
 from functools import partial
 from pathlib import Path
 
@@ -19,10 +20,9 @@ logger = logging.getLogger("keras")
 class KerasModel(HasState):
 
     def __init__(self, model=None):
-        try:
+        with suppress():
             model = model_from_json(model)
-        except:
-            pass
+
         self.model = model
 
     def __reduce__(self):
@@ -135,7 +135,7 @@ class DataFrameAccessorTensorflow(object):
             shuffle_buffer_size = chunk_size
 
         def tf_input_function():
-            ds = self.to_dataset(features=features, target=target, chunk_size=chunk_size, parallel=True)
+            ds = self.to_dataset(features=features, target=target, chunk_size=chunk_size)
             if repeat is not None:
                 ds = ds.repeat(repeat)
             if shuffle:
@@ -219,7 +219,7 @@ def open_images(path, suffix=None, resize=None):
         if suffix is not None:
             files = [str(path) for path in Path(path).rglob(f"*{suffix}")]
         else:
-            for suffix in ['jpg', 'png', 'jpeg', 'ppm', 'thumbnail']:
+            for suffix in ('jpg', 'png', 'jpeg', 'ppm', 'thumbnail'):
                 files.extend([str(path) for path in Path(path).rglob(f"*{suffix}")])
     num_skipped = 0
     ignores = set([])
