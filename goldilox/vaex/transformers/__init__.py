@@ -1,11 +1,11 @@
 from ._transformers import *
 
-try:
+try:  # noqa: FURB107
     from ._keras import *
 except (ImportError, ModuleNotFoundError):
     pass
 
-try:
+try:  # noqa: FURB107
     from ._wv import *
 except (ImportError, ModuleNotFoundError):
     pass
