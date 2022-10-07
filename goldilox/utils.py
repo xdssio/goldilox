@@ -1,4 +1,6 @@
+import contextlib
 import gc
+import json
 import logging
 import os
 import shutil
@@ -55,39 +57,58 @@ def open_many(paths):
     return concat_vaex
 
 
+def read_file(path):
+    if path.endswith('.csv'):
+        read = pd.read_csv
+    elif path.endswith('.parquet'):
+        read = pd.read_parquet
+    elif path.endswith('.feather'):
+        read = pd.read_feather
+    elif path.endswith(('.hdf', '.hdf5', '.h5')):
+        read = pd.read_hdf
+    elif path.endswith(('.pkl', '.pickle', '.p')):
+        read = pd.read_pickle
+    elif path.endswith('.json'):
+        try:
+            with open(path, 'r') as f:
+                path = json.load(f)
+            read = pd.read_json
+        except Exception as e:
+            return None
+    elif path.endswith('txt'):
+        path = Path(path).read_text()
+        read = pd.read_json
+    else:
+        return None
+    with contextlib.suppress():
+        return read(path)
+    return None
+
+
+def read_pandas_files(files):
+    if len(files) == 0:
+        logger.error(f"found no data files")
+        return None
+    bad_files, valid_files = [], []
+
+    for path in files:
+        df = read_file(path)
+        if df is not None:
+            valid_files.append(df)
+        else:
+            logger.error(f"file {path} is broken")
+            bad_files.append(path)
+
+    logger.info(f"found {len(bad_files)} malformed files")
+    logger.info(f"opened {len(valid_files)} files")
+    return pd.concat(valid_files, ignore_index=True)
+
+
 def read_sklearn_data(path, prefix='', suffix='', shuffle=True):
     files = [str(path) for path in Path(path).rglob(f"{prefix}*{suffix}")]
     logger.info(f"relevant files: {files}")
     logger.info(f"found {len(files)} files")
-    if len(files) == 0:
-        logger.error(f"found no data files")
-        return None
-
-    bad_files = []
-    valid_files = []
-    for file in files:
-        if file.endswith('.csv'):
-            read = pd.read_csv
-        elif file.endswith('.parquet'):
-            read = pd.read_parquet
-        elif file.endswith('.feather'):
-            read = pd.read_feather
-        elif file.endswith(('.hdf', '.hdf5', '.h5')):
-            read = pd.read_hdf
-        elif file.endswith('.pkl'):
-            read = pd.read_pickle
-        else:
-            logger.error(f"file {file} is broken")
-            bad_files.append(file)
-            continue
-        try:
-            valid_files.append(read(file))
-        except:
-            logger.error(f"file {file} is broken")
-            bad_files.append(file)
-    logger.info(f"found {len(bad_files)} malformed files")
-    logger.info(f"opened {len(valid_files)} files")
-    df = pd.concat(valid_files, ignore_index=True)
+    df = read_pandas_files(files)
     if shuffle:
         df = df.sample(frac=1).reset_index(drop=True)
     logger.info(f"data shape {df.shape}")
@@ -105,21 +126,41 @@ def read_vaex_data(path, prefix='', suffix='', shuffle=True):
             logger.error(f"found no data files")
             return None
 
-        bad_files = []
-        for file in files:
-            try:
-                if vaex.open(file).head(2):
-                    pass
-            except:
-                logger.error(f"file {file} is broken")
-                bad_files.append(file)
+        vaex_files_paths, pandas_files, malformed_files = [], [], []
 
-        paths = list(set([file for file in files if file not in bad_files]))
-        logger.info(f"found {len(bad_files)} malformed files")
-        logger.info(f"open {len(paths)} files")
-        df = vaex.open_many(paths)
+        for path in files:
+            if not path.endswith(('arrow', 'csv', 'hdf5', 'parquet', 'feather')):
+                df = read_file(path)
+                if df is not None:
+                    pandas_files.append(df)
+                continue
+            try:
+                vaex.open(path).head(2)
+                vaex_files_paths.append(path)
+            except Exception as e:
+                try:
+                    pandas_files.append(read_file(path))
+                except:
+                    malformed_files.append(path)
+
+        logger.info(
+            f"found {len(malformed_files)} malformed files - {len(vaex_files_paths)} vaex files - {len(pandas_files)} pandas files")
+        df = None
+        if len(vaex_files_paths) > 0:
+            df = vaex.open_many(vaex_files_paths)
+        if pandas_files:
+            from_pandas_df = vaex.from_pandas(pd.concat(pandas_files, ignore_index=True))
+            if df is None:
+                df = from_pandas_df
+            else:
+                df = vaex.concat([df, from_pandas_df])
     else:
-        df = vaex.open(path, shuffle=shuffle)
+        try:
+            df = vaex.open(path, shuffle=shuffle)
+        except:
+            df = vaex.from_pandas(read_file(path))
+            if shuffle:
+                df = df.shuffle()
     logger.info(f"data shape {df.shape}")
     return df
 
