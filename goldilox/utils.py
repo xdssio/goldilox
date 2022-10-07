@@ -109,9 +109,10 @@ def read_sklearn_data(path, prefix='', suffix='', shuffle=True):
     logger.info(f"relevant files: {files}")
     logger.info(f"found {len(files)} files")
     df = read_pandas_files(files)
-    if shuffle:
+    if df is not None and shuffle:
         df = df.sample(frac=1).reset_index(drop=True)
-    logger.info(f"data shape {df.shape}")
+    if df is not None:
+        logger.info(f"data shape {df.shape}")
     return df
 
 
