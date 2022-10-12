@@ -175,3 +175,4 @@ pipeline.pkl
 /tests/venvs
 .venv*
 /tests/mlops/
+/goldilox/mlops/sagemaker/readme.md

@@ -404,6 +404,7 @@ class VaexPipeline(HasState, Pipeline):
 
     def fit(self, df: Union[vaex.dataframe.DataFrame, pd.DataFrame, str]) -> VaexPipeline:
         if isinstance(df, str):
+            logger.info(f"reading file from {df}")
             df = read_vaex_data(df)
         copy = df.copy()
         self.verify_vaex_dataset(copy)

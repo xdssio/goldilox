@@ -8,6 +8,19 @@ from goldilox import Pipeline
 from goldilox.datasets import load_iris
 
 
+def test_export_sageamker():
+    df, features, target = load_iris()
+    df = vaex.from_pandas(df)
+    df['predictions'] = df['target'] + 1
+
+    def fit(df):
+        df['predictions'] = df['target'] + 2
+        return df
+
+    pipeline = Pipeline.from_vaex(df, fit=fit)
+    pipeline.save('tests/mlops/sagemaker/pipeline.pkl')
+
+
 def test_export_gunicorn():
     df, features, target = load_iris()
     df = vaex.from_pandas(df)
