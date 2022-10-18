@@ -81,7 +81,7 @@ class Pipeline(TransformerMixin):
         """
         from goldilox.vaex.pipeline import VaexPipeline as VaexPipeline
         pipeline = VaexPipeline.from_dataframe(df=df, fit=fit, variables=variables, description=description,
-                                               predict_column=predict_column)
+                                               target=predict_column)
         if validate:
             logger.info("validate pipeline")
             logger.info(f"pipeline valid: {pipeline.validate()}")
@@ -300,3 +300,8 @@ class Pipeline(TransformerMixin):
     def export_ray(self, path: str, requirements: List[str] = None, **kwargs) -> str:
         from goldilox.mlops import export_ray
         return export_ray(self, path=path, requirements=requirements, **kwargs)
+
+    def cross_validate(self, X, y=None, cv=5, scoring=None, n_jobs=1, verbose=0, fit_params=None,
+                       pre_dispatch='2*n_jobs',
+                       error_score='raise-deprecating', return_train_score=False):
+        raise NotImplementedError(f"Not implemented for {self.pipeline_type}")

@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 import traitlets
 from sklearn.base import TransformerMixin
+from sklearn.model_selection import cross_validate
 
 from goldilox import Pipeline
 from goldilox.config import CONSTANTS
@@ -280,3 +281,14 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline, TransformerMixin):
         if isinstance(copy, pd.DataFrame) and columns is not None and len(columns) > 0:
             copy = copy[[column for column in columns if column in copy]]
         return copy
+
+    def cross_validate(self, X, y=None, cv=5, scoring=None, n_jobs=1, verbose=0, fit_params=None,
+                       pre_dispatch='2*n_jobs',
+                       error_score='raise-deprecating', return_train_score=False):
+        X, y = self._to_pandas(X, y)
+        return cross_validate(self.pipeline, X, y, cv=cv, scoring=scoring, n_jobs=n_jobs, verbose=verbose,
+                              fit_params=fit_params, pre_dispatch=pre_dispatch, error_score=error_score,
+                              return_train_score=return_train_score)
+
+    def get_params(self, deep=False):
+        return self.pipeline.get_params(deep=deep)

@@ -16,6 +16,7 @@ import pandas as pd
 import pyarrow as pa
 import traitlets
 import vaex
+from sklearn.model_selection import cross_validate
 from vaex.column import Column
 from vaex.ml.state import HasState, serialize_pickle
 
@@ -55,7 +56,7 @@ class VaexPipeline(HasState, Pipeline):
     variables = traitlets.Dict(
         default_value={}, help="Any variables to associate with a pipeline instance"
     )
-    predict_column = traitlets.Unicode(
+    target = traitlets.Unicode(
         default_value=None, allow_none=True, help="The column to return as numpy array in predict"
     )
 
@@ -149,7 +150,7 @@ class VaexPipeline(HasState, Pipeline):
         return value.tolist()
 
     @classmethod
-    def from_dataframe(cls, df: vaex.dataframe.DataFrame, fit=None, predict_column: str = None, variables: dict = None,
+    def from_dataframe(cls, df: vaex.dataframe.DataFrame, fit=None, target: str = None, variables: dict = None,
                        description: str = "") -> VaexPipeline:
         """
        Get a Pipeline out of a vaex.dataframe.DataFrame, and validate serilization and missing values.
@@ -158,7 +159,7 @@ class VaexPipeline(HasState, Pipeline):
        @param variables: dict [optional]: Any variables we want to associate with the current pipeline.
               On top of the variables provided, the dataframe variables are added.
        @param description: str [optional]: Any text we want to associate with the current pipeline.
-       @param predict_column: str [optional]: The predict column to use in predict case
+       @param target: str [optional]: The predict column to use in predict case
        @return: VaexPipeline
        """
         copy = VaexPipeline.verify_vaex_dataset(df)
@@ -174,14 +175,14 @@ class VaexPipeline(HasState, Pipeline):
         original_columns = VaexPipeline._get_original_columns(sample)
         variables = {**(state.get(VARIABLES) or {}), **(variables or {})}
 
-        predict_column = predict_column or df.get_column_names()[-1]
+        target = target or df.get_column_names()[-1]
         pipeline = VaexPipeline(
             state=state,
             _original_columns=original_columns,
             raw=raw,
             description=description,
             variables=process_variables(variables),
-            predict_column=predict_column
+            target=target
         )
 
         return pipeline
@@ -191,6 +192,9 @@ class VaexPipeline(HasState, Pipeline):
         pipeline.state_set(deepcopy(self.state_get()))
         pipeline.updated = int(time())
         return pipeline
+
+    def clone(self) -> VaexPipeline:
+        return self.copy()
 
     @classmethod
     def from_file(cls, path: str) -> VaexPipeline:
@@ -371,9 +375,11 @@ class VaexPipeline(HasState, Pipeline):
                 return vaex.from_pandas(pd.DataFrame(data))
             return vaex.from_arrays(**data)
 
-        raise RuntimeError("Could not infer a vaex type")
+        raise RuntimeError(f"Could not infer a vaex type: {type(data)}")
 
     def set_variable(self, key, value):
+        if isinstance(value, str):
+            raise ValueError("value must not be a string, try a dict instead")
         self.variables[key] = value
         return value
 
@@ -385,7 +391,7 @@ class VaexPipeline(HasState, Pipeline):
             virtual=virtual, strings=strings, hidden=hidden, regex=regex
         )
 
-    def fit_transform(self, data) -> vaex.dataframe.DataFrame:
+    def fit_transform(self, data, **kwargs) -> vaex.dataframe.DataFrame:
         self.fit(data)
         return self.transform(data)
 
@@ -398,11 +404,20 @@ class VaexPipeline(HasState, Pipeline):
 
     def get_function(self, name):
         from vaex.serialize import from_dict
-
         return from_dict(self.state.get(FUNCTIONS, {}).get(name), trusted=True).f
 
-    def fit(self, df: vaex.dataframe.DataFrame) -> VaexPipeline:
-        copy = df.copy()
+    @property
+    def _predict_column(self):
+        return self.variables.get('predict_column')
+
+    @property
+    def _predict_proba_column(self):
+        return self.variables.get('predict_proba_column')
+
+    def fit(self, df: vaex.dataframe.DataFrame, y=None, **kwargs) -> VaexPipeline:
+        copy = self.infer(df)
+        if y is not None and self._predict_column is not None:
+            df[self._predict_column] = y
         self.verify_vaex_dataset(copy)
         self.sample_first(copy)
         fit_func = self.get_function(PIPELINE_FIT)
@@ -422,18 +437,57 @@ class VaexPipeline(HasState, Pipeline):
                         type(trained)
                     )
                 )
-        self.variables.update(self.state.get(VARIABLES, {}))
+        update_variables = self.state.get(VARIABLES, {})
+        update_variables = update_variables.get(VARIABLES, update_variables)
+        self.variables.update(update_variables)
         self.updated = int(time())
         return self
 
-    def predict(self, df: Union[vaex.dataframe.DataFrame, pd.DataFrame]):
-        ret = self.inference(df, columns=self.predict_column)[self.predict_column]
+    def _predict(self, df: Union[vaex.dataframe.DataFrame, pd.DataFrame], column):
+        ret = self.inference(df, columns=column)[column]
         if hasattr(ret, 'to_numpy'):
             return ret.to_numpy()
         return ret.tolist()
+
+    def predict(self, df: Union[vaex.dataframe.DataFrame, pd.DataFrame]):
+        if self._predict_column is None:
+            raise RuntimeError(
+                "predict column not set - set 'predict_column' to the column of predictions as a variable")
+        return self._predict(df, self._predict_column)
+
+    def predict_proba(self, df: Union[vaex.dataframe.DataFrame, pd.DataFrame]):
+        if self._predict_proba_column is None:
+            raise RuntimeError(
+                "predict_column_proba not set - set 'predict_proba_column' to the column of predictions as a variable")
+        return self._predict(df, self._predict_proba_column)
 
     def get_function_model(self, name: str):
         tmp = self.state["functions"][name]
         model = eval(tmp["cls"])()
         model.state_set(state=tmp["state"])
         return model
+
+    def cross_validate(self, df, y=None, cv=5, scoring=None, n_jobs=1, verbose=0, fit_params=None,
+                       pre_dispatch='2*n_jobs',
+                       error_score='raise-deprecating', return_train_score=False):
+        """
+        Cross validation using sklearn.model_selection.cross_validate.
+        * This is in-memory cross validation, so it will not work for large datasets.
+        """
+
+        if y is None and self.variables.get('target_column'):
+            y = df[self.variables.get('target_column')].values
+        return cross_validate(self, df, y=y, cv=cv, scoring=scoring, n_jobs=n_jobs, verbose=verbose,
+                              fit_params=fit_params,
+                              pre_dispatch=pre_dispatch, error_score=error_score, return_train_score=return_train_score)
+
+    def get_params(self, deep=False):
+        return {'state': self.state,
+                '_original_columns': self._original_columns,
+                'target': self.target,
+                'variables': self.variables,
+                'updated': self.updated,
+                'created': self.created,
+                'pipeline_type': self.pipeline_type,
+                'raw': self.raw,
+                }

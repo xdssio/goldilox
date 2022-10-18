@@ -17,7 +17,7 @@ def test_vaex_pipeline_predict():
                                                        'application': 'binary'})
     model.fit(df)
     df = model.transform(df)
-    pipeline = VaexPipeline.from_dataframe(df, predict_column='predictions')
+    pipeline = VaexPipeline.from_dataframe(df, target='predictions')
     prediction = pipeline.predict(df)
     assert len(prediction) == len(df)
     assert isinstance(prediction, (list, np.ndarray))
