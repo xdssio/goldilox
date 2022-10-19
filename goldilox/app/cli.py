@@ -40,7 +40,7 @@ def is_mlflow_dir(path: str) -> bool:
 
 def is_gunicorn_dir(path: str) -> bool:
     return os.path.isfile(os.path.join(path, 'pipeline.pkl')) and \
-           os.path.isfile(os.path.join(path, 'main.py')) and \
+           os.path.isfile(os.path.join(path, 'wsgi.py')) and \
            os.path.isfile(os.path.join(path, 'gunicorn.conf.py'))
 
 
@@ -51,11 +51,29 @@ def is_ray_dir(path: str) -> bool:
            'ray.init' in Path(main_path).read_text()
 
 
-@main.command(context_settings=dict(
-    ignore_unknown_options=True,
-))
+def parse_options(options):
+    ret = {}
+
+    def clean_key(key):
+        if key.startswith('--'):
+            key = key[2:]
+        elif key.startswith('-'):
+            key = key[1:]
+        return key.replace('-', '_')
+
+    for option in options['options']:
+        splited = option.split('=')
+        if len(splited) == 2:
+            key, value = splited[0], splited[1]
+            ret[clean_key(key)] = value
+        else:
+            print(f"(skip) - option {option} was not understood - use key=value version please ")
+        return ret
+
+
+@main.command(context_settings=dict(ignore_unknown_options=True))
 @click.argument("path", type=click.Path(exists=True))
-@click.argument("root_path", type=str)
+@click.argument("root_path", type=str, default='')
 @click.argument('options', nargs=-1, type=click.UNPROCESSED)
 def serve(path: str, root_path: str = '', **options):
     """Serve a  pipeline with fastapi server"""
@@ -82,22 +100,7 @@ def serve(path: str, root_path: str = '', **options):
             click.echo(
                 f"A directory was given, but no pipeline was found in it. \nPlease provide the pipeline file directly or provide a 'gunicorn', 'mlflow' or 'ray' directory.\nCheck out")
     else:
-        server_options = {}
-
-        def clean_key(key):
-            if key.startswith('--'):
-                key = key[2:]
-            elif key.startswith('-'):
-                key = key[1:]
-            return key.replace('-', '_')
-
-        for option in options['options']:
-            splited = option.split('=')
-            if len(splited) == 2:
-                key, value = splited[0], splited[1]
-                server_options[clean_key(key)] = value
-            else:
-                print(f"(skip) - option {option} was not understood - use key=value version please ")
+        server_options = parse_options(options)
 
         from goldilox.app import Server
         if 'bind' not in server_options:
@@ -108,7 +111,37 @@ def serve(path: str, root_path: str = '', **options):
         Server(path=path, root_path=root_path, options=server_options).serve()
 
 
-@main.command()
+@main.command(context_settings=dict(ignore_unknown_options=True))
+@click.argument("path", type=click.Path(exists=True))
+@click.argument("output", type=str)
+@click.option('--framework', type=click.Choice(['gunicorn', 'mlflow', 'ray'], case_sensitive=False), default='gunicorn')
+@click.argument('options', nargs=-1, type=click.UNPROCESSED)
+def export(path: str, output: str, framework: str, **options):
+    """
+    Export a pipeline to a directory that can be served with gunicorn, ray or mlflow
+    @param path:
+    @param framework:
+    @param output_path:
+    @param options:
+    @return:
+    """
+    options = parse_options(options)
+
+    if framework == 'mlflow':
+        from goldilox.mlops.mlflow import export_mlflow
+        export_mlflow(path, output, options)
+        click.echo(f"Export to {output} as mlflow")
+        click.echo(f" ")
+    elif framework == 'gunicorn':
+        from goldilox.mlops.gunicorn import export_gunicorn
+        export_gunicorn(path, output, options)
+        click.echo(f"Export to {output} as gunicorn")
+    elif framework == 'ray':
+        from goldilox.mlops.gunicorn import export_gunicorn
+        export_gunicorn(path, output, options)
+        click.echo(f"Export to {output} as ray")
+
+
 def arguments():
     """gunicorn arguments reference"""
     print("check https://docs.gunicorn.org/en/stable/run.html for options")

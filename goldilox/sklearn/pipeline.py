@@ -11,14 +11,13 @@ import pandas as pd
 import traitlets
 from sklearn.base import TransformerMixin
 
-from goldilox import Pipeline
-from goldilox.config import CONSTANTS
+import goldilox
 
 DEFAULT_OUTPUT_COLUMN = "prediction"
 logger = logging.getLogger()
 
 
-class SklearnPipeline(traitlets.HasTraits, Pipeline, TransformerMixin):
+class SklearnPipeline(traitlets.HasTraits, goldilox.Pipeline, TransformerMixin):
     pipeline_type = traitlets.Unicode(default_value="sklearn")
     current_time = int(time())
     created = traitlets.Int(
@@ -45,6 +44,13 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline, TransformerMixin):
     variables = traitlets.Dict(
         default_value={}, help="Any variables to associate with a pipeline instance"
     )
+    environment = traitlets.Any(
+        default_value=goldilox.Environment(), allow_none=True, help="The environment class"
+    )
+
+    @property
+    def description(self) -> str:
+        return self.variables.get(goldilox.config.CONSTANTS.DESCRIPTION, "")
 
     @property
     def example(self):
@@ -68,7 +74,6 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline, TransformerMixin):
             output_columns: List[str] = None,
             variables: dict = None,
             fit_params: dict = None,
-            description: str = "",
     ) -> SklearnPipeline:
         """
         :param sklearn.preprocessing.pipeline.Pipeline pipeline: The sklearn pipeline
@@ -78,7 +83,6 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline, TransformerMixin):
         :param target: str [optional]: The name of the target column - Used for retraining
         :param output_columns: List[str] [optional]: For sklearn estimator which predict a numpy.ndarray, name the output columns.
         :param variables: dict [optional]: Variables to associate with the pipeline - fit_params automatically are added
-        :param description: str [optional]: A pipeline description and notes in text
         :return: SkleranPipeline object
         """
         if isinstance(features, pd.core.indexes.base.Index):
@@ -110,8 +114,7 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline, TransformerMixin):
             raw=raw,
             output_columns=output_columns,
             fit_params=fit_params,
-            variables=variables,
-            description=description,
+            variables=variables
         )
 
     @property
@@ -156,11 +159,11 @@ class SklearnPipeline(traitlets.HasTraits, Pipeline, TransformerMixin):
     def loads(cls, state) -> dict:
         if isinstance(state, bytes):
             state = cloudpickle.loads(state)
-        return state[CONSTANTS.STATE]
+        return state[goldilox.config.CONSTANTS.STATE]
 
     @classmethod
     def from_file(cls, path: str) -> SklearnPipeline:
-        return Pipeline.from_file(path)
+        return goldilox.Pipeline.from_file(path)
 
     def _to_pandas(self, X, y=None) -> tuple:
         with suppress():

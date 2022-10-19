@@ -19,6 +19,7 @@ import vaex
 from vaex.column import Column
 from vaex.ml.state import HasState, serialize_pickle
 
+import goldilox
 from goldilox.config import *
 from goldilox.pipeline import Pipeline
 from goldilox.utils import process_variables
@@ -58,6 +59,13 @@ class VaexPipeline(HasState, Pipeline):
     predict_column = traitlets.Unicode(
         default_value=None, allow_none=True, help="The column to return as numpy array in predict"
     )
+    environment = traitlets.Any(
+        default_value=goldilox.environment.Environment(), allow_none=False, help="The environment class"
+    ).tag(**serialize_pickle)
+
+    @property
+    def description(self) -> str:
+        return self.variables.get(goldilox.config.CONSTANTS.DESCRIPTION, "")
 
     @property
     def example(self) -> dict:
@@ -69,7 +77,6 @@ class VaexPipeline(HasState, Pipeline):
 
     @classmethod
     def _data_type(cls, data):
-
         if isinstance(data, np.ndarray):
             data_type = data.dtype
         elif isinstance(data, Column):
@@ -149,15 +156,14 @@ class VaexPipeline(HasState, Pipeline):
         return value.tolist()
 
     @classmethod
-    def from_dataframe(cls, df: vaex.dataframe.DataFrame, fit=None, predict_column: str = None, variables: dict = None,
-                       description: str = "") -> VaexPipeline:
+    def from_dataframe(cls, df: vaex.dataframe.DataFrame, fit=None, predict_column: str = None,
+                       variables: dict = None) -> VaexPipeline:
         """
        Get a Pipeline out of a vaex.dataframe.DataFrame, and validate serilization and missing values.
        @param df: vaex.dataframe.DataFrame
        @param fit: method: A method which accepts a vaex dataframe and returns a vaex dataframe which run on pipeline.fit(df).
        @param variables: dict [optional]: Any variables we want to associate with the current pipeline.
               On top of the variables provided, the dataframe variables are added.
-       @param description: str [optional]: Any text we want to associate with the current pipeline.
        @param predict_column: str [optional]: The predict column to use in predict case
        @return: VaexPipeline
        """
@@ -179,7 +185,6 @@ class VaexPipeline(HasState, Pipeline):
             state=state,
             _original_columns=original_columns,
             raw=raw,
-            description=description,
             variables=process_variables(variables),
             predict_column=predict_column
         )

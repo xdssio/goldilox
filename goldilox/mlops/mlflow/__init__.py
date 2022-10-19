@@ -1,50 +1,53 @@
 from tempfile import TemporaryDirectory
+from typing import Union
 
-from typing import List
+import goldilox
+import goldilox.mlops
 
-from goldilox.utils import validate_path, get_python_version, get_requirements
 
-
-def export_mlflow(self, path: str, requirements: List[str] = None, artifacts: dict = None,
+def export_mlflow(pipeline: Union[goldilox.Pipeline, str], path: str, artifacts: dict = None,
                   conda_env: dict = None, input_example: dict = None, signature: dict = None, **kwargs) -> str:
     import mlflow.pyfunc
     from mlflow.models import infer_signature
+
+    if isinstance(pipeline, str):
+        pipeline = goldilox.Pipeline.from_file(pipeline)
+
     if conda_env is None:
-        if requirements is None:
-            _, requirements = get_requirements(venv_type='venv')
-            requirements = requirements.split('\n')
         conda_env = {
             'channels': ['defaults'],
             'dependencies': [
-                f"python={get_python_version()}",
+                f"python={pipeline.environment.py_version}",
                 {
-                    'pip': requirements,
+                    'pip': pipeline.environment.env_file.split('\n'),
                 },
             ],
             'name': 'goldilox_env'
         }
 
     if artifacts is None:
-        pipeline_path = str(TemporaryDirectory().name) + '/pipeline.pkl'
-        self.save(pipeline_path)
-        artifacts = {"pipeline": pipeline_path}
+        artifacts = {}
+    pipeline_path = str(TemporaryDirectory().name) + '/pipeline.pkl'
+    artifacts['pipeline'] = pipeline.save(pipeline_path)
 
     class GoldiloxWrapper(mlflow.pyfunc.PythonModel):
 
         def load_context(self, context):
-            from goldilox import Pipeline
-            self.pipeline = Pipeline.from_file(context.artifacts['pipeline'])
+            self.pipeline = goldilox.Pipeline.from_file(context.artifacts['pipeline'])
 
         def predict(self, context, model_input):
             return self.pipeline.predict(model_input)
 
-    input_example = input_example or self.raw
+    if input_example is None:
+        input_example = input_example or pipeline.raw
+
     if signature is None:
-        data = self.infer(input_example)
+        data = pipeline.infer(pipeline.raw)
         if hasattr(data, 'to_pandas_df'):
             data = data.to_pandas_df()
-        signature = infer_signature(data, self.predict(input_example))
-    validate_path(path)
+        signature = infer_signature(data, pipeline.predict(input_example))
+
+    goldilox.utils.validate_path(path)
     mlflow.pyfunc.save_model(path=path, python_model=GoldiloxWrapper(),
                              artifacts=artifacts,
                              signature=signature,

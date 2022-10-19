@@ -26,7 +26,8 @@ def test_export_gunicorn():
     files_str = ' '.join(glob(path + "/*"))
     assert "pipeline/serve.py" in files_str
     assert "pipeline/nginx.conf" in files_str
-    pipeline.export_gunicorn('tests/mlops/gunicorn')
+    # pipeline.export_gunicorn('tests/mlops/gunicorn')
+    pipeline.save('./pipeline.pkl')
 
 
 def test_mlflow():
