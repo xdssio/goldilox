@@ -35,6 +35,7 @@ class CONSTANTS:
     DEFAULT_SUFFIX = ".parquet"
     BYTE_DELIMITER = b'###'
     VENV_TYPE = 'venv_type'
+    MLOPS = 'mlops'
 
 
 VALID_VAEX_HEADERS = ["*.csv", "*.hdf5", "*.parquet", "*.arrow"]

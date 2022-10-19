@@ -37,11 +37,11 @@ def get_query_class(raw):
     )
 
 
-def get_app(path: str):
+def get_app(path: str, root_path: str = ''):
     from fastapi import FastAPI, HTTPException
     from goldilox.config import ALLOW_CORS, CORS_ORIGINS, ALLOW_HEADERS, ALLOW_METHODS, ALLOW_CREDENTIALS
     logger = logging.getLogger(__name__)
-    app = FastAPI()
+    app = FastAPI(root_path=root_path)
     if ALLOW_CORS:
         from fastapi.middleware.cors import CORSMiddleware
         app.add_middleware(
@@ -129,10 +129,10 @@ def get_wsgi_application(path: str):
 
 
 class Server:
-    def __init__(self, path, options={}):
+    def __init__(self, path, root_path='', options={}):
         self.path = path
         self.options = options
-        self.app = get_app(path)
+        self.app = get_app(path=path, root_path=root_path)
         pipeline = Pipeline.from_file(path)
         if not pipeline.validate():
             raise RuntimeError(f"Pipeline in {path} is invalid")

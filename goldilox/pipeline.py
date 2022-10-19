@@ -5,13 +5,13 @@ import logging
 from copy import deepcopy as _copy
 from hashlib import sha256
 from tempfile import TemporaryDirectory
-from typing import List
 
 import cloudpickle
 import numpy as np
 import pandas as pd
 from sklearn.base import TransformerMixin
 from sklearn.utils.validation import check_is_fitted
+from typing import List
 
 import goldilox
 from goldilox.config import CONSTANTS
@@ -171,21 +171,21 @@ class Pipeline(TransformerMixin):
         meta_bytes, _ = Pipeline._read_pipeline_file(path)
         return unpickle(meta_bytes)
 
-    def _get_meta_dict(self, requirements: List[str] = None, clean: bool = True) -> dict:
+    def _get_meta_dict(self, requirements: List[str] = None, appnope: bool = False) -> dict:
         environment_type = get_env_type()
         return {
             CONSTANTS.PIPELINE_TYPE: self.pipeline_type,
             CONSTANTS.VERSION: goldilox.__version__,
             CONSTANTS.VENV_TYPE: environment_type,
             CONSTANTS.PY_VERSION: get_python_version(),
-            CONSTANTS.REQUIREMEMTS: get_requirements(environment_type, requirements=requirements, clean=clean),
+            CONSTANTS.REQUIREMEMTS: requirements or get_requirements(environment_type, appnope=appnope),
             CONSTANTS.VARIABLES: self.variables.copy(),
             CONSTANTS.DESCRIPTION: self.description,
             CONSTANTS.RAW: self.raw,
         }
 
-    def _get_meta(self, requirements: List[str] = None, clean: bool = True) -> bytes:
-        return cloudpickle.dumps(_copy(self._get_meta_dict(requirements, clean)))
+    def _get_meta(self, requirements: List[str] = None, appnope: bool = False) -> bytes:
+        return cloudpickle.dumps(_copy(self._get_meta_dict(requirements, appnope)))
 
     @classmethod
     def _split_meta(cls, b: str) -> tuple:
@@ -198,18 +198,16 @@ class Pipeline(TransformerMixin):
             validate_path(path)
         return write_bytes(path, state)
 
-    def save(self, path: str, requirements: List[str] = None, clean: bool = True) -> str:
+    def save(self, path: str, requirements: List[str] = None, **kwargs) -> str:
         """
         @param path: str : output path
-        @param requirements: list[str]: a list of requirements. if None - takes from pip
-        @param clean: str: If True, clean some packages which are not available for conda in docker (ignored if not on conda)
-        @param mlflow: bool: if True, export as mlflow project - not working on s3:path
-        @param kwargs: Extra parameters to pass to mlflow.*.save_model
+        @param requirements: list[str]: a list of requirements. if None - takes from pip automatically
+        @param kwargs: Extra parameters to pass
         @return: same path the pipeline was saved to
         """
 
         state_to_write = Pipeline.BYTES_SIGNETURE + self._get_meta(
-            requirements, clean) + Pipeline.BYTE_DELIMITER + self._dumps()
+            requirements, kwargs.get('appnope')) + Pipeline.BYTE_DELIMITER + self._dumps()
         return self._save_state(path, state_to_write)
 
     def validate(self, df=None, check_na: bool = True, verbose: bool = True) -> bool:
@@ -293,9 +291,10 @@ class Pipeline(TransformerMixin):
         return export_mlflow(self, path=path, requirements=requirements, artifacts=artifacts, conda_env=conda_env,
                              input_example=input_example, signature=signature, **kwargs)
 
-    def export_gunicorn(self, path: str, requirements: List[str] = None, clean: bool = True) -> str:
+    def export_gunicorn(self, path: str, requirements: List[str] = None,
+                        nginx: bool = False, **kwargs) -> str:
         from goldilox.mlops import export_gunicorn
-        return export_gunicorn(self, path=path, requirements=requirements, clean=clean)
+        return export_gunicorn(self, path=path, requirements=requirements, nginx=nginx, **kwargs)
 
     def export_ray(self, path: str, requirements: List[str] = None, **kwargs) -> str:
         from goldilox.mlops import export_ray

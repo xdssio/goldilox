@@ -1,15 +1,16 @@
 import os
-from pathlib import Path
+import pathlib
+
 from typing import List
 
 import goldilox
-from goldilox.mlops.utils import copy_file
-from goldilox.utils import is_s3_url, get_conda_env, get_open, get_requirements
+from goldilox.utils import is_s3_url, get_requirements, get_open
 
+MLOPS = 'mlops'
 GUNICORN = 'gunicorn'
 
 
-def export_gunicorn(self, path: str, requirements: List[str] = None, clean: bool = True) -> str:
+def export_gunicorn(self, path: str, requirements: List[str] = None, nginx=False, appnope=False) -> str:
     try:
         import gunicorn
     except ImportError:
@@ -17,17 +18,23 @@ def export_gunicorn(self, path: str, requirements: List[str] = None, clean: bool
 
     if not is_s3_url(path):
         os.makedirs(path, exist_ok=True)
-    env = get_conda_env()
-    open_fs = get_open(path)
-    if env is not None:
-        with open_fs(os.path.join(path, ' environment.yml'), 'w') as outfile:
-            outfile.write(env)
+    if requirements:
+        filename = 'requirements.txt'
     else:
-        with open_fs(os.path.join(path, 'requirements.txt'), 'w') as outfile:
-            outfile.write(get_requirements(requirements, clean=clean))
+        filename, requirements = get_requirements(appnope=appnope)
+    open_fs = get_open(path)
+    with open_fs(os.path.join(path, filename), 'w') as outfile:
+        outfile.write(requirements)
+
     self.save(os.path.join(path, 'pipeline.pkl'))
-    goldilox_path = Path(goldilox.__file__)
-    copy_file(goldilox_path, path, 'main.py', GUNICORN)
-    copy_file(goldilox_path, path, 'gunicorn.conf.py', GUNICORN)
+    goldilox_path = str(pathlib.Path(goldilox.__file__).parent.absolute())
+    files = ['wsgi.py', 'gunicorn.conf.py']
+    if nginx:
+        files = files + ['nginx.conf', 'serve.py']
+    for filename in files:
+        local_path = os.path.join(goldilox_path, MLOPS, GUNICORN, filename)
+        file_text = pathlib.Path(local_path).read_text()
+        with open_fs(os.path.join(path, filename), 'w') as outfile:
+            outfile.write(file_text)
 
     return path

@@ -55,8 +55,9 @@ def is_ray_dir(path: str) -> bool:
     ignore_unknown_options=True,
 ))
 @click.argument("path", type=click.Path(exists=True))
+@click.argument("root_path", type=str)
 @click.argument('options', nargs=-1, type=click.UNPROCESSED)
-def serve(path: str, **options):
+def serve(path: str, root_path: str = '', **options):
     """Serve a  pipeline with fastapi server"""
     if os.path.isdir(path):
         if is_mlflow_dir(path):
@@ -68,7 +69,7 @@ def serve(path: str, **options):
             click.echo(f" ")
             subprocess.check_call(command)
         elif is_gunicorn_dir(path):
-            command = ['gunicorn', 'main:app'] + list(options['options'])
+            command = ['gunicorn', 'wsgi:app'] + list(options['options'])
             click.echo(f"Running serve (Gunicorn) as follow: {' '.join(command)}")
             click.echo(f" ")
             subprocess.check_call(command)
@@ -104,7 +105,7 @@ def serve(path: str, **options):
             port = server_options.get('port', os.getenv('PORT', 5000))
             server_options['bind'] = f"{host}:{port}"
 
-        Server(path, options=server_options).serve()
+        Server(path=path, root_path=root_path, options=server_options).serve()
 
 
 @main.command()

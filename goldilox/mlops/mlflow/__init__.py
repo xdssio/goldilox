@@ -1,4 +1,5 @@
 from tempfile import TemporaryDirectory
+
 from typing import List
 
 from goldilox.utils import validate_path, get_python_version, get_requirements
@@ -8,16 +9,21 @@ def export_mlflow(self, path: str, requirements: List[str] = None, artifacts: di
                   conda_env: dict = None, input_example: dict = None, signature: dict = None, **kwargs) -> str:
     import mlflow.pyfunc
     from mlflow.models import infer_signature
-    env = conda_env or {
-        'channels': ['defaults'],
-        'dependencies': [
-            f"python={get_python_version()}",
-            {
-                'pip': get_requirements(venv_type='venv', requirements=requirements).split('\n'),
-            },
-        ],
-        'name': 'goldilox_env'
-    }
+    if conda_env is None:
+        if requirements is None:
+            _, requirements = get_requirements(venv_type='venv')
+            requirements = requirements.split('\n')
+        conda_env = {
+            'channels': ['defaults'],
+            'dependencies': [
+                f"python={get_python_version()}",
+                {
+                    'pip': requirements,
+                },
+            ],
+            'name': 'goldilox_env'
+        }
+
     if artifacts is None:
         pipeline_path = str(TemporaryDirectory().name) + '/pipeline.pkl'
         self.save(pipeline_path)
@@ -42,7 +48,7 @@ def export_mlflow(self, path: str, requirements: List[str] = None, artifacts: di
     mlflow.pyfunc.save_model(path=path, python_model=GoldiloxWrapper(),
                              artifacts=artifacts,
                              signature=signature,
-                             conda_env=env,
+                             conda_env=conda_env,
                              input_example=input_example,
                              **kwargs
                              )

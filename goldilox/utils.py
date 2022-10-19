@@ -179,29 +179,27 @@ def unpickle(b):
     return ret
 
 
-def get_requirements(venv_type=None, requirements=None, clean=True):
+def get_requirements(venv_type=None, appnope=False):
     """Run pip freeze  for venv and conda env export for conda
     @return requirements
     """
-    if requirements is not None:
-        return '\n'.join(requirements)
     if venv_type is None:
         venv_type = get_env_type()
     if venv_type == 'conda':
         command = ["conda env export | cut -f 1 -d '=' "]
         env = subprocess.check_output(command, shell=True).decode()
-        if clean:
+        if appnope is False:
             env = env.replace('\n  - appnope', '')
         splited = env.split('\n')
         splited[0] = 'name: conda_env'
         splited[-2] = 'prefix: conda_env'
-        return '\n'.join(splited)
+        return 'environment.yml', '\n'.join(splited)
     ret = subprocess.check_output([sys.executable, '-m', 'pip',
                                    'freeze']).decode()
-    if clean:
+    if appnope is False:
         import re
         ret = re.sub("appnope==(.[\d \.]*)\\n", '', ret)
-    return ret
+    return 'requirements.txt', ret
 
 
 def get_python_version():
@@ -224,13 +222,13 @@ def get_env_type():
     return None
 
 
-def get_conda_env(clean=True):
+def get_conda_env(appnope=False):
     """run conda env export | cut -f 1 -d '='  and clean problematic packages (for docker) like 'appnope'"""
     env = None
     if get_env_type() == 'conda':
         command = ["conda env export | cut -f 1 -d '=' "]
         env = subprocess.check_output(command, shell=True).decode()
-        if clean:
+        if appnope is False:
             env = env.replace('\n  - appnope', '')
         splited = env.split('\n')
         splited[0] = 'name: conda_env'

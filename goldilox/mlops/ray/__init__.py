@@ -1,21 +1,18 @@
 import os
-from pathlib import Path
+import pathlib
+
 from typing import List
 
 import goldilox
-from goldilox.mlops.utils import copy_file
+from goldilox.config import CONSTANTS
 from goldilox.utils import is_s3_url, get_conda_env, get_open, get_requirements
 
 RAY = 'ray'
 
 
-def copy_ray_file(base: str, path: str, filename: str) -> bool:
-    return copy_file(base, path, filename, RAY)
-
-
 def export_ray(self, path: str,
                requirements: List[str] = None,
-               clean: bool = True) -> str:
+               appnope: bool = False) -> str:
     try:
         import ray
         from ray import serve
@@ -37,16 +34,18 @@ def export_ray(self, path: str,
         with filesystem_open(full_path, 'w') as outfile:
             outfile.write(content)
 
-    if env is not None:
-        filename = 'environment.yml'
-
-    else:
+    if requirements:
         filename = 'requirements.txt'
-        env = get_requirements(requirements=requirements, clean=clean)
+    else:
+        filename, env = get_requirements(appnope=appnope)
     write_file(filename, env)
-
+    filename = 'main.py'
     self.save(os.path.join(path, 'pipeline.pkl'))
-    goldilox_path = Path(goldilox.__file__)
-    copy_file(goldilox_path, path, 'main.py', RAY)
+    goldilox_path = str(pathlib.Path(goldilox.__file__).parent.absolute())
+    local_path = os.path.join(goldilox_path, CONSTANTS.MLOPS, RAY, filename)
+    file_text = pathlib.Path(local_path).read_text()
+    open_fs = get_open(path)
+    with open_fs(os.path.join(path, filename), 'w') as outfile:
+        outfile.write(file_text)
 
     return path
