@@ -34,6 +34,7 @@ class CONSTANTS:
     CONDA_ENV = "conda_env"
     DEFAULT_SUFFIX = ".parquet"
     BYTE_DELIMITER = b'###'
+    BYTES_SIGNETURE = b'Goldilox'
     VENV_TYPE = 'venv_type'
     MLOPS = 'mlops'
 

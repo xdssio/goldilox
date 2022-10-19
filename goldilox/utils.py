@@ -1,5 +1,6 @@
 import gc
 import logging
+import mmap
 import os
 import shutil
 import subprocess
@@ -139,18 +140,25 @@ def validate_path(path):
     return ret
 
 
-def read_bytes(path):
+def remove_signeture(s):
+    return s[len(CONSTANTS.BYTES_SIGNETURE):]
+
+
+def add_signeture(s):
+    return CONSTANTS.BYTES_SIGNETURE + s
+
+
+def read_meta_bytes(path):
     open_fs = get_open(path)
+    with open_fs(path, 'r+') as f:
+        with mmap.mmap(f.fileno(), 0) as mf:
+            offset = mf.find(CONSTANTS.BYTE_DELIMITER)
+            if offset == -1:
+                raise Exception(f"{CONSTANTS.BYTE_DELIMITER} not found")
+        f.seek(offset)
     with open_fs(path, 'rb') as f:
-        ret = f.read()
-    return ret
-
-
-def write_bytes(path, bytes_to_write):
-    open_fs = get_open(path)
-    with open_fs(path, "wb") as outfile:
-        outfile.write(bytes_to_write)
-    return path
+        meta_bytes = f.read(offset)
+    return meta_bytes
 
 
 def get_open(path):

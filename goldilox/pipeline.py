@@ -2,21 +2,22 @@ from __future__ import annotations
 
 import json
 import logging
+import pathlib
 from copy import deepcopy as _copy
 from hashlib import sha256
 from tempfile import TemporaryDirectory
+from typing import List
 
 import cloudpickle
 import numpy as np
 import pandas as pd
 from sklearn.base import TransformerMixin
 from sklearn.utils.validation import check_is_fitted
-from typing import List
 
 import goldilox
 from goldilox.config import CONSTANTS
-from goldilox.utils import is_s3_url, read_bytes, unpickle, validate_path, write_bytes, \
-    get_python_version, get_env_type, get_requirements
+from goldilox.utils import is_s3_url, unpickle, validate_path, get_python_version, get_env_type, get_requirements, \
+    read_meta_bytes, remove_signeture, add_signeture
 
 logger = logging.getLogger()
 
@@ -24,8 +25,6 @@ logger = logging.getLogger()
 class Pipeline(TransformerMixin):
     pipeline_type: str
     description: str
-    BYTES_SIGNETURE = b"Goldilox"
-    BYTE_DELIMITER = b'###'
 
     @classmethod
     def check_hash(cls, file_path: str) -> int:
@@ -139,7 +138,7 @@ class Pipeline(TransformerMixin):
 
     @classmethod
     def _read_pipeline_file(cls, path: str) -> tuple:
-        state_bytes = read_bytes(path)
+        state_bytes = pathlib.Path(path).read_bytes()
         return Pipeline._split_meta(state_bytes)
 
     @classmethod
@@ -168,17 +167,19 @@ class Pipeline(TransformerMixin):
     @classmethod
     def load_meta(cls, path: str) -> dict:
         """Read the meta information from a pipeline file without loading it"""
-        meta_bytes, _ = Pipeline._read_pipeline_file(path)
+        meta_bytes = remove_signeture(read_meta_bytes(path))
         return unpickle(meta_bytes)
 
     def _get_meta_dict(self, requirements: List[str] = None, appnope: bool = False) -> dict:
         environment_type = get_env_type()
+        if requirements is None:
+            _, requirements = get_requirements(environment_type, appnope=appnope)
         return {
             CONSTANTS.PIPELINE_TYPE: self.pipeline_type,
             CONSTANTS.VERSION: goldilox.__version__,
             CONSTANTS.VENV_TYPE: environment_type,
             CONSTANTS.PY_VERSION: get_python_version(),
-            CONSTANTS.REQUIREMEMTS: requirements or get_requirements(environment_type, appnope=appnope),
+            CONSTANTS.REQUIREMEMTS: requirements,
             CONSTANTS.VARIABLES: self.variables.copy(),
             CONSTANTS.DESCRIPTION: self.description,
             CONSTANTS.RAW: self.raw,
@@ -189,14 +190,14 @@ class Pipeline(TransformerMixin):
 
     @classmethod
     def _split_meta(cls, b: str) -> tuple:
-        splited = b.split(Pipeline.BYTE_DELIMITER)
-        return splited[0][len(Pipeline.BYTES_SIGNETURE):], splited[1]
+        splited = b.split(CONSTANTS.BYTE_DELIMITER)
+        return splited[0][len(CONSTANTS.BYTES_SIGNETURE):], splited[1]
 
     @classmethod
     def _save_state(cls, path: str, state: dict) -> str:
         if not is_s3_url(path):
             validate_path(path)
-        return write_bytes(path, state)
+        return pathlib.Path(path).write_bytes(state)
 
     def save(self, path: str, requirements: List[str] = None, **kwargs) -> str:
         """
@@ -206,9 +207,10 @@ class Pipeline(TransformerMixin):
         @return: same path the pipeline was saved to
         """
 
-        state_to_write = Pipeline.BYTES_SIGNETURE + self._get_meta(
-            requirements, kwargs.get('appnope')) + Pipeline.BYTE_DELIMITER + self._dumps()
-        return self._save_state(path, state_to_write)
+        state_to_write = add_signeture(self._get_meta(
+            requirements, kwargs.get('appnope'))) + CONSTANTS.BYTE_DELIMITER + self._dumps()
+        self._save_state(path, state_to_write)
+        return path
 
     def validate(self, df=None, check_na: bool = True, verbose: bool = True) -> bool:
         """
