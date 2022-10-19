@@ -3,6 +3,8 @@ from tempfile import TemporaryDirectory
 
 import numpy as np
 import vaex
+from lightgbm.sklearn import LGBMClassifier
+from vaex.ml.sklearn import Predictor
 
 from goldilox import Pipeline
 from goldilox.datasets import load_iris
@@ -11,13 +13,16 @@ from goldilox.datasets import load_iris
 def test_export_sageamker():
     df, features, target = load_iris()
     df = vaex.from_pandas(df)
-    df['predictions'] = df['target'] + 1
 
     def fit(df):
-        df['predictions'] = df['target'] + 2
+        lgb = Predictor(model=LGBMClassifier(verbose=-1, objective='multiclass', num_class=3), features=features,
+                        target=target, prediction_name='prediction')
+        lgb.fit(df)
+        df = lgb.transform(df)
         return df
 
     pipeline = Pipeline.from_vaex(df, fit=fit)
+
     pipeline.save('tests/mlops/sagemaker/pipeline.pkl')
 
 

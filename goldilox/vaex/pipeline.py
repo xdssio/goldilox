@@ -130,7 +130,7 @@ class VaexPipeline(HasState, Pipeline):
             sample = df[0:1]
             self._original_columns = self._get_original_columns(df)
             self.raw = {
-                key: values[0] for key, values in sample.dataset._columns.items()
+                key: values.tolist()[0] for key, values in sample.dataset._columns.items()
             }
             return True
         except Exception as e:
