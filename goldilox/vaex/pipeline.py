@@ -290,8 +290,15 @@ class VaexPipeline(HasState, Pipeline):
     def partial_fit(self, start_index=None, end_index=None):
         raise ValueError("partial_fit implemented")
 
-    @classmethod
-    def infer(cls, data, **kwargs):
+    @property
+    def features(self):
+        return [column for column in self._original_columns if column in self.raw]
+
+    @property
+    def target(self):
+        return self.predict_column
+
+    def infer(self, data, **kwargs):
         if isinstance(data, vaex.dataframe.DataFrame):
             return data.copy()
         elif isinstance(data, pd.DataFrame):
@@ -322,17 +329,17 @@ class VaexPipeline(HasState, Pipeline):
         elif isinstance(data, bytes):
             data = json.loads(data)
         if isinstance(data, np.ndarray):
-            columns = kwargs.get("names")
-            if columns is None:
-                raise RuntimeError(
-                    "can't infer numpy array without 'names' as a list of columns"
-                )
+            columns = kwargs.get("names", self.features)
             if len(columns) == data.shape[1]:
                 data = data.T
             return vaex.from_dict({key: value for key, value in zip(columns, data)})
         elif isinstance(data, list):
             # try records
-            return vaex.from_pandas(pd.DataFrame(data))
+            columns = kwargs.get("names", self.features)
+            data = pd.DataFrame(data)
+            if len(columns) == data.shape[1]:
+                data.columns = columns
+            return vaex.from_pandas(data)
         elif isinstance(data, dict):
             sizes = [
                 0

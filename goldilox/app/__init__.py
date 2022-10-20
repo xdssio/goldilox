@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import List, Union
 
@@ -82,33 +83,28 @@ def get_app(path: str, root_path: str = ''):
         return process_response(ret)
 
     @app.post("/invocations", response_model=Union[List[dict], str])
-    async def invocations(request: Request):
+    async def invocations(request: Request, columns: str = ""):
         logger.info("/invocations")
         content_type = request.headers.get("content-type", None)
+        charset = request.headers.get("charset", "utf-8")
         data = await request.body()
-        data = data.decode("utf-8")
-        header = None
+        data = data.decode(charset)
         if content_type == "text/csv":
-            s = io.StringIO(data)
-            try:
-                data = pd.read_csv(s)
-                header = True
-            except:
-                data = pd.read_csv(s, header=None)
-                header = False
-
-        ret = get_pipeline().inference(data)
-        if header:
+            data = pd.read_csv(io.StringIO(data), encoding=charset)
+        else:
+            data = json.loads(data)
+        if isinstance(data, dict) and "data" in data:  # mlflow format
+            data = data["data"]
+        columns = None if not columns else columns.split(",")
+        ret = get_pipeline().inference(data, columns=columns)
+        if content_type == "text/csv":
             if hasattr(ret, 'to_pandas_df'):
                 ret = ret.to_pandas_df()
             out = io.StringIO()
-            ret.to_csv(out, header=header, index=False)
+            ret.to_csv(out, index=False)
             return out.getvalue()
 
         return process_response(ret)
-
-    #  https://github.com/aws/amazon-sagemaker-examples/blob/main/advanced_functionality/scikit_bring_your_own
-    #  /container/decision_trees/predictor.py
 
     @app.get("/variables", response_model=dict)
     def variables():

@@ -22,7 +22,7 @@ def test_export_gunicorn():
     pipeline.set_variable('b', 2)
     pipeline.set_variable('description', 'description')
     assert len(pipeline.variables) == 4
-    assert pipeline.description
+    assert pipeline.description == 'description'
 
     path = str(TemporaryDirectory().name) + '/pipeline'
 

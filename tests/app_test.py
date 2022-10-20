@@ -13,7 +13,7 @@ import goldilox.app
 from goldilox.datasets import load_iris
 
 
-def _client():
+def _pipeline():
     df, features, target = load_iris()
     df = vaex.from_pandas(df)
     df.variables['variables'] = {'test': 'test'}
@@ -22,8 +22,14 @@ def _client():
     model.fit(df)
     df = model.transform(df)
     pipeline = goldilox.Pipeline.from_vaex(df)
+    pipeline.raw.pop('target')
     pipeline.set_variable('b', 2)
     pipeline.set_variable('description', 'description')
+    return pipeline
+
+
+def _client():
+    pipeline = _pipeline()
     model_path = str(TemporaryDirectory().name) + '/pipeline.pkl'
     pipeline.save(model_path)
     return TestClient(goldilox.app.get_app(model_path))
@@ -65,19 +71,32 @@ def test_app_inference(client, raw):
 def test_app_invocations(client, raw):
     client = _client()
     raw = _raw()
+    pipeline = _pipeline()
 
-    predictions = client.post('/invocations', json=[raw, raw]).json()
+    # standard
+    payload = [raw, raw]
+    predictions = client.post('/invocations', json=payload).json()
     for prediction in predictions:
         assert prediction['prediction'] == 0
         assert prediction['target'] is None
 
+    # mlflow format
+    payload = {"data": [list(raw.values()), list(raw.values())]}
+    predictions = client.post('/invocations?columns=prediction', json=payload).json()
+    assert predictions[0]['prediction'] == 0
     df = pd.DataFrame([raw, raw])
     buffer = io.StringIO()
-    df.to_csv(buffer, index=False)
-    data = buffer.getvalue()
-    response = client.post('/invocations', headers={'Content-Type': 'text/csv'}, data=data).json()
+    df.to_csv(buffer, index=False, header=True)
+
+    # csv format
+    response = client.post('/invocations', headers={'Content-Type': 'text/csv'}, data=buffer.getvalue()).json()
     predictions = pd.read_csv(io.StringIO(response))
     assert predictions.shape[1] == df.shape[1] + 2
+
+    response = client.post('/invocations?columns=target,prediction', headers={'Content-Type': 'text/csv'},
+                           data=buffer.getvalue()).json()
+    predictions = pd.read_csv(io.StringIO(response))
+    assert predictions.shape[1] == 2
 
 
 def test_app_ping(client):
@@ -92,4 +111,4 @@ def test_app_example(client):
     assert response['petal_length'] == 1.4
     assert response['petal_width'] == 0.2
     assert response['prediction'] == 0
-    assert response['target'] == 0
+
