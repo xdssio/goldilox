@@ -1,6 +1,6 @@
 import io
-import json
 from tempfile import TemporaryDirectory
+
 import pandas as pd
 import pytest
 import vaex
@@ -70,11 +70,14 @@ def test_app_invocations(client, raw):
     for prediction in predictions:
         assert prediction['prediction'] == 0
         assert prediction['target'] is None
-    df = pd.DataFrame([raw, raw])
 
-    predictions = client.post('/invocations', headers={'Content-Type': 'text/csv'},
-                              files=[("parameter", ("file1.txt", io.BytesIO(
-                                  bytes(df.to_csv(line_terminator='\r\n', index=False), encoding='utf-8'))))]).json()
+    df = pd.DataFrame([raw, raw])
+    buffer = io.StringIO()
+    df.to_csv(buffer, index=False)
+    data = buffer.getvalue()
+    response = client.post('/invocations', headers={'Content-Type': 'text/csv'}, data=data).json()
+    predictions = pd.read_csv(io.StringIO(response))
+    assert predictions.shape[1] == df.shape[1] + 2
 
 
 def test_app_ping(client):
