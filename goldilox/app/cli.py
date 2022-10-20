@@ -1,9 +1,9 @@
 import json
 import os.path
+import pathlib
 import shutil
 import subprocess
 import sys
-from pathlib import Path
 
 import click
 import cloudpickle
@@ -48,7 +48,7 @@ def is_ray_dir(path: str) -> bool:
     main_path = os.path.join(path, 'main.py')
     return os.path.isfile(os.path.join(path, 'pipeline.pkl')) and \
            os.path.isfile(main_path) and \
-           'ray.init' in Path(main_path).read_text()
+           'ray.init' in pathlib.Path(main_path).read_text()
 
 
 def parse_options(options):
@@ -68,7 +68,7 @@ def parse_options(options):
             ret[clean_key(key)] = value
         else:
             print(f"(skip) - option {option} was not understood - use key=value version please ")
-        return ret
+    return ret
 
 
 @main.command(context_settings=dict(ignore_unknown_options=True))
@@ -78,9 +78,10 @@ def parse_options(options):
 def serve(path: str, root_path: str = '', **options):
     """Serve a  pipeline with fastapi server"""
     if os.path.isdir(path):
+
         if is_mlflow_dir(path):
             meta = Pipeline.load_meta(os.path.join(path, 'artifacts', 'pipeline.pkl'))
-            environment_param = ['--no-conda'] if meta['venv_type'] == 'venv' else []
+            environment_param = ['--no-conda'] if meta['venv_type'] == goldilox.config.CONSTANTS.VENV else []
             command = ['mlflow', 'models', 'serve', f"-m", os.path.abspath(path)] + environment_param + list(
                 options['options'])
             click.echo(f"Running serve (MLflow) as follow: {' '.join(command)}")
@@ -273,7 +274,7 @@ def update(path: str, key: str, value: str, variable: bool, file: bool):
     if file and not os.path.isfile(value):
         click.echo(f"{value} is not a file - skip")
     if file and os.path.isfile(value):
-        tmp_value = Path(value).read_text()
+        tmp_value = pathlib.Path(value).read_text()
         click.echo(f"{value} is considered as a file")
     if os.path.isfile(value) and not file:
         click.echo(f"{value} is a file - if you want to load it as such, use the '--file' flag")
@@ -294,11 +295,11 @@ def update(path: str, key: str, value: str, variable: bool, file: bool):
 @click.option('-o', '--output', type=str, default=None)
 def dockerfile(output: str):
     """Create a Dockerfile for you to work with"""
-    goldilox_path = Path(goldilox.__file__)
+    goldilox_path = pathlib.Path(goldilox.__file__)
     docker_file_path = str(goldilox_path.parent.absolute().joinpath('app').joinpath('Dockerfile'))
     docker_output = output or './Dockerfile'
     shutil.copyfile(docker_file_path, docker_output)
-    content = Path(dockerfile).read_text()
+    content = pathlib.Path(dockerfile).read_text()
     click.echo(content)
     click.echo("##################\nDockerfile was writen to './dockerfile'\n")
     click.echo(

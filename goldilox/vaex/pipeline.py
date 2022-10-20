@@ -41,9 +41,6 @@ class VaexPipeline(HasState, Pipeline):
     state = traitlets.Dict(
         default_value=None, allow_none=True, help="The state to apply on inference"
     )
-    description = traitlets.Unicode(
-        default_value="", help="Any notes to associate with a pipeline instance"
-    )
     predict_column = traitlets.Unicode(
         default_value=None, allow_none=True, help="The column to return as numpy array in predict"
     )

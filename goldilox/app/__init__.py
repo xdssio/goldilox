@@ -38,7 +38,10 @@ def get_query_class(raw):
 
 
 def get_app(path: str, root_path: str = ''):
+    import io
+    import pandas as pd
     from fastapi import FastAPI, HTTPException
+    from starlette.requests import Request
     from goldilox.config import ALLOW_CORS, CORS_ORIGINS, ALLOW_HEADERS, ALLOW_METHODS, ALLOW_CREDENTIALS
     logger = logging.getLogger(__name__)
     app = FastAPI(root_path=root_path)
@@ -61,10 +64,7 @@ def get_app(path: str, root_path: str = ''):
     def get_pipeline():
         return app.state._state.get(PIPELINE, pipeline)
 
-    @app.post("/inference", response_model=List[dict])
-    def inference(data: List[Query], columns: str = ""):
-        logger.info("/inference")
-        data = parse_query(data)
+    def _inference(data, columns):
         if not data:
             raise HTTPException(status_code=400, detail="No data provided")
         try:
@@ -78,7 +78,25 @@ def get_app(path: str, root_path: str = ''):
 
         return process_response(ret)
 
-    # @app.post("/invocations", response_model=List): TODO
+    @app.post("/inference", response_model=List[dict])
+    def inference(data: List[Query], columns: str = ""):
+        logger.info("/inference")
+        data = parse_query(data)
+        return _inference(data, columns)
+
+    @app.post("/invocations", response_model=List[dict])
+    async def invocations(request: Request):
+        logger.info("/invocations")
+        content_type = request.headers.get("content-type", None)
+        data = await request.body()
+        print(data)
+        if content_type == "text/csv":
+            data = data.decode("utf-8")
+            print(data)
+            s = io.StringIO(data)
+            data = pd.read_csv(s, header=None)
+        return _inference(data, None)
+
     #  https://github.com/aws/amazon-sagemaker-examples/blob/main/advanced_functionality/scikit_bring_your_own
     #  /container/decision_trees/predictor.py
 
@@ -96,6 +114,13 @@ def get_app(path: str, root_path: str = ''):
     def example():
         logger.info("/example")
         return process_response(get_pipeline().example)
+
+    @app.get("/ping", response_model=str)
+    def ping():
+        health = get_pipeline() is not None
+        if not health:
+            raise HTTPException(status_code=404, detail="Pipeline not found")
+        return 'pong'
 
     return app
 
