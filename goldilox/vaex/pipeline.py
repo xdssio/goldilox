@@ -30,20 +30,11 @@ logger = logging.getLogger(__name__)
 PIPELINE_FIT = "_PIPELINE_FIT"
 FUNCTIONS = "functions"
 VARIABLES = "variables"
+VAEX = 'vaex'
 
 
 class VaexPipeline(HasState, Pipeline):
-    pipeline_type = traitlets.Unicode(default_value="vaex")
-    current_time = int(time())
-    created = traitlets.Int(
-        default_value=current_time, allow_none=False, help="Created time"
-    )
-    updated = traitlets.Int(
-        default_value=current_time, allow_none=False, help="Updated time"
-    )
-    raw = traitlets.Any(
-        default_value=None, allow_none=True, help="An example of the raw dataset"
-    ).tag(**serialize_pickle)
+    pipeline_type = traitlets.Unicode(default_value=VAEX)
     _original_columns = traitlets.List(
         default_value=[], help="original columns which were not virtual expressions"
     )
@@ -53,23 +44,12 @@ class VaexPipeline(HasState, Pipeline):
     description = traitlets.Unicode(
         default_value="", help="Any notes to associate with a pipeline instance"
     )
-    variables = traitlets.Dict(
-        default_value={}, help="Any variables to associate with a pipeline instance"
-    )
     predict_column = traitlets.Unicode(
         default_value=None, allow_none=True, help="The column to return as numpy array in predict"
     )
-    environment = traitlets.Any(
-        default_value=goldilox.environment.Environment(), allow_none=False, help="The environment class"
+    meta = traitlets.Any(
+        default_value=goldilox.Meta(VAEX), allow_none=False, help="The environment class"
     ).tag(**serialize_pickle)
-
-    @property
-    def description(self) -> str:
-        return self.variables.get(goldilox.config.CONSTANTS.DESCRIPTION, "")
-
-    @property
-    def example(self) -> dict:
-        return self.inference(self.raw).to_records(0)
 
     @classmethod
     def _get_original_columns(cls, df: vaex.dataframe.DataFrame) -> List[str]:
@@ -184,8 +164,7 @@ class VaexPipeline(HasState, Pipeline):
         pipeline = VaexPipeline(
             state=state,
             _original_columns=original_columns,
-            raw=raw,
-            variables=process_variables(variables),
+            meta=goldilox.Meta(VAEX, raw=raw, variables=process_variables(variables)),
             predict_column=predict_column
         )
 
@@ -413,7 +392,7 @@ class VaexPipeline(HasState, Pipeline):
         fit_func = self.get_function(PIPELINE_FIT)
         if fit_func is None:
             raise RuntimeError("'fit()' was not set for this pipeline")
-        self.raw = copy.to_records(0)
+        self.set_raw(copy.to_records(0))
         trained = fit_func(copy)
         if VaexPipeline.is_vaex_dataset(trained):
             trained.add_function(PIPELINE_FIT, fit_func)

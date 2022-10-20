@@ -25,6 +25,7 @@ class CONSTANTS:
     VARIABLES = "variables"
     DESCRIPTION = "description"
     RAW = "raw"
+    ENVIRONMENT_FILENAME = "environment_filename"
     PIPELINE = "pipeline"
     PIPELINE_TYPE = "pipeline_type"
     STATE = "state"
@@ -37,6 +38,8 @@ class CONSTANTS:
     BYTES_SIGNETURE = b'Goldilox'
     VENV_TYPE = 'venv_type'
     MLOPS = 'mlops'
+    CONDA = 'conda'
+    VENV = 'venv'
 
 
 VALID_VAEX_HEADERS = ["*.csv", "*.hdf5", "*.parquet", "*.arrow"]

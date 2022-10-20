@@ -23,7 +23,7 @@ logger = logging.getLogger()
 
 class Pipeline(TransformerMixin):
     pipeline_type: str
-    environment: goldilox.Environment()
+    meta: goldilox.Meta
 
     @classmethod
     def check_hash(cls, file_path: str) -> int:
@@ -59,6 +59,32 @@ class Pipeline(TransformerMixin):
         if hasattr(df, 'to_pandas_df'):
             df = df.to_pandas_df()
         return df
+
+    @property
+    def variables(self):
+        return self.meta.variables
+
+    @property
+    def description(self) -> str:
+        return self.meta.description
+
+    @property
+    def raw(self):
+        return self.meta.raw
+
+    @property
+    def example(self) -> dict:
+        return self.inference(self.raw).to_records(0)
+
+    def set_raw(self, raw):
+        self.meta.raw = raw
+
+    def set_variable(self, key, value):
+        self.variables[key] = value
+        return value
+
+    def get_variable(self, key, default=None):
+        return self.variables.get(key, default)
 
     @classmethod
     def from_vaex(cls, df,
@@ -166,21 +192,12 @@ class Pipeline(TransformerMixin):
         return unpickle(meta_bytes)
 
     @property
-    def meta(self) -> dict:
-        return {
-            CONSTANTS.PIPELINE_TYPE: self.pipeline_type,
-            CONSTANTS.VERSION: goldilox.__version__,
-            CONSTANTS.VENV_TYPE: self.environment.env_type,
-            CONSTANTS.PY_VERSION: self.environment.py_version,
-            CONSTANTS.REQUIREMEMTS: self.environment.env_file,
-            CONSTANTS.VARIABLES: self.variables.copy(),
-            CONSTANTS.DESCRIPTION: self.description,
-            CONSTANTS.RAW: self.raw,
-        }
+    def _meta_dict(self) -> dict:
+        return self.meta.to_dict()
 
     @property
     def _meta_bytes(self) -> bytes:
-        return cloudpickle.dumps(_copy(self.meta))
+        return cloudpickle.dumps(_copy(self._meta_dict))
 
     @classmethod
     def _split_meta(cls, b: str) -> tuple:

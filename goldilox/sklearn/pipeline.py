@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from contextlib import suppress
-from time import time
 from typing import List, Any
 
 import cloudpickle
@@ -15,54 +14,17 @@ import goldilox
 
 DEFAULT_OUTPUT_COLUMN = "prediction"
 logger = logging.getLogger()
+SKLEARN = 'sklearn'
 
 
 class SklearnPipeline(traitlets.HasTraits, goldilox.Pipeline, TransformerMixin):
-    pipeline_type = traitlets.Unicode(default_value="sklearn")
-    current_time = int(time())
-    created = traitlets.Int(
-        default_value=current_time, allow_none=False, help="Created time"
-    )
-    updated = traitlets.Int(
-        default_value=current_time, allow_none=False, help="Updated time"
-    )
-    raw = traitlets.Any(
-        default_value=None,
-        allow_none=True,
-        help="An example of the transformed dataset",
-    )
+    pipeline_type = traitlets.Unicode(default_value=SKLEARN)
     pipeline = traitlets.Any(allow_none=False, help="A sklearn pipeline")
     features = traitlets.List(allow_none=True, help="A list of features")
     target = traitlets.Unicode(allow_none=True, help="A column to learn on fit")
     output_columns = traitlets.List(allow_none=True, help="The output column names")
-    fit_params = traitlets.Dict(
-        allow_none=True, default_value={}, help="params to use on fit time"
-    )
-    description = traitlets.Unicode(allow_none=True,
-                                    default_value="", help="Any notes to associate with a pipeline instance"
-                                    )
-    variables = traitlets.Dict(
-        default_value={}, help="Any variables to associate with a pipeline instance"
-    )
-    environment = traitlets.Any(
-        default_value=goldilox.Environment(), allow_none=True, help="The environment class"
-    )
-
-    @property
-    def description(self) -> str:
-        return self.variables.get(goldilox.config.CONSTANTS.DESCRIPTION, "")
-
-    @property
-    def example(self):
-        """Returns an example of all possible outputs"""
-        return self.inference(self.raw).to_dict(orient="records")[0]
-
-    def set_variable(self, key, value):
-        self.variables[key] = value
-        return value
-
-    def get_variable(self, key, default=None):
-        return self.variables.get(key, default)
+    fit_params = traitlets.Dict(allow_none=True, default_value={}, help="params to use on fit time")
+    meta = traitlets.Any(default_value=goldilox.Meta(SKLEARN), allow_none=False, help="The meta class")
 
     @classmethod
     def from_sklearn(
@@ -107,11 +69,12 @@ class SklearnPipeline(traitlets.HasTraits, goldilox.Pipeline, TransformerMixin):
         if hasattr(pipeline, 'predict') and not hasattr(pipeline, 'transform') and (
                 output_columns is None or len(output_columns) == 0):
             output_columns = [DEFAULT_OUTPUT_COLUMN]
+
         return SklearnPipeline(
             pipeline=pipeline,
             features=features,
             target=target,
-            raw=raw,
+            meta=goldilox.Meta(SKLEARN, raw=raw, variables=variables),
             output_columns=output_columns,
             fit_params=fit_params,
             variables=variables
@@ -210,7 +173,7 @@ class SklearnPipeline(traitlets.HasTraits, goldilox.Pipeline, TransformerMixin):
 
     def fit(self, df, y=None, validate: bool = True, check_na: bool = True) -> SklearnPipeline:
         X, y = self._to_pandas(df, y)
-        self.raw = self.to_raw(X)
+        self.set_raw(self.to_raw(X))
         params = self.fit_params or {}
         self.pipeline = self.pipeline.fit(X=X, y=y, **params)
         if validate:

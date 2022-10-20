@@ -29,7 +29,6 @@ def write_pipeline(pipeline, path):
 def setup_environment(pipeline, path):
     if not is_s3_url(path):
         os.makedirs(path, exist_ok=True)
-    meta = goldilox.Pipeline.load_meta(pipeline) if isinstance(pipeline, str) else pipeline.meta
-    filename = ENVIRONMENT_YAML if meta.get(goldilox.config.CONSTANTS.VENV_TYPE) == CONDA else REQUIREMENTS_TXT
-    pathlib.Path(os.path.join(path, filename)).write_text(meta.get(goldilox.config.CONSTANTS.REQUIREMEMTS, ''))
+    meta = goldilox.Meta.from_file(pipeline) if isinstance(pipeline, str) else pipeline.meta
+    pathlib.Path(os.path.join(path, meta.environment_filename)).write_text(meta.env_file)
     goldilox.mlops.write_pipeline(pipeline, path)

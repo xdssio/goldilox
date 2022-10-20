@@ -12,18 +12,8 @@ def export_mlflow(pipeline: Union[goldilox.Pipeline, str], path: str, artifacts:
 
     if isinstance(pipeline, str):
         pipeline = goldilox.Pipeline.from_file(pipeline)
-
     if conda_env is None:
-        conda_env = {
-            'channels': ['defaults'],
-            'dependencies': [
-                f"python={pipeline.environment.py_version}",
-                {
-                    'pip': pipeline.environment.env_file.split('\n'),
-                },
-            ],
-            'name': 'goldilox_env'
-        }
+        conda_env = pipeline.meta.get_conda_environment()
 
     if artifacts is None:
         artifacts = {}
