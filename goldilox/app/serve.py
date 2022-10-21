@@ -44,7 +44,7 @@ def sigterm_handler(nginx_pid, gunicorn_pid):
     sys.exit(0)
 
 
-def start_server():
+def start_server(nginx=False, options: dict = None):
     print('Starting the inference server with {} workers.'.format(model_server_workers))
     nginx_config_path = 'nginx.conf'
     # link the log streams to stdout/err so they will be logged to the container logs
@@ -72,8 +72,6 @@ def start_server():
     sigterm_handler(nginx.pid, gunicorn.pid)
     print('Inference server exiting')
 
-
-# The main routine just invokes the start function.
 
 if __name__ == '__main__':
     start_server()

@@ -1,10 +1,17 @@
+import contextlib
 import json
 import logging
+import multiprocessing
+import os
+import re
+import signal
+import subprocess
+import sys
 from typing import List, Union
 
 from pydantic import create_model
 
-from goldilox import Pipeline
+import goldilox
 from goldilox.utils import to_nulls, process_variables
 
 PIPELINE = "pipeline"
@@ -12,6 +19,16 @@ RAW = "raw"
 GUNICORN = "gunicorn"
 UVICORN = "uvicorn"
 PATH = "path"
+
+logger = logging.getLogger(__name__)
+
+
+def is_docker():
+    path = '/proc/self/cgroup'
+    return (
+            os.path.exists('/.dockerenv') or
+            os.path.isfile(path) and any('docker' in line for line in open(path))
+    )
 
 
 def parse_query(query):
@@ -21,7 +38,7 @@ def parse_query(query):
 
 
 def process_response(items):
-    items = Pipeline.to_records(items)
+    items = goldilox.Pipeline.to_records(items)
     if not isinstance(items, list):
         items = [items]
     for item in items:
@@ -57,7 +74,7 @@ def get_app(path: str, root_path: str = ''):
         )
     PIPELINE = "pipeline"
 
-    pipeline = Pipeline.from_file(path)
+    pipeline = goldilox.Pipeline.from_file(path)
     # A dynamic way to create a pydanic model based on the raw data
     raw = process_response(pipeline.raw)[0]
     Query = get_query_class(raw)
@@ -88,6 +105,9 @@ def get_app(path: str, root_path: str = ''):
         content_type = request.headers.get("content-type", None)
         charset = request.headers.get("charset", "utf-8")
         data = await request.body()
+        if not data:
+            raise HTTPException(status_code=400, detail="No data provided")
+
         data = data.decode(charset)
         if content_type == "text/csv":
             data = pd.read_csv(io.StringIO(data), encoding=charset)
@@ -159,23 +179,125 @@ def get_wsgi_application(path: str):
     return WSGIApplication
 
 
-class Server:
-    def __init__(self, path, root_path='', options={}):
+def sigterm_handler(nginx_pid, gunicorn_pid):
+    with contextlib.suppress(OSError):
+        os.kill(nginx_pid, signal.SIGQUIT)
+    with contextlib.suppress(OSError):
+        os.kill(gunicorn_pid, signal.SIGTERM)
+    sys.exit(0)
+
+
+class GoldiloxServer:
+    UVICORN_WORKER = 'uvicorn.workers.UvicornH11Worker'
+
+    def __init__(self, path, root_path='', nginx_config=None, options={}):
         self.path = path
-        self.options = options
+        self.cmd_options = ' '.join(options)
+        self.parameters = self._to_parameters(options)
+        self.workers = self.parameters.get('workers', 1)
+        self.host = self.parameters.get('host', self.parameters.get('bind').split(':')[0])
+        self.port = self.parameters.get('port', self.parameters.get('bind').split(':')[1])
         self.app = get_app(path=path, root_path=root_path)
-        pipeline = Pipeline.from_file(path)
+        self.nginx_config = nginx_config
+        pipeline = goldilox.Pipeline.from_file(path)
         if not pipeline.validate():
             raise RuntimeError(f"Pipeline in {path} is invalid")
 
-    @staticmethod
-    def _validate_worker_class(options):
-        options["worker_class"] = options.get(
-            "worker_class", "uvicorn.workers.UvicornH11Worker"
-        )
+    def _to_parameters(self, options):
+        params = {}
+
+        def clean_key(key):
+            if key.startswith('--'):
+                key = key[2:]
+            elif key.startswith('-'):
+                key = key[1:]
+            return key.replace('-', '_')
+
+        for option in options['options']:
+            splited = option.split('=')
+            if len(splited) == 2:
+                key, value = splited[0], splited[1]
+                params[clean_key(key)] = value
+            else:
+                print(f"(skip) - option {option} was not understood - use key=value version please ")
+        bind = params.get('bind', os.getenv('BIND', ''))
+        if not bind:
+            if self.is_docker():
+                bind = "unix:/tmp/gunicorn.sock"
+                self.cmd_options = re.sub('-b \S+|--bind=[\S]*', f"-b {bind}", self.cmd_options)
+            else:
+                host = params.get('host', os.getenv('HOST', '127.0.0.1'))
+                port = int(params.get('port', os.getenv('PORT', 5000)))
+                bind = f"{host}:{port}"
+        params['bind'] = bind
+        params['workers'] = params.get('workers', int(os.environ.get('WORKERS', multiprocessing.cpu_count())))
+        params["worker_class"] = params.get("worker_class", GoldiloxServer.UVICORN_WORKER)
         return options
 
-    def serve(self, options=None):
-        options = self._validate_worker_class(options or self.options)
+    def serve(self, nginx=False):
+        if nginx:
+            nginx_pid = self._serve_nginx()
+            gunicorn_pid = self._serve_gunicorn()
+            pids = set([gunicorn_pid, nginx_pid])
+            signal.signal(signal.SIGTERM, lambda a, b: sigterm_handler(nginx_pid, gunicorn_pid))
+
+            # If either subprocess exits, so do we.
+            while True:
+                pid, _ = os.wait()
+                if pid in pids:
+                    break
+
+            sigterm_handler(nginx_pid, gunicorn_pid)
+            print('Inference server exiting')
+        return self._serve_wsgi()
+
+    def _serve_nginx(self):
+        # nginx_config_path = '/opt/program/nginx.conf'
+        if self.is_docker():
+            subprocess.check_call(['ln', '-sf', '/dev/stdout', '/var/log/nginx/access.log'])
+            subprocess.check_call(['ln', '-sf', '/dev/stderr', '/var/log/nginx/error.log'])
+
+        return subprocess.Popen(['nginx', '-c', self.nginx_config]).pid
+
+    def _serve_gunicorn(self):
+        return subprocess.Popen(['gunicorn', self.cmd_options, 'wsgi:app']).pid
+
+    def _serve_wsgi(self):
         WSGIApplication = get_wsgi_application(self.path)
-        WSGIApplication(self.app, options).run()
+        options = self._to_parameters(self.options)
+        return WSGIApplication(self.app, options).run()
+
+
+class SimpleServer:
+    def __init__(self, path, options={}):
+        self.path = path
+        self.options = options
+
+    def serve(self):
+        command = self._get_command()
+        logger.info(f"Serving {self.name} as follow: {' '.join(command)}")
+        subprocess.check_call(command)
+
+
+class GunicornServer(SimpleServer):
+    name = 'gunicorn'
+
+    def _get_command(self):
+        return ['gunicorn', 'wsgi:app'] + list(self.options['options'])
+
+
+class MLFlowServer(SimpleServer):
+    name = 'mlflow'
+
+    def _get_command(self):
+        meta = goldilox.Meta.from_file(os.path.join(self.path, 'artifacts', 'pipeline.pkl'))
+        environment_param = ['--no-conda'] if meta.env_type == goldilox.config.CONSTANTS.VENV else []
+        return ['mlflow', 'models', 'serve', f"-m", os.path.abspath(self.path)] + environment_param + list(
+            self.options['options'])
+
+
+class RayServer(SimpleServer):
+    name = 'ray'
+
+    def _get_command(self):
+        return ['python', 'main.py'] + list(self.options['options'])

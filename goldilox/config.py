@@ -30,6 +30,7 @@ class CONSTANTS:
     PIPELINE_TYPE = "pipeline_type"
     STATE = "state"
     VERSION = "version"
+    GOLDILOX_VERSION = "goldilox_version"
     PY_VERSION = "py_version"
     REQUIREMEMTS = "requirements"
     CONDA_ENV = "conda_env"
