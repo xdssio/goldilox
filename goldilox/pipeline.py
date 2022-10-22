@@ -72,10 +72,6 @@ class Pipeline(TransformerMixin):
     def raw(self):
         return self.meta.raw
 
-    @property
-    def example(self) -> dict:
-        return self.inference(self.raw).to_records(0)
-
     def set_raw(self, raw):
         self.meta.raw = raw
 
@@ -283,8 +279,9 @@ class Pipeline(TransformerMixin):
             return items.to_dict(orient="records")
         elif isinstance(items, (list, dict)):
             return items
-        # vaex
-        return items.to_records()
+        if hasattr(items, "to_records"):  # vaex
+            return items.to_records()
+        return list(items)
 
     @classmethod
     def jsonify(cls, items) -> List[dict]:

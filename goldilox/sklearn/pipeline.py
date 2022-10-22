@@ -81,6 +81,10 @@ class SklearnPipeline(traitlets.HasTraits, goldilox.Pipeline, TransformerMixin):
         )
 
     @property
+    def example(self) -> dict:
+        return self.inference(self.raw).to_dict(orient='records')[0]
+
+    @property
     def fitted(self) -> bool:
         """Returns True is the pipeline/model is fitted"""
         return self.pipeline is not None and self.pipeline.__sklearn_is_fitted__()
@@ -129,7 +133,7 @@ class SklearnPipeline(traitlets.HasTraits, goldilox.Pipeline, TransformerMixin):
         return goldilox.Pipeline.from_file(path)
 
     def _to_pandas(self, X, y=None) -> tuple:
-        with suppress():
+        try:  # noqa: FURB107
             import vaex
             if isinstance(X, vaex.dataframe.DataFrame):
                 X = X.to_pandas_df()
@@ -144,6 +148,8 @@ class SklearnPipeline(traitlets.HasTraits, goldilox.Pipeline, TransformerMixin):
                 y = y.to_pandas_series()
                 y.name = name
                 self.target = name
+        except:
+            pass
         if isinstance(X, np.ndarray):
             X = self.infer(X)
         if y is None:

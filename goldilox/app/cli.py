@@ -76,9 +76,9 @@ def parse_options(options):
 
 @main.command(context_settings=dict(ignore_unknown_options=True))
 @click.argument("path", type=click.Path(exists=True))
-@click.option("-r", '--root_path', type=str, help="FastAPI root path")
-@click.option("-ng", '--nginx_config', type=bool, help="To run nginx")
-@click.argument('options', nargs=-1, type=click.UNPROCESSED)
+@click.option("-r", "--root-path", type=str, help="FastAPI root path")
+@click.option("--nginx-config", type=str, help="If proivded, will run with nginx")
+@click.argument("options", nargs=-1, type=click.UNPROCESSED)
 def serve(path: str,
           root_path: str = '',
           nginx_config: str = None,
@@ -96,14 +96,17 @@ def serve(path: str,
                 f"A directory was given, but no pipeline was found in it. \nPlease provide the pipeline file directly or provide a 'gunicorn', 'mlflow' or 'ray' directory.\nCheck out")
     else:
         options = options.get('options', [])
-        goldilox.app.GoldiloxServer(path=path, root_path=root_path, nginx_config=nginx_config, options=options).serve()
+        nginx = nginx_config is not None and nginx_config != ''
+        server = goldilox.app.GoldiloxServer(path=path, root_path=root_path, nginx_config=nginx_config, options=options)
+        server.serve(nginx=nginx)
 
 
 @main.command(context_settings=dict(ignore_unknown_options=True))
 @click.argument("path", type=click.Path(exists=True))
 @click.argument("output", type=str)
-@click.option('--framework', type=click.Choice(['gunicorn', 'mlflow', 'ray'], case_sensitive=False), default='gunicorn')
-@click.option('--nginx', type=bool, default=False)
+@click.option('-f', '--framework', type=click.Choice(['gunicorn', 'mlflow', 'ray'], case_sensitive=False),
+              default='gunicorn')
+@click.option('--nginx', type=bool, is_flag=True, default=False)
 @click.argument('options', nargs=-1, type=click.UNPROCESSED)
 def export(path: str, output: str, framework: str, nginx: bool = False, **options):
     """
@@ -186,49 +189,37 @@ def freeze(path: str, output: str = None):
 
 @main.command()
 @click.argument("path", type=click.Path(exists=True))
-def meta(path: str):
-    """print all meta data"""
-    click.echo(json.dumps(goldilox.Meta.from_file(path).to_dict(), indent=4).replace('\\n', ' '))
-
-
-@main.command()
-@click.argument("path", type=click.Path(exists=True))
 @click.option("--name", type=str, default="goldilox")
 @click.option('--image', type=str, default=None)
 @click.option('--dockerfile', type=click.Path(), default=None)
+@click.option('--nginx', type=bool, is_flag=True, default=False)
 @click.option('--platform', type=str, default=None)
-def build(path: str, name: str = "goldilox", image: str = None, dockerfile: str = None, platform: str = None):
+def build(path: str, name: str = "goldilox", image: str = None, dockerfile: str = None, nginx=False,
+          platform: str = None):
     """ build a docker server image"""
-    if os.path.isdir(path) and os.path.isfile(os.path.join(path, 'MLmodel')):
-        command = ['mlflow', 'models', 'build-docker', f"-m", os.path.abspath(path), f"-n", name, "--enable-mlserver"]
+    import goldilox.app.docker
+    factory = goldilox.app.docker.DockerFactory(path, name, image, dockerfile)
+    if factory.mlflow:
+        command = factory.get_mlflow_command()
     else:
-        goldilox_path = pathlib.Path(goldilox.__file__)
-        dockerfile = dockerfile or os.path.join(str(goldilox_path.parent.absolute()), 'app', 'Dockerfile')
-
-        meta = goldilox.Meta.from_file(path)
-
-        is_conda = meta.env_type == CONSTANTS.CONDA
-        if image is None:
-            image = 'condaforge/mambaforge' if is_conda else f"python:{meta.py_version}-slim-bullseye"
-        target_args = ["--target", "conda-image"] if is_conda else ["--target", "venv-image"]
-
-        run_args = ['docker', 'build', f"-f={dockerfile}", f"-t={name}", "--build-arg",
-                    f"PYTHON_VERSION={meta.py_version}", "--build-arg", f"PYTHON_IMAGE={image}",
-                    "--build-arg", f"GOLDILOX_VERSION={meta.goldilox_version}"]
-
-        build_args = ["--build-arg", f"PIPELINE_FILE={path}"]
-        suffix_arg = ['.']
-        if platform is not None:
-            build_args = build_args + [f"--platform={platform}"]
-        command = run_args + target_args + build_args + suffix_arg
+        command = factory.get_gunicorn_command(nginx, platform)
     click.echo(f"Running docker build as follow:")
     click.echo(f"{' '.join(command)}")
     click.echo(f" ")
     subprocess.check_call(command)
-    platform_str = f"--platform={platform} " if platform is not None else ''
-    run_command = f"docker run --rm -it {platform_str}-p 127.0.0.1:5000:5000 {name}"
+    platform_str = f" --platform={platform}" if platform is not None else ''
+    if nginx:
+        run_command = f"docker run --rm -it{platform_str} -p 8080:8080 {name}"
+    else:
+        run_command = f"docker run --rm -it{platform_str} -p 127.0.0.1:5000:5000 {name}"
     click.echo(f"Image {name} created - run with: '{run_command}'")
-    click.echo(f"* On m1 mac you might need to add '-e HOST=0.0.0.0'")
+
+
+@main.command()
+@click.argument("path", type=click.Path(exists=True))
+def meta(path: str):
+    """print all meta data"""
+    click.echo(json.dumps(goldilox.Meta.from_file(path).to_dict(), indent=4).replace('\\n', ' '))
 
 
 @main.command(context_settings=dict(

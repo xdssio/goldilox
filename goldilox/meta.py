@@ -139,3 +139,10 @@ class Meta:
                                                 minor=sys.version_info.minor,
                                                 micro=sys.version_info.micro)
 
+    @property
+    def requirements(self):
+        return self.env_file.split('\n')
+    
+    def set_requirements(self, requirements):
+        self.env_file = '\n'.join(requirements)
+

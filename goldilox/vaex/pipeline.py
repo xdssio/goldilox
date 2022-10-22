@@ -88,6 +88,10 @@ class VaexPipeline(HasState, Pipeline):
         return self.state.get("virtual_columns")
 
     @property
+    def example(self) -> dict:
+        return self.inference(self.raw).to_records(0)
+
+    @property
     def functions(self):
         return self.state.get("functions")
 

@@ -12,7 +12,7 @@ def export_gunicorn(pipeline: Union[goldilox.Pipeline, str], path: str, nginx=Fa
     goldilox.mlops.setup_environment(pipeline, path)
     files = ['wsgi.py', 'gunicorn.conf.py']
     if nginx:
-        files = files + ['nginx.conf', 'serve.py']
+        files = files + ['nginx.conf']
     for filename in files:
         src_path = os.path.join(goldilox.mlops.goldilox_path, goldilox.mlops.MLOPS, GUNICORN, filename)
         target_path = os.path.join(path, filename)

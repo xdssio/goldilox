@@ -7,10 +7,11 @@ import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 
-from goldilox.sklearn.pipeline import SklearnPipeline, Pipeline
+import goldilox
+import goldilox.sklearn.pipeline
 
 
-class Imputer(SklearnPipeline):
+class Imputer(goldilox.sklearn.pipeline.SklearnPipeline):
     IMPUTER = "imputer"
 
     def __init__(self, features: List[str] = None, target: str = None, strategy: str = 'mean', fill_value=None):
@@ -29,8 +30,8 @@ class Imputer(SklearnPipeline):
             raise RuntimeError("If 'strategy' sets to 'constant- please set a fill_value")
         self.model = None
 
-    def _create_imputer(self) -> Pipeline:
-        return Pipeline.from_sklearn(ColumnTransformer([
+    def _create_imputer(self) -> goldilox.Pipeline:
+        return goldilox.Pipeline.from_sklearn(ColumnTransformer([
             (Imputer.IMPUTER, SimpleImputer(strategy=self.strategy, fill_value=self.fill_value),
              self.features)], remainder='passthrough'), features=self.features)
 

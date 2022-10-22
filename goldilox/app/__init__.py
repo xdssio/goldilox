@@ -22,13 +22,7 @@ PATH = "path"
 
 logger = logging.getLogger(__name__)
 
-
-def is_docker():
-    path = '/proc/self/cgroup'
-    return (
-            os.path.exists('/.dockerenv') or
-            os.path.isfile(path) and any('docker' in line for line in open(path))
-    )
+from .docker import DockerFactory
 
 
 def parse_query(query):
@@ -169,7 +163,7 @@ def get_wsgi_application(path: str):
             }
             for key, value in config.items():
                 self.cfg.set(key.lower(), value)
-            pipeline = Pipeline.from_file(path)
+            pipeline = goldilox.Pipeline.from_file(path)
             self.application.state._state[PIPELINE] = pipeline
             self.application.state._state[RAW] = pipeline.raw.copy()
 
@@ -179,29 +173,38 @@ def get_wsgi_application(path: str):
     return WSGIApplication
 
 
-def sigterm_handler(nginx_pid, gunicorn_pid):
-    with contextlib.suppress(OSError):
-        os.kill(nginx_pid, signal.SIGQUIT)
-    with contextlib.suppress(OSError):
-        os.kill(gunicorn_pid, signal.SIGTERM)
+def sigterm_handler(pids):
+    for pid in pids:
+        with contextlib.suppress(OSError):
+            os.kill(pid, signal.SIGQUIT)
     sys.exit(0)
 
 
 class GoldiloxServer:
     UVICORN_WORKER = 'uvicorn.workers.UvicornH11Worker'
 
-    def __init__(self, path, root_path='', nginx_config=None, options={}):
+    def __init__(self, path, root_path='', nginx_config='', options={}):
         self.path = path
-        self.cmd_options = ' '.join(options)
+        self.nginx_config = nginx_config
+        self.cmd_options = self._validate_params(options)
         self.parameters = self._to_parameters(options)
         self.workers = self.parameters.get('workers', 1)
         self.host = self.parameters.get('host', self.parameters.get('bind').split(':')[0])
         self.port = self.parameters.get('port', self.parameters.get('bind').split(':')[1])
         self.app = get_app(path=path, root_path=root_path)
-        self.nginx_config = nginx_config
         pipeline = goldilox.Pipeline.from_file(path)
         if not pipeline.validate():
             raise RuntimeError(f"Pipeline in {path} is invalid")
+
+    def _validate_params(self, options):
+        cmd = ' '.join(options)
+        if '-b ' not in cmd and '--bind ':
+            default_bind = '-b 0.0.0.0:5000' if self.is_docker else '-b 127.0.0.1:5000'
+            cmd = cmd + ' ' + os.getenv('BIND', default_bind)
+        if '-w' not in cmd and '--workers' not in cmd:
+            default_workers = os.getenv('WORKERS', multiprocessing.cpu_count())
+            cmd = cmd + f" -w {default_workers}"
+        return cmd
 
     def _to_parameters(self, options):
         params = {}
@@ -213,59 +216,79 @@ class GoldiloxServer:
                 key = key[1:]
             return key.replace('-', '_')
 
-        for option in options['options']:
+        skip = False
+        for i, option in enumerate(options):
+            if skip:
+                skip = False
+                continue
             splited = option.split('=')
             if len(splited) == 2:
                 key, value = splited[0], splited[1]
                 params[clean_key(key)] = value
-            else:
-                print(f"(skip) - option {option} was not understood - use key=value version please ")
+            elif option.startswith('-') and len(options) > i + 1:
+                params[clean_key(option)] = options[i + 1]
+                skip = True
+
         bind = params.get('bind', os.getenv('BIND', ''))
         if not bind:
-            if self.is_docker():
-                bind = "unix:/tmp/gunicorn.sock"
-                self.cmd_options = re.sub('-b \S+|--bind=[\S]*', f"-b {bind}", self.cmd_options)
-            else:
-                host = params.get('host', os.getenv('HOST', '127.0.0.1'))
-                port = int(params.get('port', os.getenv('PORT', 5000)))
-                bind = f"{host}:{port}"
+            default_host = '0.0.0.0' if self.is_docker else '127.0.01'
+            host = params.pop('host', os.getenv('HOST', default_host))
+            port = int(params.pop('port', os.getenv('PORT', 5000)))
+            bind = f"{host}:{port}"
+
         params['bind'] = bind
         params['workers'] = params.get('workers', int(os.environ.get('WORKERS', multiprocessing.cpu_count())))
         params["worker_class"] = params.get("worker_class", GoldiloxServer.UVICORN_WORKER)
-        return options
+        return params
+
+    @property
+    def is_docker(self):
+        path = '/proc/self/cgroup'
+        return (
+                os.path.exists('/.dockerenv') or
+                os.path.isfile(path) and any('docker' in line for line in open(path))
+        )
 
     def serve(self, nginx=False):
+        pids = set([])
         if nginx:
-            nginx_pid = self._serve_nginx()
-            gunicorn_pid = self._serve_gunicorn()
-            pids = set([gunicorn_pid, nginx_pid])
-            signal.signal(signal.SIGTERM, lambda a, b: sigterm_handler(nginx_pid, gunicorn_pid))
+            pids.add(self._serve_nginx())
 
-            # If either subprocess exits, so do we.
-            while True:
-                pid, _ = os.wait()
-                if pid in pids:
-                    break
+        pids.add(self._serve_gunicorn(nginx=nginx))
+        signal.signal(signal.SIGTERM, lambda a, b: sigterm_handler(pids))
 
-            sigterm_handler(nginx_pid, gunicorn_pid)
-            print('Inference server exiting')
-        return self._serve_wsgi()
+        while True:
+            pid, _ = os.wait()
+            if pid in pids:
+                break
+        sigterm_handler(pids)
+        print('Inference server exiting')
 
     def _serve_nginx(self):
-        # nginx_config_path = '/opt/program/nginx.conf'
-        if self.is_docker():
+        if self.is_docker:
             subprocess.check_call(['ln', '-sf', '/dev/stdout', '/var/log/nginx/access.log'])
             subprocess.check_call(['ln', '-sf', '/dev/stderr', '/var/log/nginx/error.log'])
-
+        print(f"Starting nginx with {self.nginx_config}")
         return subprocess.Popen(['nginx', '-c', self.nginx_config]).pid
 
-    def _serve_gunicorn(self):
-        return subprocess.Popen(['gunicorn', self.cmd_options, 'wsgi:app']).pid
+    def _serve_gunicorn(self, nginx=False):
+        cmd_options = re.sub('--nginx-conf=[\S]*', "", self.cmd_options)
+        if nginx:
+            if '-b ' in cmd_options or '--bind=' in cmd_options:
+                cmd_options = re.sub('-b \S+|--bind=[\S]*', f"-b {'unix:/tmp/gunicorn.sock'}", cmd_options)
+            else:
+                cmd_options += f" -b unix:/tmp/gunicorn.sock"
+        cmd = f"gunicorn {cmd_options} wsgi:app"
+        print(f"Starting gunicorn with {cmd}")
+        return subprocess.Popen(cmd, shell=True).pid
 
     def _serve_wsgi(self):
+        """
+        To run the server with gunicorn from within python - for customization purposes
+        """
+        print(f"Starting wsgi application with {self.parameters}")
         WSGIApplication = get_wsgi_application(self.path)
-        options = self._to_parameters(self.options)
-        return WSGIApplication(self.app, options).run()
+        return WSGIApplication(self.app, self.parameters).run()
 
 
 class SimpleServer:

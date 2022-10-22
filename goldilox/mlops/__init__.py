@@ -1,3 +1,4 @@
+import contextlib
 import os
 import pathlib
 import shutil
@@ -19,11 +20,13 @@ goldilox_path = str(pathlib.Path(goldilox.__file__).parent.absolute())
 
 def write_pipeline(pipeline, path):
     target_path = os.path.join(path, PIPELINE_FILE)
-    if isinstance(pipeline, str):
-        shutil.copyfile(pipeline, target_path)
-    else:
-        pipeline.save(target_path)
-    return path
+    with contextlib.suppress(shutil.SameFileError):
+        if isinstance(pipeline, str):
+            shutil.copyfile(pipeline, target_path)
+        else:
+            pipeline.save(target_path)
+        return True
+    return False
 
 
 def setup_environment(pipeline, path):
@@ -31,4 +34,4 @@ def setup_environment(pipeline, path):
         os.makedirs(path, exist_ok=True)
     meta = goldilox.Meta.from_file(pipeline) if isinstance(pipeline, str) else pipeline.meta
     pathlib.Path(os.path.join(path, meta.environment_filename)).write_text(meta.env_file)
-    goldilox.mlops.write_pipeline(pipeline, path)
+    return goldilox.mlops.write_pipeline(pipeline, path)
