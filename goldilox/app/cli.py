@@ -1,15 +1,15 @@
 import json
 import os.path
+import pathlib
 import shutil
 import subprocess
 import sys
-from pathlib import Path
 
 import click
 import cloudpickle
 
 import goldilox
-from goldilox import Pipeline
+import goldilox.app
 from goldilox.config import CONSTANTS
 from goldilox.utils import process_variables, unpickle
 
@@ -40,7 +40,7 @@ def is_mlflow_dir(path: str) -> bool:
 
 def is_gunicorn_dir(path: str) -> bool:
     return os.path.isfile(os.path.join(path, 'pipeline.pkl')) and \
-           os.path.isfile(os.path.join(path, 'main.py')) and \
+           os.path.isfile(os.path.join(path, 'wsgi.py')) and \
            os.path.isfile(os.path.join(path, 'gunicorn.conf.py'))
 
 
@@ -48,66 +48,90 @@ def is_ray_dir(path: str) -> bool:
     main_path = os.path.join(path, 'main.py')
     return os.path.isfile(os.path.join(path, 'pipeline.pkl')) and \
            os.path.isfile(main_path) and \
-           'ray.init' in Path(main_path).read_text()
+           'ray.init' in pathlib.Path(main_path).read_text()
 
 
-@main.command(context_settings=dict(
-    ignore_unknown_options=True,
-))
+def parse_options(options):
+    ret = {}
+
+    def clean_key(key):
+        if key.startswith('--'):
+            key = key[2:]
+        elif key.startswith('-'):
+            key = key[1:]
+        return key.replace('-', '_')
+
+    for option in options['options']:
+        splited = option.split('=')
+        if len(splited) == 2:
+            key, value = splited[0], splited[1]
+            ret[clean_key(key)] = value
+        else:
+            print(f"(skip) - option {option} was not understood - use key=value version please ")
+    if 'root_path' not in options:
+        ret['root_path'] = ''
+
+    return ret
+
+
+@main.command(context_settings=dict(ignore_unknown_options=True))
 @click.argument("path", type=click.Path(exists=True))
-@click.argument('options', nargs=-1, type=click.UNPROCESSED)
-def serve(path: str, **options):
+@click.option("-r", "--root-path", type=str, help="FastAPI root path")
+@click.option("--nginx-config", type=str, help="If proivded, will run with nginx")
+@click.argument("options", nargs=-1, type=click.UNPROCESSED)
+def serve(path: str,
+          root_path: str = '',
+          nginx_config: str = None,
+          **options):
     """Serve a  pipeline with fastapi server"""
     if os.path.isdir(path):
         if is_mlflow_dir(path):
-            meta = Pipeline.load_meta(os.path.join(path, 'artifacts', 'pipeline.pkl'))
-            environment_param = ['--no-conda'] if meta['venv_type'] == 'venv' else []
-            command = ['mlflow', 'models', 'serve', f"-m", os.path.abspath(path)] + environment_param + list(
-                options['options'])
-            click.echo(f"Running serve (MLflow) as follow: {' '.join(command)}")
-            click.echo(f" ")
-            subprocess.check_call(command)
+            goldilox.app.MLFlowServer(path=path, options=options).serve()
         elif is_gunicorn_dir(path):
-            command = ['gunicorn', 'main:app'] + list(options['options'])
-            click.echo(f"Running serve (Gunicorn) as follow: {' '.join(command)}")
-            click.echo(f" ")
-            subprocess.check_call(command)
+            goldilox.app.GunicornServer(path=path, options=options).serve()
         elif is_ray_dir(path):
-            command = ['python', 'main.py'] + list(options['options'])
-            click.echo(f"Running serve (Ray) as follow: {' '.join(command)}")
-            click.echo(f" ")
-            subprocess.check_call(command)
+            goldilox.app.RayServer(path=path, options=options).serve()
         else:
             click.echo(
                 f"A directory was given, but no pipeline was found in it. \nPlease provide the pipeline file directly or provide a 'gunicorn', 'mlflow' or 'ray' directory.\nCheck out")
     else:
-        server_options = {}
-
-        def clean_key(key):
-            if key.startswith('--'):
-                key = key[2:]
-            elif key.startswith('-'):
-                key = key[1:]
-            return key.replace('-', '_')
-
-        for option in options['options']:
-            splited = option.split('=')
-            if len(splited) == 2:
-                key, value = splited[0], splited[1]
-                server_options[clean_key(key)] = value
-            else:
-                print(f"(skip) - option {option} was not understood - use key=value version please ")
-
-        from goldilox.app import Server
-        if 'bind' not in server_options:
-            host = server_options.get('host', os.getenv('HOST', '127.0.0.1'))
-            port = server_options.get('port', os.getenv('PORT', 5000))
-            server_options['bind'] = f"{host}:{port}"
-
-        Server(path, options=server_options).serve()
+        options = options.get('options', [])
+        nginx = nginx_config is not None and nginx_config != ''
+        server = goldilox.app.GoldiloxServer(path=path, root_path=root_path, nginx_config=nginx_config, options=options)
+        server.serve(nginx=nginx)
 
 
-@main.command()
+@main.command(context_settings=dict(ignore_unknown_options=True))
+@click.argument("path", type=click.Path(exists=True))
+@click.argument("output", type=str)
+@click.option('-f', '--framework', type=click.Choice(['gunicorn', 'mlflow', 'ray'], case_sensitive=False),
+              default='gunicorn')
+@click.argument('options', nargs=-1, type=click.UNPROCESSED)
+def export(path: str, output: str, framework: str, **options):
+    """
+    Export a pipeline to a directory that can be served with gunicorn, ray or mlflow
+    @param path: location of the pipeline
+    @param output_path: locaiton of the output directory
+    @param framework: framework to use for serving. can be wither 'gunicorn', 'ray' or 'mlflow'. default is 'gunicorn'
+    @param nginx: To generate in the case of gunicorn.
+    @return:
+    """
+
+    if framework == 'mlflow':
+        from goldilox.mlops.mlflow import export_mlflow
+        export_mlflow(path, output, options)
+        click.echo(f"Export to {output} as mlflow")
+        click.echo(f" ")
+    elif framework == 'gunicorn':
+        from goldilox.mlops.gunicorn import export_gunicorn
+        export_gunicorn(pipeline=path, path=output)
+        click.echo(f"Export to {output} as gunicorn")
+    elif framework == 'ray':
+        from goldilox.mlops.gunicorn import export_gunicorn
+        export_gunicorn(path, output, options)
+        click.echo(f"Export to {output} as ray")
+
+
 def arguments():
     """gunicorn arguments reference"""
     print("check https://docs.gunicorn.org/en/stable/run.html for options")
@@ -117,7 +141,7 @@ def arguments():
 @click.argument("path", type=click.Path(exists=True))
 def description(path: str):
     """print pipeline description"""
-    meta = Pipeline.load_meta(path)
+    meta = goldilox.Pipeline.load_meta(path)
     click.echo(meta[CONSTANTS.DESCRIPTION])
 
 
@@ -125,14 +149,14 @@ def description(path: str):
 @click.argument("path", type=click.Path(exists=True))
 def example(path: str):
     """print pipeline output example with all possible outputs"""
-    click.echo(json.dumps(Pipeline.load(path).example, indent=4))
+    click.echo(json.dumps(goldilox.Pipeline.load(path).example, indent=4))
 
 
 @main.command()
 @click.argument("path", type=click.Path(exists=True))
 def raw(path: str):
     """print pipeline input example (raw data)"""
-    meta = Pipeline.load_meta(path)
+    meta = goldilox.Pipeline.load_meta(path)
     click.echo(json.dumps(meta.get(CONSTANTS.RAW), indent=4))
 
 
@@ -140,7 +164,7 @@ def raw(path: str):
 @click.argument("path", type=click.Path(exists=True))
 def variables(path: str):
     """print pipeline variables"""
-    meta = Pipeline.load_meta(path)
+    meta = goldilox.Pipeline.load_meta(path)
     click.echo(json.dumps(process_variables(meta.get(CONSTANTS.VARIABLES)), indent=4))
 
 
@@ -148,7 +172,7 @@ def variables(path: str):
 @click.argument("path", type=click.Path(exists=True))
 def packages(path: str):
     """print pipeline packages"""
-    meta = Pipeline.load_meta(path)
+    meta = goldilox.Pipeline.load_meta(path)
     click.echo(json.dumps(meta[CONSTANTS.REQUIREMEMTS], indent=4))
 
 
@@ -157,21 +181,9 @@ def packages(path: str):
 @click.option('-o', "--output", type=click.Path())
 def freeze(path: str, output: str = None):
     """write pipeline packages to a file (pip freeze > output)"""
-    meta = Pipeline.load_meta(path)
-    if output is None:
-        venv = meta.get(CONSTANTS.VENV_TYPE)
-        output = 'environment.yaml' if venv == 'conda' else 'requirements.txt'
-
-    packages = meta.get(CONSTANTS.REQUIREMEMTS)
-    Path(output).write_text(packages)
+    meta = goldilox.Meta.from_file(path)
+    meta.write_environment_file(output)
     click.echo(f"checkout {output}")
-
-
-@main.command()
-@click.argument("path", type=click.Path(exists=True))
-def meta(path: str):
-    """print all meta data"""
-    click.echo(json.dumps(Pipeline.load_meta(path), indent=4).replace('\\n', ' '))
 
 
 @main.command()
@@ -179,42 +191,32 @@ def meta(path: str):
 @click.option("--name", type=str, default="goldilox")
 @click.option('--image', type=str, default=None)
 @click.option('--dockerfile', type=click.Path(), default=None)
+@click.option('--nginx', type=bool, is_flag=True, default=False)
 @click.option('--platform', type=str, default=None)
-def build(path: str, name: str = "goldilox", image: str = None, dockerfile: str = None, platform: str = None):
+def build(path: str, name: str = "goldilox", image: str = None, dockerfile: str = None, nginx=False,
+          platform: str = None):
     """ build a docker server image"""
-    if os.path.isdir(path) and os.path.isfile(os.path.join(path, 'MLmodel')):
-        command = ['mlflow', 'models', 'build-docker', f"-m", os.path.abspath(path), f"-n", name, "--enable-mlserver"]
-    else:
-        goldilox_path = Path(goldilox.__file__)
-        dockerfile = dockerfile or str(goldilox_path.parent.absolute().joinpath('app').joinpath('Dockerfile'))
+    import goldilox.app.docker
+    factory = goldilox.app.docker.DockerFactory(path, name, image, dockerfile)
+    command = factory._get_build_command(nginx=nginx, platform=platform)
 
-        # get meta
-        meta = Pipeline.load_meta(path)
-        python_version = meta.get(CONSTANTS.PY_VERSION)
-        venv_type = meta.get(CONSTANTS.VENV_TYPE)
-        goldilox_version = meta.get(CONSTANTS.VERSION)
-        is_conda = venv_type == 'conda'
-        if image is None:
-            image = 'condaforge/mambaforge' if is_conda else f"python:{python_version}-slim-bullseye"
-        target_args = ["--target", "conda-image"] if is_conda else ["--target", "venv-image"]
-
-        run_args = ['docker', 'build', f"-f={dockerfile}", f"-t={name}", "--build-arg",
-                    f"PYTHON_VERSION={python_version}", "--build-arg", f"PYTHON_IMAGE={image}",
-                    "--build-arg", f"GOLDILOX_VERSION={goldilox_version}"]
-
-        build_args = ["--build-arg", f"PIPELINE_FILE={path}"]
-        suffix_arg = ['.']
-        if platform is not None:
-            build_args = build_args + [f"--platform={platform}"]
-        command = run_args + target_args + build_args + suffix_arg
     click.echo(f"Running docker build as follow:")
     click.echo(f"{' '.join(command)}")
     click.echo(f" ")
     subprocess.check_call(command)
-    platform_str = f"--platform={platform} " if platform is not None else ''
-    run_command = f"docker run --rm -it {platform_str}-p 127.0.0.1:5000:5000 {name}"
+    platform_str = f" --platform={platform}" if platform is not None else ''
+    if nginx:
+        run_command = f"docker run --rm -it{platform_str} -p 8080:8080 {name}"
+    else:
+        run_command = f"docker run --rm -it{platform_str} -p 127.0.0.1:5000:5000 {name}"
     click.echo(f"Image {name} created - run with: '{run_command}'")
-    click.echo(f"* On m1 mac you might need to add '-e HOST=0.0.0.0'")
+
+
+@main.command()
+@click.argument("path", type=click.Path(exists=True))
+def meta(path: str):
+    """print all meta data"""
+    click.echo(json.dumps(goldilox.Meta.from_file(path).to_dict(), indent=4).replace('\\n', ' '))
 
 
 @main.command(context_settings=dict(
@@ -233,13 +235,13 @@ def update(path: str, key: str, value: str, variable: bool, file: bool):
     $ glx update pipeline.pkl accuracy 0.8 --variable # update the 'accuracy' variable to 0.8 in the pipeline.pkl file
     """
 
-    meta_bytes, state_bytes = Pipeline._read_pipeline_file(path)
+    meta_bytes, state_bytes = goldilox.Pipeline._read_pipeline_file(path)
     meta = unpickle(meta_bytes)
     tmp_value = value
     if file and not os.path.isfile(value):
         click.echo(f"{value} is not a file - skip")
     if file and os.path.isfile(value):
-        tmp_value = Path(value).read_text()
+        tmp_value = pathlib.Path(value).read_text()
         click.echo(f"{value} is considered as a file")
     if os.path.isfile(value) and not file:
         click.echo(f"{value} is a file - if you want to load it as such, use the '--file' flag")
@@ -252,19 +254,20 @@ def update(path: str, key: str, value: str, variable: bool, file: bool):
         click.echo(f"{key} was invalid and ignored - for updating a variable use the '--variable' flag")
     click.echo(f"{key} was update to {value}")
 
-    state_to_write = Pipeline.BYTES_SIGNETURE + cloudpickle.dumps(meta) + Pipeline.BYTE_DELIMITER + state_bytes
-    Pipeline._save_state(path, state_to_write)
+    state_to_write = goldilox.Pipeline.BYTES_SIGNETURE + cloudpickle.dumps(
+        meta) + goldilox.Pipeline.BYTE_DELIMITER + state_bytes
+    goldilox.Pipeline._save_state(path, state_to_write)
 
 
 @main.command()
 @click.option('-o', '--output', type=str, default=None)
 def dockerfile(output: str):
     """Create a Dockerfile for you to work with"""
-    goldilox_path = Path(goldilox.__file__)
+    goldilox_path = pathlib.Path(goldilox.__file__)
     docker_file_path = str(goldilox_path.parent.absolute().joinpath('app').joinpath('Dockerfile'))
     docker_output = output or './Dockerfile'
     shutil.copyfile(docker_file_path, docker_output)
-    content = Path(dockerfile).read_text()
+    content = pathlib.Path(dockerfile).read_text()
     click.echo(content)
     click.echo("##################\nDockerfile was writen to './dockerfile'\n")
     click.echo(

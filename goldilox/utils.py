@@ -2,12 +2,11 @@ import contextlib
 import gc
 import json
 import logging
+import mmap
 import os
 import shutil
-import subprocess
 import sys
 from pathlib import Path
-from sys import version_info
 
 import numpy as np
 import pandas as pd
@@ -219,18 +218,25 @@ def validate_path(path):
     return ret
 
 
-def read_bytes(path):
+def remove_signeture(s):
+    return s[len(CONSTANTS.BYTES_SIGNETURE):]
+
+
+def add_signeture(s):
+    return CONSTANTS.BYTES_SIGNETURE + s
+
+
+def read_meta_bytes(path):
     open_fs = get_open(path)
+    with open_fs(path, 'r+') as f:
+        with mmap.mmap(f.fileno(), 0) as mf:
+            offset = mf.find(CONSTANTS.BYTE_DELIMITER)
+            if offset == -1:
+                raise Exception(f"{CONSTANTS.BYTE_DELIMITER} not found")
+        f.seek(offset)
     with open_fs(path, 'rb') as f:
-        ret = f.read()
-    return ret
-
-
-def write_bytes(path, bytes_to_write):
-    open_fs = get_open(path)
-    with open_fs(path, "wb") as outfile:
-        outfile.write(bytes_to_write)
-    return path
+        meta_bytes = f.read(offset)
+    return meta_bytes
 
 
 def get_open(path):
@@ -259,38 +265,13 @@ def unpickle(b):
     return ret
 
 
-def get_requirements(venv_type=None, requirements=None, clean=True):
-    """Run pip freeze  for venv and conda env export for conda
-    @return requirements
-    """
-    if requirements is not None:
-        return '\n'.join(requirements)
-    if venv_type is None:
-        venv_type = get_env_type()
-    if venv_type == 'conda':
-        command = ["conda env export | cut -f 1 -d '=' "]
-        env = subprocess.check_output(command, shell=True).decode()
-        if clean:
-            env = env.replace('\n  - appnope', '')
-        splited = env.split('\n')
-        splited[0] = 'name: conda_env'
-        splited[-2] = 'prefix: conda_env'
-        return '\n'.join(splited)
-    ret = subprocess.check_output([sys.executable, '-m', 'pip',
-                                   'freeze']).decode()
-    if clean:
-        import re
-        ret = re.sub("appnope==(.[\d \.]*)\\n", '', ret)
-    return ret
-
-
 def get_python_version():
     """
     @return: current python version
     """
-    return "{major}.{minor}.{micro}".format(major=version_info.major,
-                                            minor=version_info.minor,
-                                            micro=version_info.micro)
+    return "{major}.{minor}.{micro}".format(major=sys.version_info.major,
+                                            minor=sys.version_info.minor,
+                                            micro=sys.version_info.micro)
 
 
 def get_env_type():
@@ -302,18 +283,3 @@ def get_env_type():
     elif os.getenv('VIRTUAL_ENV'):
         return 'venv'
     return None
-
-
-def get_conda_env(clean=True):
-    """run conda env export | cut -f 1 -d '='  and clean problematic packages (for docker) like 'appnope'"""
-    env = None
-    if get_env_type() == 'conda':
-        command = ["conda env export | cut -f 1 -d '=' "]
-        env = subprocess.check_output(command, shell=True).decode()
-        if clean:
-            env = env.replace('\n  - appnope', '')
-        splited = env.split('\n')
-        splited[0] = 'name: conda_env'
-        splited[-2] = 'prefix: conda_env'
-        env = '\n'.join(splited)
-    return env

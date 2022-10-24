@@ -19,6 +19,7 @@ import vaex
 from vaex.column import Column
 from vaex.ml.state import HasState, serialize_pickle
 
+import goldilox
 from goldilox.config import *
 from goldilox.pipeline import Pipeline
 from goldilox.utils import process_variables, read_vaex_data
@@ -29,39 +30,23 @@ logger = logging.getLogger(__name__)
 PIPELINE_FIT = "_PIPELINE_FIT"
 FUNCTIONS = "functions"
 VARIABLES = "variables"
+VAEX = 'vaex'
 
 
 class VaexPipeline(HasState, Pipeline):
-    pipeline_type = traitlets.Unicode(default_value="vaex")
-    current_time = int(time())
-    created = traitlets.Int(
-        default_value=current_time, allow_none=False, help="Created time"
-    )
-    updated = traitlets.Int(
-        default_value=current_time, allow_none=False, help="Updated time"
-    )
-    raw = traitlets.Any(
-        default_value=None, allow_none=True, help="An example of the raw dataset"
-    ).tag(**serialize_pickle)
+    pipeline_type = traitlets.Unicode(default_value=VAEX)
     _original_columns = traitlets.List(
         default_value=[], help="original columns which were not virtual expressions"
     )
     state = traitlets.Dict(
         default_value=None, allow_none=True, help="The state to apply on inference"
     )
-    description = traitlets.Unicode(
-        default_value="", help="Any notes to associate with a pipeline instance"
-    )
-    variables = traitlets.Dict(
-        default_value={}, help="Any variables to associate with a pipeline instance"
-    )
     predict_column = traitlets.Unicode(
         default_value=None, allow_none=True, help="The column to return as numpy array in predict"
     )
-
-    @property
-    def example(self) -> dict:
-        return self.inference(self.raw).to_records(0)
+    meta = traitlets.Any(
+        default_value=goldilox.Meta(VAEX), allow_none=False, help="The environment class"
+    ).tag(**serialize_pickle)
 
     @classmethod
     def _get_original_columns(cls, df: vaex.dataframe.DataFrame) -> List[str]:
@@ -69,7 +54,6 @@ class VaexPipeline(HasState, Pipeline):
 
     @classmethod
     def _data_type(cls, data):
-
         if isinstance(data, np.ndarray):
             data_type = data.dtype
         elif isinstance(data, Column):
@@ -102,6 +86,10 @@ class VaexPipeline(HasState, Pipeline):
     @property
     def virtual_columns(self) -> List[str]:
         return self.state.get("virtual_columns")
+
+    @property
+    def example(self) -> dict:
+        return self.inference(self.raw).to_records(0)
 
     @property
     def functions(self):
@@ -149,15 +137,14 @@ class VaexPipeline(HasState, Pipeline):
         return value.tolist()
 
     @classmethod
-    def from_dataframe(cls, df: vaex.dataframe.DataFrame, fit=None, predict_column: str = None, variables: dict = None,
-                       description: str = "") -> VaexPipeline:
+    def from_dataframe(cls, df: vaex.dataframe.DataFrame, fit=None, predict_column: str = None,
+                       variables: dict = None) -> VaexPipeline:
         """
        Get a Pipeline out of a vaex.dataframe.DataFrame, and validate serilization and missing values.
        @param df: vaex.dataframe.DataFrame
        @param fit: method: A method which accepts a vaex dataframe and returns a vaex dataframe which run on pipeline.fit(df).
        @param variables: dict [optional]: Any variables we want to associate with the current pipeline.
               On top of the variables provided, the dataframe variables are added.
-       @param description: str [optional]: Any text we want to associate with the current pipeline.
        @param predict_column: str [optional]: The predict column to use in predict case
        @return: VaexPipeline
        """
@@ -178,9 +165,7 @@ class VaexPipeline(HasState, Pipeline):
         pipeline = VaexPipeline(
             state=state,
             _original_columns=original_columns,
-            raw=raw,
-            description=description,
-            variables=process_variables(variables),
+            meta=goldilox.Meta(VAEX, raw=raw, variables=process_variables(variables)),
             predict_column=predict_column
         )
 
@@ -309,8 +294,15 @@ class VaexPipeline(HasState, Pipeline):
     def partial_fit(self, start_index=None, end_index=None):
         raise ValueError("partial_fit implemented")
 
-    @classmethod
-    def infer(cls, data, **kwargs):
+    @property
+    def features(self):
+        return [column for column in self._original_columns if column in self.raw]
+
+    @property
+    def target(self):
+        return self.predict_column
+
+    def infer(self, data, **kwargs):
         if isinstance(data, vaex.dataframe.DataFrame):
             return data.copy()
         elif isinstance(data, pd.DataFrame):
@@ -341,17 +333,17 @@ class VaexPipeline(HasState, Pipeline):
         elif isinstance(data, bytes):
             data = json.loads(data)
         if isinstance(data, np.ndarray):
-            columns = kwargs.get("names")
-            if columns is None:
-                raise RuntimeError(
-                    "can't infer numpy array without 'names' as a list of columns"
-                )
+            columns = kwargs.get("names", self.features)
             if len(columns) == data.shape[1]:
                 data = data.T
             return vaex.from_dict({key: value for key, value in zip(columns, data)})
         elif isinstance(data, list):
             # try records
-            return vaex.from_pandas(pd.DataFrame(data))
+            columns = kwargs.get("names", self.features)
+            data = pd.DataFrame(data)
+            if len(columns) == data.shape[1]:
+                data.columns = columns
+            return vaex.from_pandas(data)
         elif isinstance(data, dict):
             sizes = [
                 0
@@ -412,7 +404,7 @@ class VaexPipeline(HasState, Pipeline):
         fit_func = self.get_function(PIPELINE_FIT)
         if fit_func is None:
             raise RuntimeError("'fit()' was not set for this pipeline")
-        self.raw = copy.to_records(0)
+        self.set_raw(copy.to_records(0))
         trained = fit_func(copy)
         if VaexPipeline.is_vaex_dataset(trained):
             trained.add_function(PIPELINE_FIT, fit_func)

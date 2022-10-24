@@ -6,7 +6,7 @@ from sklearn.metrics import accuracy_score
 
 from goldilox import Pipeline
 from goldilox.datasets import load_iris
-from goldilox.sklearn.pipeline import Pipeline as SklearnPipeline
+from goldilox.sklearn.pipeline import SklearnPipeline as SklearnPipeline
 from goldilox.vaex.pipeline import VaexPipeline as VaexPipeline
 from tests.tests_utils import validate_persistence
 
@@ -109,7 +109,7 @@ def test_catboost_vaex_fit(iris, tmpdir):
         df["prediction"] = df["predictions"].argmax()
         return df
 
-    df, features, target = iris
+    df, features, target = load_iris()
     df = vaex.from_pandas(df)
     pipeline = VaexPipeline.from_dataframe(df, fit=fit)
     data = df.to_records(0)

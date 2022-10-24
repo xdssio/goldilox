@@ -1,3 +1,5 @@
+import pathlib
+
 import pytest
 import vaex
 
@@ -106,7 +108,7 @@ def lightgbm_vaex_fit():
     pipeline.validate(df.head(2))
     # print(pipeline._get_packages())
     # pipeline._get_packages()
-    pipeline._get_meta()
+    pipeline._meta_bytes()
     pipeline.save("../goldilox-ops/models/pipeline.pkl")
     pipeline.save("./pipeline.pkl")
 
@@ -118,30 +120,32 @@ def test_lightgbm_sklearn():
     df, features, target = load_iris()
     df = vaex.from_pandas(df)
     sk_pipeline = sklearn.pipeline.Pipeline([("classifier", LGBMClassifier())])
-    X = df[features]
-    y = df[target]
-    self = pipeline = Pipeline.from_sklearn(
-        sk_pipeline, description="Lightgbm with sklearn"
+    X, y = df[features], df[target]
+
+    pipeline = Pipeline.from_sklearn(
+        sk_pipeline,
     ).fit(X, y)
+    pipeline.set_variable("description", "Lightgbm with sklearn")
+    assert pipeline.description == "Lightgbm with sklearn"
 
     assert pipeline.inference(X).head(10).shape == (10, 5)
     assert pipeline.inference(X.values[:10]).shape == (10, 5)
-    assert pipeline.inference(self.raw).shape == (1, 5)
+    assert pipeline.inference(pipeline.raw).shape == (1, 5)
 
     pipeline.fit(df)
     assert pipeline.inference(X).head(10).shape == (10, 5)
     assert pipeline.inference(X.values[:10]).shape == (10, 5)
-    assert pipeline.inference(self.raw).shape == (1, 5)
+    assert pipeline.inference(pipeline.raw).shape == (1, 5)
 
     # with a trained sklearn pipeline
     sample = X.head(1).to_records()[0]
-    self = pipeline = Pipeline.from_sklearn(
-        sk_pipeline, raw=sample, description="Lightgbm with sklearn"
-    ).fit(X, y)
+    self = pipeline = Pipeline.from_sklearn(sk_pipeline, raw=sample).fit(X, y)
+    pipeline.set_variable("description", "Lightgbm with sklearn")
+
     assert pipeline.inference(X).head(10).shape == (10, 5)
     assert pipeline.inference(X.values[:10]).shape == (10, 5)
     assert pipeline.inference(self.raw).shape == (1, 5)
-    assert "Lightgbm" in pipeline.description
+    assert "Lightgbm" in pipeline.variables["description"]
     pipeline.save("../goldilox-ops/models/sk.pkl")
 
 
@@ -176,11 +180,10 @@ def test_faiss():
         def _decode(self, encoding):
             if isinstance(encoding, bytes):
                 path = NamedTemporaryFile().name
-                with open(path, "wb") as outfile:
-                    outfile.write(encoding)
+                pathlib.Path(path).write_bytes(encoding)
                 return read_index(path)
-            else:
-                return encoding
+
+            return encoding
 
         # how nmslib implemented serialization
         def _encode(self):
@@ -188,9 +191,7 @@ def test_faiss():
                 return self.index
             path = NamedTemporaryFile().name
             write_index(self.index, path)
-            with open(path, "rb") as outfile:
-                encoding = outfile.read()
-            return encoding
+            return pathlib.Path(path).read_bytes()
 
         def predict(self, data, k=3):
             data = np.float32(np.ascontiguousarray(data))

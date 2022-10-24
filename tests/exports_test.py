@@ -31,15 +31,14 @@ def test_export_gunicorn():
     df = vaex.from_pandas(df)
 
     pipeline = Pipeline.from_vaex(df)
-
     path = str(TemporaryDirectory().name) + '/pipeline'
-
     pipeline.export_gunicorn(path)
-    files_str = ' '.join(glob(path + "/*"))
-    assert "pipeline/requirements.txt" in files_str
-    assert "pipeline/pipeline.pkl" in files_str
-    assert "pipeline/gunicorn.conf.py" in files_str
-    assert "pipeline/main.py" in files_str
+    files = [f.replace(path + '/', '') for f in glob(path + "/*")]
+
+    assert "requirements.txt" in files
+    assert "pipeline.pkl" in files
+    assert "gunicorn.conf.py" in files
+    assert "wsgi.py" in files
 
 
 def test_mlflow():
@@ -85,10 +84,7 @@ def test_export_ray():
     path = str(TemporaryDirectory().name) + '/pipeline'
 
     pipeline.export_ray(path)
-    files_str = ' '.join(glob(path + "/*"))
-    assert "pipeline/requirements.txt" in files_str
-    assert "pipeline/pipeline.pkl" in files_str
-    assert "pipeline/main.py" in files_str
-
-    # import requests
-    # requests.post('http://127.0.0.1:5002/PipelineDeployment/inference', json=pipeline.raw).text
+    files = [f.replace(path + '/', '') for f in glob(path + "/*")]
+    assert "requirements.txt" in files
+    assert "pipeline.pkl" in files
+    assert "main.py" in files

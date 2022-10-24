@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import pathlib
 from copy import deepcopy as _copy
 from hashlib import sha256
 from tempfile import TemporaryDirectory
@@ -15,17 +16,14 @@ from sklearn.utils.validation import check_is_fitted
 
 import goldilox
 from goldilox.config import CONSTANTS
-from goldilox.utils import is_s3_url, read_bytes, unpickle, validate_path, write_bytes, \
-    get_python_version, get_env_type, get_requirements
+from goldilox.utils import is_s3_url, unpickle, validate_path, read_meta_bytes, remove_signeture, add_signeture
 
 logger = logging.getLogger()
 
 
 class Pipeline(TransformerMixin):
     pipeline_type: str
-    description: str
-    BYTES_SIGNETURE = b"Goldilox"
-    BYTE_DELIMITER = b'###'
+    meta: goldilox.Meta
 
     @classmethod
     def check_hash(cls, file_path: str) -> int:
@@ -62,26 +60,45 @@ class Pipeline(TransformerMixin):
             df = df.to_pandas_df()
         return df
 
+    @property
+    def variables(self):
+        return self.meta.variables
+
+    @property
+    def description(self) -> str:
+        return self.meta.description
+
+    @property
+    def raw(self):
+        return self.meta.raw
+
+    def set_raw(self, raw):
+        self.meta.raw = raw
+
+    def set_variable(self, key, value):
+        self.variables[key] = value
+        return value
+
+    def get_variable(self, key, default=None):
+        return self.variables.get(key, default)
+
     @classmethod
     def from_vaex(cls, df,
                   fit=None,
-                  predict_column: str = None,
                   variables: dict = None,
-                  description: str = "",
-                  validate: bool = True) -> Pipeline:
+                  validate: bool = True,
+                  **kwargs) -> Pipeline:
         """
         Get a Pipeline out of a vaex.dataframe.DataFrame, and validate serilization and missing values.
         @param df: vaex.dataframe.DataFrame
         @param fit: method: A method which accepts a vaex dataframe and returns a vaex dataframe which run on pipeline.fit(df).
-        @param predict_column: str [optional]: the column to return as values when run predict
         @param variables: dict [optional]: Any variables we want to associate with the current pipeline.
         @param description: str [optional]: Any text we want to associate with the current pipeline.
         @param validate: bool [optional]: If true, run validation.
         @return: VaexPipeline
         """
         from goldilox.vaex.pipeline import VaexPipeline as VaexPipeline
-        pipeline = VaexPipeline.from_dataframe(df=df, fit=fit, variables=variables, description=description,
-                                               predict_column=predict_column)
+        pipeline = VaexPipeline.from_dataframe(df=df, fit=fit, variables=variables, **kwargs)
         if validate:
             logger.info("validate pipeline")
             logger.info(f"pipeline valid: {pipeline.validate()}")
@@ -130,7 +147,6 @@ class Pipeline(TransformerMixin):
             output_columns=output_columns,
             variables=variables,
             fit_params=fit_params,
-            description=description,
         )
         if validate and Pipeline._is_sklearn_fitted(pipeline):
             logger.info("validate pipeline")
@@ -139,7 +155,7 @@ class Pipeline(TransformerMixin):
 
     @classmethod
     def _read_pipeline_file(cls, path: str) -> tuple:
-        state_bytes = read_bytes(path)
+        state_bytes = pathlib.Path(path).read_bytes()
         return Pipeline._split_meta(state_bytes)
 
     @classmethod
@@ -168,49 +184,38 @@ class Pipeline(TransformerMixin):
     @classmethod
     def load_meta(cls, path: str) -> dict:
         """Read the meta information from a pipeline file without loading it"""
-        meta_bytes, _ = Pipeline._read_pipeline_file(path)
+        meta_bytes = remove_signeture(read_meta_bytes(path))
         return unpickle(meta_bytes)
 
-    def _get_meta_dict(self, requirements: List[str] = None, clean: bool = True) -> dict:
-        environment_type = get_env_type()
-        return {
-            CONSTANTS.PIPELINE_TYPE: self.pipeline_type,
-            CONSTANTS.VERSION: goldilox.__version__,
-            CONSTANTS.VENV_TYPE: environment_type,
-            CONSTANTS.PY_VERSION: get_python_version(),
-            CONSTANTS.REQUIREMEMTS: get_requirements(environment_type, requirements=requirements, clean=clean),
-            CONSTANTS.VARIABLES: self.variables.copy(),
-            CONSTANTS.DESCRIPTION: self.description,
-            CONSTANTS.RAW: self.raw,
-        }
+    @property
+    def _meta_dict(self) -> dict:
+        return self.meta.to_dict()
 
-    def _get_meta(self, requirements: List[str] = None, clean: bool = True) -> bytes:
-        return cloudpickle.dumps(_copy(self._get_meta_dict(requirements, clean)))
+    @property
+    def _meta_bytes(self) -> bytes:
+        return cloudpickle.dumps(_copy(self._meta_dict))
 
     @classmethod
     def _split_meta(cls, b: str) -> tuple:
-        splited = b.split(Pipeline.BYTE_DELIMITER)
-        return splited[0][len(Pipeline.BYTES_SIGNETURE):], splited[1]
+        splited = b.split(CONSTANTS.BYTE_DELIMITER)
+        return splited[0][len(CONSTANTS.BYTES_SIGNETURE):], splited[1]
 
     @classmethod
     def _save_state(cls, path: str, state: dict) -> str:
         if not is_s3_url(path):
             validate_path(path)
-        return write_bytes(path, state)
+        return pathlib.Path(path).write_bytes(state)
 
-    def save(self, path: str, requirements: List[str] = None, clean: bool = True) -> str:
+    def save(self, path: str) -> str:
         """
         @param path: str : output path
-        @param requirements: list[str]: a list of requirements. if None - takes from pip
-        @param clean: str: If True, clean some packages which are not available for conda in docker (ignored if not on conda)
-        @param mlflow: bool: if True, export as mlflow project - not working on s3:path
-        @param kwargs: Extra parameters to pass to mlflow.*.save_model
+        @param kwargs: Extra parameters to pass
         @return: same path the pipeline was saved to
         """
 
-        state_to_write = Pipeline.BYTES_SIGNETURE + self._get_meta(
-            requirements, clean) + Pipeline.BYTE_DELIMITER + self._dumps()
-        return self._save_state(path, state_to_write)
+        state_to_write = add_signeture(self._meta_bytes) + CONSTANTS.BYTE_DELIMITER + self._dumps()
+        self._save_state(path, state_to_write)
+        return path
 
     def validate(self, df=None, check_na: bool = True, verbose: bool = True) -> bool:
         """
@@ -274,29 +279,30 @@ class Pipeline(TransformerMixin):
             return items.to_dict(orient="records")
         elif isinstance(items, (list, dict)):
             return items
-        # vaex
-        return items.to_records()
+        if hasattr(items, "to_records"):  # vaex
+            return items.to_records()
+        return list(items)
 
     @classmethod
     def jsonify(cls, items) -> List[dict]:
         """Return data as json: '[{key: value, ...}, ...]'"""
         if isinstance(items, pd.DataFrame):
             return items.to_json(orient="records")
-        elif isinstance(items, (list, dict)):
-            return json.dumps(items)
-        # vaex
-        return json.dumps(items.to_records())
+        elif hasattr(items, "to_records"):  # vaex
+            return json.dumps(items.to_records())
 
-    def export_mlflow(self, path: str, requirements: List[str] = None, artifacts: dict = None,
+        return json.dumps(items)
+
+    def export_mlflow(self, path: str, artifacts: dict = None,
                       conda_env: dict = None, input_example: dict = None, signature: dict = None, **kwargs) -> str:
         from goldilox.mlops.mlflow import export_mlflow
-        return export_mlflow(self, path=path, requirements=requirements, artifacts=artifacts, conda_env=conda_env,
+        return export_mlflow(self, path=path, artifacts=artifacts, conda_env=conda_env,
                              input_example=input_example, signature=signature, **kwargs)
 
-    def export_gunicorn(self, path: str, requirements: List[str] = None, clean: bool = True) -> str:
+    def export_gunicorn(self, path: str, **kwargs) -> str:
         from goldilox.mlops import export_gunicorn
-        return export_gunicorn(self, path=path, requirements=requirements, clean=clean)
+        return export_gunicorn(self, path=path, **kwargs)
 
-    def export_ray(self, path: str, requirements: List[str] = None, **kwargs) -> str:
+    def export_ray(self, path: str, **kwargs) -> str:
         from goldilox.mlops import export_ray
-        return export_ray(self, path=path, requirements=requirements, **kwargs)
+        return export_ray(self, path=path, **kwargs)

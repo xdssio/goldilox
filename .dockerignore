@@ -161,3 +161,6 @@ flaml.log
 /.vscode/
 goldilox/__pycache__/
 /venvs
+.venv10
+.venv
+tests

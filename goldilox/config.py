@@ -25,16 +25,22 @@ class CONSTANTS:
     VARIABLES = "variables"
     DESCRIPTION = "description"
     RAW = "raw"
+    ENVIRONMENT_FILENAME = "environment_filename"
     PIPELINE = "pipeline"
     PIPELINE_TYPE = "pipeline_type"
     STATE = "state"
     VERSION = "version"
+    GOLDILOX_VERSION = "goldilox_version"
     PY_VERSION = "py_version"
     REQUIREMEMTS = "requirements"
     CONDA_ENV = "conda_env"
     DEFAULT_SUFFIX = ".parquet"
     BYTE_DELIMITER = b'###'
+    BYTES_SIGNETURE = b'Goldilox'
     VENV_TYPE = 'venv_type'
+    MLOPS = 'mlops'
+    CONDA = 'conda'
+    VENV = 'venv'
 
 
 VALID_VAEX_HEADERS = ["*.csv", "*.hdf5", "*.parquet", "*.arrow"]

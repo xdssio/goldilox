@@ -6,7 +6,7 @@ import vaex
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 
-from goldilox.sklearn.pipeline import Pipeline as SklearnPipeline
+from goldilox.sklearn.pipeline import SklearnPipeline as SklearnPipeline
 from goldilox.vaex.pipeline import VaexPipeline as VaexPipeline
 
 skip = not os.path.isfile('data/news.hdf5')
