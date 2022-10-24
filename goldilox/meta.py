@@ -5,8 +5,6 @@ import subprocess
 import sys
 import time
 
-import yaml
-
 import goldilox
 from goldilox.config import CONSTANTS
 from goldilox.utils import read_meta_bytes, remove_signeture, unpickle
@@ -23,24 +21,39 @@ def get_env_type():
     return None
 
 
+class Environment:
+    env_file: str
+    env_filename: str
+    py_version: str
+    goldilox_version: str
+
+    def set_requerments(self):
+        pass
+
+    def set_environemnt(self):
+        pass
+
+
 class Meta:
 
     def __init__(self, pipeline_type,
                  raw: dict = {},
                  variables: dict = {},
-                 goldilox_version: str = None,
+                 goldilox_version: str = goldilox.__version__,
                  py_version: str = None,
                  env_file: str = None,
                  environment_filename: str = None,
+                 fastapi_params: dict = {},
                  env_type=None, appnope=False):
         current_time = int(time.time())
         self.created = current_time
         self.updated = current_time
         self.raw = raw
+        self.fastapi_params = fastapi_params
         self.pipeline_type = pipeline_type
         self.variables = variables
         self.py_version = py_version or self.get_python_version()
-        self.goldilox_version = goldilox_version or goldilox.__version__
+        self.goldilox_version = goldilox_version
         self.env_type = env_type or get_env_type()
         if env_file is None:
             environment_filename, env_file = self.get_requirements(venv_type=env_type, appnope=appnope)
@@ -87,6 +100,7 @@ class Meta:
             CONSTANTS.VARIABLES: self.variables.copy(),
             CONSTANTS.DESCRIPTION: self.description,
             CONSTANTS.RAW: self.raw,
+            CONSTANTS.FASTAPI_PARAMS: self.fastapi_params,
             CONSTANTS.ENVIRONMENT_FILENAME: self.environment_filename,
 
         }
@@ -100,6 +114,7 @@ class Meta:
                     env_file=meta_dict.get(CONSTANTS.REQUIREMEMTS, ""),
                     variables=meta_dict.get(CONSTANTS.VARIABLES, {}),
                     raw=meta_dict.get(CONSTANTS.RAW, {}),
+                    fastapi_params=meta_dict.get('fastapi_params', {}),
                     environment_filename=meta_dict.get(CONSTANTS.ENVIRONMENT_FILENAME, ""))
 
     @classmethod
@@ -109,6 +124,7 @@ class Meta:
 
     def get_conda_environment(self):
         if self.env_type == CONSTANTS.CONDA:
+            import yaml
             conda_env = yaml.safe_load(self.env_file)
             conda_dependencies = conda_env['dependencies']
             conda_env['dependencies'] = [f"python={self.py_version}"] + conda_dependencies
@@ -142,7 +158,6 @@ class Meta:
     @property
     def requirements(self):
         return self.env_file.split('\n')
-    
+
     def set_requirements(self, requirements):
         self.env_file = '\n'.join(requirements)
-

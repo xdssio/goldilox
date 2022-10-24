@@ -8,7 +8,7 @@ from copy import deepcopy, copy as _copy
 from glob import glob
 from numbers import Number
 from time import time
-from typing import List, Union
+from typing import List, Union, Callable
 
 import cloudpickle
 import numpy as np
@@ -27,9 +27,6 @@ from goldilox.utils import process_variables, read_vaex_data
 logging.basicConfig()
 logger = logging.getLogger(__name__)
 
-PIPELINE_FIT = "_PIPELINE_FIT"
-FUNCTIONS = "functions"
-VARIABLES = "variables"
 VAEX = 'vaex'
 
 
@@ -47,6 +44,13 @@ class VaexPipeline(HasState, Pipeline):
     meta = traitlets.Any(
         default_value=goldilox.Meta(VAEX), allow_none=False, help="The environment class"
     ).tag(**serialize_pickle)
+
+    VARIABLES = "variables"
+    FIT = "_PIPELINE_FIT"
+    PREDICT = "_PIPELINE_PREDICT"
+    PREDICT_PROBA = "_PIPELINE_PREDICT_PROBA"
+    READ = "_PIPELINE_READ"
+    FUNCTIONS = "functions"
 
     @classmethod
     def _get_original_columns(cls, df: vaex.dataframe.DataFrame) -> List[str]:
@@ -150,7 +154,7 @@ class VaexPipeline(HasState, Pipeline):
        """
         copy = VaexPipeline.verify_vaex_dataset(df)
         if fit is not None:
-            copy.add_function(PIPELINE_FIT, fit)
+            copy.add_function(VaexPipeline.FIT, fit)
         sample = copy[0:1]
         state = copy.state_get()
         renamed = {x[1]: x[0] for x in state["renamed_columns"]}
@@ -159,7 +163,7 @@ class VaexPipeline(HasState, Pipeline):
             for key, value in sample.dataset._columns.items()
         }
         original_columns = VaexPipeline._get_original_columns(sample)
-        variables = {**(state.get(VARIABLES) or {}), **(variables or {})}
+        variables = {**(state.get(VaexPipeline.VARIABLES) or {}), **(variables or {})}
 
         predict_column = predict_column or df.get_column_names()[-1]
         pipeline = VaexPipeline(
@@ -170,6 +174,12 @@ class VaexPipeline(HasState, Pipeline):
         )
 
         return pipeline
+
+    def add_function(self, name: str, func: Callable) -> VaexPipeline:
+        func_expression = vaex.expression.Function(self, name, func)
+        ret = name not in self.state['functions']
+        self.state['functions'][name] = vaex.serialize.to_dict(func_expression.f)
+        return ret
 
     def copy(self) -> VaexPipeline:
         pipeline = VaexPipeline(state={})
@@ -253,12 +263,12 @@ class VaexPipeline(HasState, Pipeline):
             copy.state_set(state, keep_columns=keep_columns, set_filter=set_filter)
         return copy
 
-    def transform(self, df: Union[vaex.dataframe.DataFrame, pd.DataFrame], keep_columns: bool = False,
+    def transform(self, df: Union[vaex.dataframe.DataFrame, pd.DataFrame], passthrough: bool = False,
                   state: dict = None,
                   set_filter: bool = True) -> vaex.dataframe.DataFrame:
         copy = self.preprocess_transform(df)
         copy = self.transform_state(
-            copy, keep_columns=keep_columns, state=state, set_filter=set_filter
+            copy, keep_columns=passthrough, state=state, set_filter=set_filter
         )
         return copy
 
@@ -389,25 +399,27 @@ class VaexPipeline(HasState, Pipeline):
         if self.is_valid_fit(f):
             self.fit_func = f
 
-    def get_function(self, name):
+    def get_function(self, name: str, default: Callable = None):
         from vaex.serialize import from_dict
-
-        return from_dict(self.state.get(FUNCTIONS, {}).get(name), trusted=True).f
+        func = self.state.get(VaexPipeline.FUNCTIONS, {}).get(name)
+        if func:
+            return from_dict(func, trusted=True).f
+        return default
 
     def fit(self, df: Union[vaex.dataframe.DataFrame, pd.DataFrame, str]) -> VaexPipeline:
         if isinstance(df, str):
             logger.info(f"reading file from {df}")
-            df = read_vaex_data(df)
+            df = self.get_function(VaexPipeline.READ, read_vaex_data)(df)
         copy = df.copy()
         self.verify_vaex_dataset(copy)
         self.sample_first(copy)
-        fit_func = self.get_function(PIPELINE_FIT)
+        fit_func = self.get_function(VaexPipeline.FIT)
         if fit_func is None:
             raise RuntimeError("'fit()' was not set for this pipeline")
         self.set_raw(copy.to_records(0))
         trained = fit_func(copy)
         if VaexPipeline.is_vaex_dataset(trained):
-            trained.add_function(PIPELINE_FIT, fit_func)
+            trained.add_function(VaexPipeline.FIT, fit_func)
             self.state = trained.state_get()
         else:
             if isinstance(trained, dict):
@@ -420,11 +432,25 @@ class VaexPipeline(HasState, Pipeline):
         self.updated = int(time())
         return self
 
-    def predict(self, df: Union[vaex.dataframe.DataFrame, pd.DataFrame]):
-        ret = self.inference(df, columns=self.predict_column)[self.predict_column]
+    @staticmethod
+    def _predict(pipeline, df: Union[vaex.dataframe.DataFrame, pd.DataFrame]):
+        ret = pipeline.inference(df, columns=pipeline.predict_column)[pipeline.predict_column]
         if hasattr(ret, 'to_numpy'):
             return ret.to_numpy()
         return ret.tolist()
+
+    def predict(self, df: Union[vaex.dataframe.DataFrame, pd.DataFrame]):
+        predict_function = self.get_function(VaexPipeline.PREDICT)
+        if predict_function:
+            return predict_function(self, df)
+        return self._predict(self, df)
+
+    def predict_proba(self, df: Union[vaex.dataframe.DataFrame, pd.DataFrame]):
+        predict_proba_function = self.get_function(VaexPipeline.PREDICT_PROBA)
+        if predict_proba_function:
+            return predict_proba_function(self, df)
+        raise NotImplementedError(
+            "'predict_proba' is not implemented - please provide a function and add it with 'pipeline.add_function(pipeline.PIPELINE_PREDICT_PROBA, func)'")
 
     def get_function_model(self, name: str):
         tmp = self.state["functions"][name]

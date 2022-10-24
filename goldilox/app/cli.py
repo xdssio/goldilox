@@ -51,37 +51,14 @@ def is_ray_dir(path: str) -> bool:
            'ray.init' in pathlib.Path(main_path).read_text()
 
 
-def parse_options(options):
-    ret = {}
-
-    def clean_key(key):
-        if key.startswith('--'):
-            key = key[2:]
-        elif key.startswith('-'):
-            key = key[1:]
-        return key.replace('-', '_')
-
-    for option in options['options']:
-        splited = option.split('=')
-        if len(splited) == 2:
-            key, value = splited[0], splited[1]
-            ret[clean_key(key)] = value
-        else:
-            print(f"(skip) - option {option} was not understood - use key=value version please ")
-    if 'root_path' not in options:
-        ret['root_path'] = ''
-
-    return ret
-
-
 @main.command(context_settings=dict(ignore_unknown_options=True))
 @click.argument("path", type=click.Path(exists=True))
-@click.option("-r", "--root-path", type=str, help="FastAPI root path")
-@click.option("--nginx-config", type=str, help="If proivded, will run with nginx")
+@click.option('--nginx', type=bool, is_flag=True, default=False, help="Make nginx the default when docker run")
+@click.option('--nginx-config', type=bool, is_flag=True, default=False, help="Make nginx the default when docker run")
 @click.argument("options", nargs=-1, type=click.UNPROCESSED)
 def serve(path: str,
-          root_path: str = '',
-          nginx_config: str = None,
+          nginx: bool = None,
+          nginx_config: str = '',
           **options):
     """Serve a  pipeline with fastapi server"""
     if os.path.isdir(path):
@@ -96,8 +73,7 @@ def serve(path: str,
                 f"A directory was given, but no pipeline was found in it. \nPlease provide the pipeline file directly or provide a 'gunicorn', 'mlflow' or 'ray' directory.\nCheck out")
     else:
         options = options.get('options', [])
-        nginx = nginx_config is not None and nginx_config != ''
-        server = goldilox.app.GoldiloxServer(path=path, root_path=root_path, nginx_config=nginx_config, options=options)
+        server = goldilox.app.GoldiloxServer(path=path, nginx_config=nginx_config, options=options)
         server.serve(nginx=nginx)
 
 
@@ -127,8 +103,8 @@ def export(path: str, output: str, framework: str, **options):
         export_gunicorn(pipeline=path, path=output)
         click.echo(f"Export to {output} as gunicorn")
     elif framework == 'ray':
-        from goldilox.mlops.gunicorn import export_gunicorn
-        export_gunicorn(path, output, options)
+        from goldilox.mlops.ray import export_ray
+        export_ray(path, output, options)
         click.echo(f"Export to {output} as ray")
 
 

@@ -23,6 +23,7 @@ def test_docker_factory():
     factory = DockerFactory(path=path, name='test')
     print(' '.join(factory._get_build_command()))
     platform = 'linux/arm64'
+    platform = 'linux/amd64'
     factory.build(platform='linux/arm64')
 
     """

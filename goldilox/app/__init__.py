@@ -3,6 +3,7 @@ import json
 import logging
 import multiprocessing
 import os
+import pathlib
 import re
 import signal
 import subprocess
@@ -49,14 +50,20 @@ def get_query_class(raw):
     )
 
 
-def get_app(path: str, root_path: str = ''):
+def get_app(path: str):
     import io
     import pandas as pd
     from fastapi import FastAPI, HTTPException
     from starlette.requests import Request
     from goldilox.config import ALLOW_CORS, CORS_ORIGINS, ALLOW_HEADERS, ALLOW_METHODS, ALLOW_CREDENTIALS
     logger = logging.getLogger(__name__)
-    app = FastAPI(root_path=root_path)
+
+    PIPELINE = "pipeline"
+
+    pipeline = goldilox.Pipeline.from_file(path)
+    fastapi_params = pipeline.meta.fastapi_params or {}
+    app = FastAPI(**fastapi_params)
+
     if ALLOW_CORS:
         from fastapi.middleware.cors import CORSMiddleware
         app.add_middleware(
@@ -66,9 +73,6 @@ def get_app(path: str, root_path: str = ''):
             allow_methods=ALLOW_METHODS,
             allow_headers=ALLOW_HEADERS,
         )
-    PIPELINE = "pipeline"
-
-    pipeline = goldilox.Pipeline.from_file(path)
     # A dynamic way to create a pydanic model based on the raw data
     raw = process_response(pipeline.raw)[0]
     Query = get_query_class(raw)
@@ -180,21 +184,26 @@ def sigterm_handler(pids):
     sys.exit(0)
 
 
+def _hack_vaex_versions():
+    pass
+
+
 class GoldiloxServer:
     UVICORN_WORKER = 'uvicorn.workers.UvicornH11Worker'
 
-    def __init__(self, path, root_path='', nginx_config='', options={}):
+    def __init__(self, path: str, nginx_config: str = '', options=[]):
         self.path = path
-        self.nginx_config = nginx_config
+        self.nginx_config = nginx_config or os.getenv('NGINX_CONFIG')
         self.cmd_options = self._validate_params(options)
         self.parameters = self._to_parameters(options)
-        self.workers = self.parameters.get('workers', 1)
-        self.host = self.parameters.get('host', self.parameters.get('bind').split(':')[0])
-        self.port = self.parameters.get('port', self.parameters.get('bind').split(':')[1])
-        self.app = get_app(path=path, root_path=root_path)
+        self.app = get_app(path=path)
         pipeline = goldilox.Pipeline.from_file(path)
         if not pipeline.validate():
             raise RuntimeError(f"Pipeline in {path} is invalid")
+
+    @staticmethod
+    def _get_workers_count():
+        return int(os.getenv('WORKERS', multiprocessing.cpu_count()))
 
     def _validate_params(self, options):
         cmd = ' '.join(options)
@@ -202,7 +211,7 @@ class GoldiloxServer:
             default_bind = '-b 0.0.0.0:5000' if self.is_docker else '-b 127.0.0.1:5000'
             cmd = cmd + ' ' + os.getenv('BIND', default_bind)
         if '-w' not in cmd and '--workers' not in cmd:
-            default_workers = os.getenv('WORKERS', multiprocessing.cpu_count())
+            default_workers = self._get_workers_count()
             cmd = cmd + f" -w {default_workers}"
         return cmd
 
@@ -237,7 +246,7 @@ class GoldiloxServer:
             bind = f"{host}:{port}"
 
         params['bind'] = bind
-        params['workers'] = params.get('workers', int(os.environ.get('WORKERS', multiprocessing.cpu_count())))
+        params['workers'] = params.get('workers', self._get_workers_count())
         params["worker_class"] = params.get("worker_class", GoldiloxServer.UVICORN_WORKER)
         return params
 
@@ -265,9 +274,12 @@ class GoldiloxServer:
         print('Inference server exiting')
 
     def _serve_nginx(self):
+        print(f"Starting nginx: {self.nginx_config}")
         if self.is_docker:
             subprocess.check_call(['ln', '-sf', '/dev/stdout', '/var/log/nginx/access.log'])
             subprocess.check_call(['ln', '-sf', '/dev/stderr', '/var/log/nginx/error.log'])
+        if not self.nginx_config or not pathlib.Path(self.nginx_config).exists():
+            raise RuntimeError(f"NGINX config {self.nginx_config} not found")
         print(f"Starting nginx with {self.nginx_config}")
         return subprocess.Popen(['nginx', '-c', self.nginx_config]).pid
 

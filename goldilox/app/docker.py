@@ -53,7 +53,7 @@ class DockerFactory:
     def _get_build_args(self, nginx=False, platform: str = None):
         build_args = ["--build-arg", f"PIPELINE_FILE={self.path}"]
         if nginx:
-            build_args.extend(["--build-arg", f"NGINX=--nginx-config=/opt/program/nginx.conf"])
+            build_args.extend(["--build-arg", f"NGINX=--nginx"])
         if platform is not None:
             build_args = build_args + [f"--platform={platform}"]
         return build_args
@@ -61,9 +61,10 @@ class DockerFactory:
     def _get_build_command(self, nginx: bool = False, platform: str = None):
         return self.get_mlflow_command() if self.mlflow else self.get_gunicorn_command(nginx, platform)
 
+    # TODO remove?
     def build(self, nginx: bool = False, platform: str = None):
         """ build a docker server image"""
-        command = self.get_mlflow_command() if self.mlflow else self._get_build_command(platform=platform)
+        command = self._get_build_command(nginx=nginx, platform=platform)
 
         logger.info(f"Running docker build as follow:")
         logger.info(f"{' '.join(command)}")

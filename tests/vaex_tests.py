@@ -1,3 +1,6 @@
+import os
+import tempfile
+
 import numpy as np
 import vaex
 from vaex.ml.lightgbm import LightGBMModel
@@ -5,6 +8,61 @@ from vaex.ml.lightgbm import LightGBMModel
 from goldilox.datasets import load_iris
 from goldilox.vaex import VaexPipeline
 from tests.tests_utils import validate_persistence
+
+
+def test_vaex_pipeline_functions():
+    df, features, target = load_iris()
+    df = vaex.from_pandas(df)
+
+    def fit(df):
+        model = LightGBMModel(features=features,
+                              target=target,
+                              prediction_name='probabilities',
+                              num_boost_round=10,
+                              params={'verbose': -1, 'application': 'multiclass', 'num_class': 3})
+        model.fit(df)
+        df = model.transform(df)
+
+        @vaex.register_function()
+        def argmax(ar, axis=1):
+            return np.argmax(ar, axis=axis)
+
+        df.add_function('argmax', argmax)
+        df['prediction'] = df['probabilities'].argmax()
+        df.variables['params'] = {'models': 'lgbm'}
+
+        return df
+
+    pipeline = VaexPipeline.from_dataframe(df, fit=fit).fit(df)
+    assert all(pipeline.predict(df.head()) == np.zeros(10))
+
+    # to give a pipeline the power of an estimator
+    def predict(pipeline, df):
+        return pipeline.inference(df)['prediction'].values + 1
+
+    pipeline.add_function(pipeline.PREDICT, predict)
+    assert all(pipeline.predict(df.head()) == np.zeros(10) + 1)
+
+    def predict_proba(pipeline, df):
+        return pipeline.inference(df)['probabilities'].values
+
+    pipeline.add_function(pipeline.PREDICT_PROBA, predict_proba)
+    assert pipeline.predict_proba(df).shape == (150, 3)
+
+    # Used for custom reading files to vaex - the default is pretty good though
+    def read_mock(path):
+        df = vaex.open(path)
+        df.variables['params'] = {'open': path}
+        return df
+
+    pipeline.add_function(pipeline.READ, read_mock)
+
+    dir_path = str(tempfile.TemporaryDirectory().name)
+    os.mkdir(dir_path)
+    data_path = dir_path + '/test.csv'
+    df.export_csv(data_path)
+    pipeline.fit(data_path)
+    assert pipeline.variables['params']['open'] == data_path
 
 
 def test_vaex_pipeline_predict():

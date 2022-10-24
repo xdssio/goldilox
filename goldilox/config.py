@@ -41,6 +41,7 @@ class CONSTANTS:
     MLOPS = 'mlops'
     CONDA = 'conda'
     VENV = 'venv'
+    FASTAPI_PARAMS = 'fastapi_params'
 
 
 VALID_VAEX_HEADERS = ["*.csv", "*.hdf5", "*.parquet", "*.arrow"]

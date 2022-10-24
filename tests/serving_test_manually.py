@@ -28,7 +28,7 @@ def _pipeline():
     booster = LightGBMModel(features=features,
                             target=target,
                             prediction_name='lgbm',
-                            num_boost_round=500,
+                            num_boost_round=10,
                             params={'verbosity': -1,
                                     'objective': 'multiclass',
                                     'num_class': 3})
@@ -44,11 +44,13 @@ def _pipeline():
     pipeline = Pipeline.from_vaex(df, predict_column='lgbm')
     pipeline.set_variable('b', 2)
     pipeline.set_variable('description', 'description')
+    pipeline.meta.set_requirements(['sklearn', 'lightgbm', 'vaex-ml', 'vaex-core', 'goldilox', 'pyyaml'])
     return pipeline
 
 
 def manually_test_docker():
     pipeline = _pipeline()
+    pipeline.save('pipeline.pkl')
 
     # docker with nginx
     print(requests.get('http://127.0.0.1:8080/ping', json=[pipeline.raw]).json())
