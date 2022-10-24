@@ -13,11 +13,6 @@ RUN apt-get update && apt update && apt install -y git gcc python3-pip nano
 
 RUN apt-get install -y nginx && mkdir -p /var/log/nginx
 
-#RUN apt-get install -y curl \
-#    && curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf > rustup.sh \
-#    && sh rustup.sh -y \
-#    && bash -c "echo source $HOME/.cargo/env >> /etc/bash.bashrc"
-
 ENV WORK_DIR "/opt/program"
 
 RUN mkdir -p $WORK_DIR

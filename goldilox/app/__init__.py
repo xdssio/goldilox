@@ -194,9 +194,11 @@ class GoldiloxServer:
     def __init__(self, path: str, nginx_config: str = '', options=[]):
         self.path = path
         self.nginx_config = nginx_config or os.getenv('NGINX_CONFIG')
+        self.bind = None
         self.cmd_options = self._validate_params(options)
         self.parameters = self._to_parameters(options)
         self.app = get_app(path=path)
+
         pipeline = goldilox.Pipeline.from_file(path)
         if not pipeline.validate():
             raise RuntimeError(f"Pipeline in {path} is invalid")
@@ -208,8 +210,15 @@ class GoldiloxServer:
     def _validate_params(self, options):
         cmd = ' '.join(options)
         if '-b ' not in cmd and '--bind ':
-            default_bind = '-b 0.0.0.0:5000' if self.is_docker else '-b 127.0.0.1:5000'
-            cmd = cmd + ' ' + os.getenv('BIND', default_bind)
+            bind = '-b 0.0.0.0:5000' if self.is_docker else '-b 127.0.0.1:5000'
+            cmd = cmd + ' ' + os.getenv('BIND', bind)
+        else:
+            bind = re.findall('-b \S+|--bind=[\S]*', cmd)[0]
+            if bind.startswith('--bind='):
+                bind = bind.replace('--bind=', '')
+            else:
+                bind = bind.replace('-b ', '')
+        self.bind = bind
         if '-w' not in cmd and '--workers' not in cmd:
             default_workers = self._get_workers_count()
             cmd = cmd + f" -w {default_workers}"
