@@ -114,7 +114,7 @@ class Meta:
                     env_file=meta_dict.get(CONSTANTS.REQUIREMEMTS, ""),
                     variables=meta_dict.get(CONSTANTS.VARIABLES, {}),
                     raw=meta_dict.get(CONSTANTS.RAW, {}),
-                    fastapi_params=meta_dict.get('fastapi_params', {}),
+                    fastapi_params=meta_dict.get(CONSTANTS.FASTAPI_PARAMS, {}),
                     environment_filename=meta_dict.get(CONSTANTS.ENVIRONMENT_FILENAME, ""))
 
     @classmethod

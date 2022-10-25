@@ -1,3 +1,3 @@
 #!/bin/bash
 
-glx serve pipeline --nginx-config=/opt/program/nginx.conf
+glx serve pipeline --nginx

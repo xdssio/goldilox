@@ -38,11 +38,11 @@ class DockerFactory:
         return ['mlflow', 'models', 'build-docker', f"-m", os.path.abspath(self.path), f"-n", self.name,
                 "--enable-mlserver"]
 
-    def get_gunicorn_command(self, nginx: bool = False, platform: str = None):
+    def get_gunicorn_command(self, nginx: bool = False, buildx: bool = None, platform: str = None):
         target_args = self._get_target_args()
-        run_args = ['docker', 'build', f"-f={self.dockerfile}", f"-t={self.name}", "--build-arg",
-                    f"PYTHON_VERSION={self.meta.py_version}", "--build-arg", f"PYTHON_IMAGE={self.image}",
-                    "--build-arg", f"GOLDILOX_VERSION={self.meta.goldilox_version}"]
+        docker_build = ['docker', 'buildx', 'build'] if buildx else ['docker', 'build']
+
+        run_args = docker_build + [f"-f={self.dockerfile}", f"-t={self.name}"]
 
         build_args = self._get_build_args(nginx=nginx, platform=platform)
         return run_args + target_args + build_args + ['.']
@@ -51,15 +51,18 @@ class DockerFactory:
         return ["--target", "conda-image"] if self.conda else ["--target", "venv-image"]
 
     def _get_build_args(self, nginx=False, platform: str = None):
-        build_args = ["--build-arg", f"PIPELINE_FILE={self.path}"]
+        build_args = ["--build-arg", f"PYTHON_VERSION={self.meta.py_version}",
+                      "--build-arg", f"PYTHON_IMAGE={self.image}",
+                      "--build-arg", f"GOLDILOX_VERSION={self.meta.goldilox_version}",
+                      "--build-arg", f"PIPELINE_FILE={self.path}"]
         if nginx:
-            build_args.extend(["--build-arg", f"NGINX=--nginx"])
+            build_args.extend(["--build-arg", f"USE_NGINX=--nginx"])
         if platform is not None:
             build_args = build_args + [f"--platform={platform}"]
         return build_args
 
-    def _get_build_command(self, nginx: bool = False, platform: str = None):
-        return self.get_mlflow_command() if self.mlflow else self.get_gunicorn_command(nginx, platform)
+    def _get_build_command(self, nginx: bool = False, buildx: bool = None, platform: str = None):
+        return self.get_mlflow_command() if self.mlflow else self.get_gunicorn_command(nginx, buildx, platform)
 
     # TODO remove?
     def build(self, nginx: bool = False, platform: str = None):

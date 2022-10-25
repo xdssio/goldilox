@@ -7,11 +7,13 @@ FROM $PYTHON_IMAGE AS venv-image
 
 RUN echo 'export PS1="\[\e[36m\]goldilox>\[\e[m\] "' >> /root/.bashrc
 
-ENV PYTHONUNBUFFERED=TRUE PYTHONDONTWRITEBYTECODE=TRUE PYTHONUNBUFFERED=1  PYTHONIOENCODING=UTF-8
-
 RUN apt-get update && apt update && apt install -y git gcc python3-pip nano
 
 RUN apt-get install -y nginx && mkdir -p /var/log/nginx
+
+# Get Rust for blake3
+#RUN apt-get install curl && curl https://sh.rustup.rs -sSf | sh -s -- -y
+#ENV PATH="/root/.cargo/bin:${PATH}"
 
 ENV WORK_DIR "/opt/program"
 
@@ -37,15 +39,13 @@ RUN glx export $WORK_DIR/pipeline.pkl $WORK_DIR --framework='gunicorn' --nginx
 
 RUN --mount=type=cache,target=/root/.cache pip3 install -r $WORK_DIR/requirements.txt
 
-# Hack veax for faster startup
-RUN mkdir -p $(python3 -c 'import site; print(site.getsitepackages()[0])') \
-    && echo """def get_versions(): return {'vaex-core': '4.5.1', 'vaex-hdf5': '0.10.0', 'vaex-ml': '0.14.0'}"""  >> $(python3 -c 'import site; print(site.getsitepackages()[0])')/vaex/version.py
-
 RUN ln -s $WORK_DIR/pipeline.pkl pipeline
+
+RUN glx hackvaex pipeline
 
 ARG USE_NGINX
 
-ENV NGINX_CONFIG=/opt/program/nginx.conf USE_NGINX=$USE_NGINX
+ENV NGINX_CONFIG=/opt/program/nginx.conf USE_NGINX=$USE_NGINX PATH=/program:${PATH} PYTHONUNBUFFERED=TRUE PYTHONDONTWRITEBYTECODE=TRUE PYTHONUNBUFFERED=1  PYTHONIOENCODING=UTF-8
 
 EXPOSE 5000 8080
 
@@ -77,7 +77,7 @@ ENV REQUIRMENTS "/opt/program/environment.yaml"
 
 COPY $PIPELINE_FILE $PIPELINE_PATH
 
-RUN glx freeze $PIPELINE_PATH --output $REQUIRMENTS
+RUN glx export $WORK_DIR/pipeline.pkl $WORK_DIR --framework='gunicorn' --nginx
 
 RUN --mount=type=cache,mode=0755,target=/opt/conda/pkgs conda env create --name=conda_env python=$PYTHON_VERSION -f $REQUIRMENTS
 

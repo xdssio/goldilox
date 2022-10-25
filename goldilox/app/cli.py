@@ -168,13 +168,17 @@ def freeze(path: str, output: str = None):
 @click.option('--image', type=str, default=None)
 @click.option('--dockerfile', type=click.Path(), default=None)
 @click.option('--nginx', type=bool, is_flag=True, default=False)
+@click.option('--buildx', type=bool, is_flag=True, default=False)
 @click.option('--platform', type=str, default=None)
-def build(path: str, name: str = "goldilox", image: str = None, dockerfile: str = None, nginx=False,
+def build(path: str, name: str = "goldilox", image: str = None,
+          dockerfile: str = None,
+          nginx: str = False,
+          buildx: str = False,
           platform: str = None):
     """ build a docker server image"""
     import goldilox.app.docker
     factory = goldilox.app.docker.DockerFactory(path, name, image, dockerfile)
-    command = factory._get_build_command(nginx=nginx, platform=platform)
+    command = factory._get_build_command(nginx=nginx, buildx=buildx, platform=platform)
 
     click.echo(f"Running docker build as follow:")
     click.echo(f"{' '.join(command)}")
@@ -254,6 +258,22 @@ def dockerfile(output: str):
             --build-arg GOLDILOX_VERSION=<goldilox-version> \
             --target <venv-image/conda-env> .'\
             to build a docker image")
+
+
+@main.command()
+@click.argument("path", type=click.Path(exists=True))
+def hackvaex(path: str):
+    """Hack vaex version.py for faster loading"""
+    click.echo("Overriding vaex versions file")
+    import site
+    site_packages = site.getsitepackages()[0]
+    vaex_version = pathlib.Path(site_packages).joinpath('vaex').joinpath('version.py')
+    if vaex_version.exists():
+        meta = goldilox.Meta.from_file(path)
+        vaex_versions = [pkg for pkg in meta.get_requirements()[1].split('\n') if 'vaex' in pkg]
+        vaex_versions = {pkg.split('==')[0]: pkg.split('==')[1] for pkg in vaex_versions}
+        file_content = f"""def get_versions():\n\treturn {vaex_versions}"""
+        vaex_version.write_text(file_content)
 
 
 if __name__ == '__main__':
