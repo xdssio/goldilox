@@ -41,7 +41,7 @@ RUN --mount=type=cache,target=/root/.cache pip3 install -r $WORK_DIR/requirement
 
 RUN ln -s $WORK_DIR/pipeline.pkl pipeline
 
-RUN glx hackvaex pipeline
+RUN glx hackvaex
 
 ARG USE_NGINX
 
@@ -59,47 +59,53 @@ RUN echo 'export PS1="\[\e[36m\]goldilox>\[\e[m\] "' >> /root/.bashrc
 
 RUN apt-get update && apt update && apt install -y git gcc python3-pip
 
-ARG GOLDILOX_VERSION='0.0.15'
+ENV WORK_DIR "/opt/program"
 
-RUN --mount=type=cache,mode=0755,target=/root/.cache pip3 install goldilox==$GOLDILOX_VERSION
+RUN mkdir -p $WORK_DIR
 
-RUN mkdir -p /opt/program
+WORKDIR $WORK_DIR
 
-WORKDIR /opt/program
+ARG GOLDILOX_VERSION='0.0.16'
+
+# TODO REMOVE ################
+ADD . $WORK_DIR/goldilox
+
+RUN --mount=type=cache,target=/root/.cache pip3 install -U pip \
+    &&  pip3 install -e $WORK_DIR/goldilox # TODO pip3 install goldilox==$GOLDILOX_VERSION
+
+# TODO REMOVE UNTIL ################
 
 ARG PIPELINE_FILE
 
 ARG PYTHON_VERSION="3.8"
 
-ENV PIPELINE_PATH "/opt/program/pipeline.pkl"
+ENV REQUIRMENTS "/opt/program/environment.yml"
 
-ENV REQUIRMENTS "/opt/program/environment.yaml"
-
-COPY $PIPELINE_FILE $PIPELINE_PATH
+COPY $PIPELINE_FILE $WORK_DIR/pipeline.pkl
 
 RUN glx export $WORK_DIR/pipeline.pkl $WORK_DIR --framework='gunicorn' --nginx
 
-RUN --mount=type=cache,mode=0755,target=/opt/conda/pkgs conda env create --name=conda_env python=$PYTHON_VERSION -f $REQUIRMENTS
+RUN --mount=type=cache,mode=0755,target=/opt/conda/pkgs mamba env create --name=goldilox python=$PYTHON_VERSION -f $REQUIRMENTS
 
-SHELL ["/bin/bash","-c"]
+RUN mamba init
 
-RUN conda init
+RUN echo 'mamba activate goldilox' >> ~/.bashrc
 
-RUN echo 'conda activate conda_env' >> ~/.bashrc
-
-SHELL ["conda", "run", "-n", "conda_env", "/bin/bash", "-c"]
-
-ARG GOLDILOX_VERSION='0.0.15'
-
-RUN --mount=type=cache,mode=0755,target=/root/.cache pip3 install goldilox==$GOLDILOX_VERSION
+SHELL ["conda", "run", "-n", "goldilox", "/bin/bash", "-c"]
 
 RUN ln -s /opt/program/pipeline.pkl pipeline
 
-ARG NGINX
+RUN --mount=type=cache,target=/root/.cache pip3 install -U pip \
+    &&  pip3 install -e $WORK_DIR/goldilox # TODO pip3 install goldilox==$GOLDILOX_VERSION
 
-ENV NGINX=$NGINX
+
+RUN glx hackvaex
+
+ARG USE_NGINX
+
+ENV NGINX_CONFIG=/opt/program/nginx.conf USE_NGINX=$USE_NGINX PATH=/program:${PATH} PYTHONUNBUFFERED=TRUE PYTHONDONTWRITEBYTECODE=TRUE PYTHONUNBUFFERED=1  PYTHONIOENCODING=UTF-8
 
 EXPOSE 5000 8080
 
-CMD conda run --no-capture-output -n conda_env glx serve pipeline $NGINX
+CMD conda run --no-capture-output -n goldilox glx serve pipeline $USE_NGINX
 

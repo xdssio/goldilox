@@ -112,3 +112,13 @@ def test_app_example(client):
     assert response['petal_width'] == 0.2
     assert response['prediction'] == 0
 
+
+def test_server_param_extract():
+    params = ('-b ', '--bind=')
+
+    assert goldilox.app.GoldiloxServer._extract_params('python -m goldilox.app --bind=0.0.0.0:5000',
+                                                       params) == '0.0.0.0:5000'
+    assert goldilox.app.GoldiloxServer._extract_params('python -m goldilox.app -b 0.0.0.0:5000',
+                                                       params) == '0.0.0.0:5000'
+
+

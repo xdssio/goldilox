@@ -5,6 +5,8 @@ import subprocess
 import sys
 import time
 
+import yaml
+
 import goldilox
 from goldilox.config import CONSTANTS
 from goldilox.utils import read_meta_bytes, remove_signeture, unpickle
@@ -70,12 +72,14 @@ class Meta:
         if venv_type == CONSTANTS.CONDA:
             command = ["conda env export | cut -f 1 -d '=' "]
             env = subprocess.check_output(command, shell=True).decode()
-            if appnope is False:
-                env = env.replace('\n  - appnope', '')
-            splited = env.split('\n')
-            splited[0] = 'name: conda_env'
-            splited[-2] = 'prefix: conda_env'
-            return 'environment.yml', '\n'.join(splited)
+            env = yaml.safe_load(env)
+            env['dependencies'][-1]['pip'].append('appnope')
+            if appnope is False and 'appnope' in env['dependencies'][-1]['pip']:
+                env['dependencies'][-1]['pip'].remove('appnope')
+            env['dependencies'] = [f"python={self.py_version}"] + env['dependencies']
+            env['name'] = 'goldilox'
+            env['prefix'] = 'goldilox'
+            return 'environment.yml', json.dumps(env)
         ret = subprocess.check_output([sys.executable, '-m', 'pip',
                                        'freeze']).decode()
         if appnope is False:
@@ -124,21 +128,8 @@ class Meta:
 
     def get_conda_environment(self):
         if self.env_type == CONSTANTS.CONDA:
-            import yaml
-            conda_env = yaml.safe_load(self.env_file)
-            conda_dependencies = conda_env['dependencies']
-            conda_env['dependencies'] = [f"python={self.py_version}"] + conda_dependencies
-            return conda_env
-        return {
-            'channels': ['defaults'],
-            'dependencies': [
-                f"python={self.py_version}",
-                {
-                    'pip': self.env_file.split('\n'),
-                },
-            ],
-            'name': 'goldilox_env'
-        }
+            return yaml.safe_load(self.env_file)
+        raise Exception("Not a conda environment")
 
     def write_environment_file(self, output):
         if output is None:
@@ -157,7 +148,17 @@ class Meta:
 
     @property
     def requirements(self):
+        if self.env_type == CONSTANTS.CONDA:
+            return yaml.safe_load(self.env_file)
         return self.env_file.split('\n')
 
     def set_requirements(self, requirements):
-        self.env_file = '\n'.join(requirements)
+        if self.env_type == CONSTANTS.CONDA:
+            conda_env = yaml.safe_load(self.env_file)
+            if isinstance(requirements, dict):
+                conda_env = requirements
+            else:
+                conda_env["dependencies"][-1]["pip"] = requirements
+            self.env_file = json.dumps(conda_env)
+        else:
+            self.env_file = '\n'.join(requirements)

@@ -261,16 +261,15 @@ def dockerfile(output: str):
 
 
 @main.command()
-@click.argument("path", type=click.Path(exists=True))
-def hackvaex(path: str):
+def hackvaex():
     """Hack vaex version.py for faster loading"""
     click.echo("Overriding vaex versions file")
     import site
     site_packages = site.getsitepackages()[0]
     vaex_version = pathlib.Path(site_packages).joinpath('vaex').joinpath('version.py')
     if vaex_version.exists():
-        meta = goldilox.Meta.from_file(path)
-        vaex_versions = [pkg for pkg in meta.get_requirements()[1].split('\n') if 'vaex' in pkg]
+        packages = subprocess.check_output([sys.executable, '-m', 'pip', 'freeze']).decode().split('\n')
+        vaex_versions = [pkg for pkg in packages if 'vaex' in pkg]
         vaex_versions = {pkg.split('==')[0]: pkg.split('==')[1] for pkg in vaex_versions}
         file_content = f"""def get_versions():\n\treturn {vaex_versions}"""
         vaex_version.write_text(file_content)

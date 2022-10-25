@@ -164,3 +164,4 @@ goldilox/__pycache__/
 .venv10
 .venv
 tests
+Dockerfile

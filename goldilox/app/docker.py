@@ -51,7 +51,10 @@ class DockerFactory:
         return ["--target", "conda-image"] if self.conda else ["--target", "venv-image"]
 
     def _get_build_args(self, nginx=False, platform: str = None):
-        build_args = ["--build-arg", f"PYTHON_VERSION={self.meta.py_version}",
+        version = self.meta.py_version
+        if self.conda:
+            version = '.'.join(self.meta.py_version.split('.')[:-1])
+        build_args = ["--build-arg", f"PYTHON_VERSION={version}",
                       "--build-arg", f"PYTHON_IMAGE={self.image}",
                       "--build-arg", f"GOLDILOX_VERSION={self.meta.goldilox_version}",
                       "--build-arg", f"PIPELINE_FILE={self.path}"]

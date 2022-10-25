@@ -195,6 +195,7 @@ class GoldiloxServer:
         self.path = path
         self.nginx_config = nginx_config or os.getenv('NGINX_CONFIG')
         self.bind = None
+        self.timeout = None
         self.cmd_options = self._validate_params(options)
         self.parameters = self._to_parameters(options)
         self.app = get_app(path=path)
@@ -205,7 +206,16 @@ class GoldiloxServer:
 
     @staticmethod
     def _get_workers_count():
-        return int(os.getenv('WORKERS', multiprocessing.cpu_count()))
+        return int(os.getenv('WORKERS', os.getenv('MODEL_SERVER_WORKERS', multiprocessing.cpu_count())))
+
+    @staticmethod
+    def _extract_params(cmd: str, params: List[str]) -> str:
+        if all([p not in cmd for p in params]):
+            return None
+        pattern = '|'.join([f'{p}([^ ]+)' for p in params])
+        for value in re.findall(pattern, cmd)[0]:
+            if value:
+                return re.sub(pattern, '', value)
 
     def _validate_params(self, options):
         cmd = ' '.join(options)
@@ -222,6 +232,16 @@ class GoldiloxServer:
         if '-w' not in cmd and '--workers' not in cmd:
             default_workers = self._get_workers_count()
             cmd = cmd + f" -w {default_workers}"
+        if '-t' not in cmd and '--timeout' not in cmd:
+            timeout = int(os.getenv('TIMEOUT', os.getenv('MODEL_SERVER_TIMEOUT', 60)))
+            cmd = cmd + f" -t {timeout}"
+        else:
+            timeout = re.findall('-t \S+|--timeout=[\S]*', cmd)[0]
+            if timeout.startswith('--timeout='):
+                timeout = timeout.replace('--bind=', '')
+            else:
+                timeout = timeout.replace('-t ', '')
+        self.timeout = timeout
         return cmd
 
     def _to_parameters(self, options):
