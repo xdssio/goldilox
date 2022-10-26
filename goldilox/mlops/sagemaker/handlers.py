@@ -1,6 +1,5 @@
 import io
 import os
-import sys
 
 import pandas as pd
 
@@ -22,8 +21,7 @@ ENABLE_MULTI_MODEL = os.getenv("SAGEMAKER_MULTI_MODEL", "false") == "true"
 class InferenceHandler(default_inference_handler.DefaultInferenceHandler):
 
     def default_model_fn(self, model_dir, context=None):
-        """Loads a model. For PyTorch, a default function to load a model cannot be provided.
-        Users should provide customized model_fn() in script.
+        """Loads a model.
 
         Args:
             model_dir: a directory where model is saved.
@@ -76,26 +74,32 @@ class InferenceHandler(default_inference_handler.DefaultInferenceHandler):
         return goldilox.app.process_response(prediction)
 
 
-class HandlerService(DefaultHandlerService):
-    """Handler service that is executed by the model server.
-    Determines specific default inference handlers to use based on model being used.
-    This class extends ``DefaultHandlerService``, which define the following:
-        - The ``handle`` method is invoked for all incoming inference requests to the model server.
-        - The ``initialize`` method is invoked at model server start up.
-    Based on: https://github.com/awslabs/multi-model-server/blob/master/docs/custom_service.md
-    """
+class PipelineHandlerService(DefaultHandlerService):
 
     def __init__(self):
+        """Initialize a PipelineHandlerService."""
+        self._model = None
         self._initialized = False
 
-        transformer = Transformer(default_inference_handler=DefaultHandlerService())
-        super(HandlerService, self).__init__(transformer=transformer)
+    def handle(self, data, context):
+        """Handle an inference request.
 
-    def initialize(self, context):
-        # Adding the 'code' directory path to sys.path to allow importing user modules when multi-model mode is enabled.
-        if (not self._initialized) and ENABLE_MULTI_MODEL:
-            code_dir = os.path.join(context.system_properties.get("model_dir"), 'code')
-            sys.path.append(code_dir)
-            self._initialized = True
+        Args:
+            data (obj): the request data.
+            context (obj): the request context.
 
-        super().initialize(context)
+        Returns:
+            (bytes, string): data to return to client, response content type.
+        """
+        if not self._initialized:
+            self.initialize(context)
+
+        try:
+            request_content_type = context.request_content_type
+            return self._model.inference(data)
+            # transformer = Transformer(self._model, self._input_fn, self._predict_fn, self._output_fn)
+            # return transformer.transform(data, request_content_type, accept)
+        except errors.UnsupportedFormatError as e:
+            raise e
+        except Exception as e:
+            raise errors.InternalServerError(str(e))
