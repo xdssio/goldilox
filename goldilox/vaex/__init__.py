@@ -1,2 +1,2 @@
-from goldilox.vaex.pipeline import *
-from goldilox.vaex.transformers import *
+from goldilox.vaex.pipeline import VaexPipeline
+from goldilox.vaex.transformers import Imputer

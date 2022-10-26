@@ -70,15 +70,12 @@ class Meta:
         """
         venv_type = venv_type or self.env_type
         if venv_type == CONSTANTS.CONDA:
-            command = ["conda env export | cut -f 1 -d '=' "]
-            env = subprocess.check_output(command, shell=True).decode()
+
+            env = subprocess.check_output(["conda env export | cut -f 1 -d '=' "], shell=True).decode()
+            if not env:
+                env = subprocess.check_output(["micromamba env export"], shell=True).decode()
             env = yaml.safe_load(env)
-            env['dependencies'][-1]['pip'].append('appnope')
-            if appnope is False and 'appnope' in env['dependencies'][-1]['pip']:
-                env['dependencies'][-1]['pip'].remove('appnope')
             env['dependencies'] = [f"python={self.py_version}"] + env['dependencies']
-            env['name'] = 'goldilox'
-            env['prefix'] = 'goldilox'
             return 'environment.yml', json.dumps(env)
         ret = subprocess.check_output([sys.executable, '-m', 'pip',
                                        'freeze']).decode()

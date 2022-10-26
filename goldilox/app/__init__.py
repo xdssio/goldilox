@@ -210,8 +210,8 @@ class GoldiloxServer:
         return int(os.getenv('WORKERS', os.getenv('MODEL_SERVER_WORKERS', multiprocessing.cpu_count())))
 
     def _get_bind(self):
-        default = '-b 0.0.0.0:5000' if self.is_docker else '-b 127.0.0.1:5000'
-        return int(os.getenv('BIND', default))
+        default = '0.0.0.0:5000' if self.is_docker else '127.0.0.1:5000'
+        return os.getenv('BIND', default)
 
     @staticmethod
     def _get_timeout():
@@ -279,19 +279,21 @@ class GoldiloxServer:
         )
 
     def serve(self, nginx=False):
-        pids = set([])
+
         if nginx:
+            pids = set([])
             pids.add(self._serve_nginx())
 
-        pids.add(self._serve_gunicorn(nginx=nginx))
-        signal.signal(signal.SIGTERM, lambda a, b: sigterm_handler(pids))
+            pids.add(self._serve_gunicorn(nginx=nginx))
+            signal.signal(signal.SIGTERM, lambda a, b: sigterm_handler(pids))
 
-        while True:
-            pid, _ = os.wait()
-            if pid in pids:
-                break
-        sigterm_handler(pids)
-        print('Inference server exiting')
+            while True:
+                pid, _ = os.wait()
+                if pid in pids:
+                    break
+            sigterm_handler(pids)
+            print('Inference server exiting')
+        return self._serve_wsgi()
 
     def _serve_nginx(self):
         print(f"Starting nginx: {self.nginx_config}")

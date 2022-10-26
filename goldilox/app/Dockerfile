@@ -55,6 +55,8 @@ ARG PYTHON_IMAGE="conda-forge/mambaforge-pypy3"
 
 FROM $PYTHON_IMAGE AS conda-image
 
+USER root
+
 RUN echo 'export PS1="\[\e[36m\]goldilox>\[\e[m\] "' >> /root/.bashrc
 
 RUN apt-get update && apt update && apt install -y git gcc python3-pip
@@ -83,23 +85,17 @@ ENV REQUIRMENTS "/opt/program/environment.yml"
 
 COPY $PIPELINE_FILE $WORK_DIR/pipeline.pkl
 
-RUN glx export $WORK_DIR/pipeline.pkl $WORK_DIR --framework='gunicorn' --nginx
+RUN ln -s $WORK_DIR/pipeline.pkl pipeline
 
-RUN --mount=type=cache,mode=0755,target=/opt/conda/pkgs mamba env create --name=goldilox python=$PYTHON_VERSION -f $REQUIRMENTS
+RUN glx export pipeline $WORK_DIR --framework='gunicorn' --nginx
 
-RUN mamba init
+RUN  --mount=type=cache,mode=0755,target=/opt/conda/pkgs micromamba install -y -n base -f $REQUIRMENTS \
+    && micromamba clean --all --yes
 
-RUN echo 'mamba activate goldilox' >> ~/.bashrc
-
-SHELL ["conda", "run", "-n", "goldilox", "/bin/bash", "-c"]
-
-RUN ln -s /opt/program/pipeline.pkl pipeline
+ARG MAMBA_DOCKERFILE_ACTIVATE=1
 
 RUN --mount=type=cache,target=/root/.cache pip3 install -U pip \
-    &&  pip3 install -e $WORK_DIR/goldilox # TODO pip3 install goldilox==$GOLDILOX_VERSION
-
-
-RUN glx hackvaex
+    &&  pip3 install --no-deps -e $WORK_DIR/goldilox # TODO pip3 install goldilox==$GOLDILOX_VERSION
 
 ARG USE_NGINX
 
@@ -107,5 +103,5 @@ ENV NGINX_CONFIG=/opt/program/nginx.conf USE_NGINX=$USE_NGINX PATH=/program:${PA
 
 EXPOSE 5000 8080
 
-CMD conda run --no-capture-output -n goldilox glx serve pipeline $USE_NGINX
+CMD glx serve pipeline $USE_NGINX
 

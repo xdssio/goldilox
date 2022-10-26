@@ -270,7 +270,7 @@ def hackvaex():
     if vaex_version.exists():
         packages = subprocess.check_output([sys.executable, '-m', 'pip', 'freeze']).decode().split('\n')
         vaex_versions = [pkg for pkg in packages if 'vaex' in pkg]
-        vaex_versions = {pkg.split('==')[0]: pkg.split('==')[1] for pkg in vaex_versions}
+        vaex_versions = {pkg.split('==')[0]: pkg.split('==')[1] for pkg in vaex_versions if '==' in pkg}
         file_content = f"""def get_versions():\n\treturn {vaex_versions}"""
         vaex_version.write_text(file_content)
 

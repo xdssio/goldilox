@@ -32,7 +32,7 @@ class DockerFactory:
         return os.path.join(str(goldilox_path.parent.absolute()), 'app', 'Dockerfile')
 
     def _get_image(self):
-        return 'condaforge/mambaforge' if self.conda else f"python:{self.meta.py_version}-slim-bullseye"
+        return 'mambaorg/micromamba' if self.conda else f"python:{self.meta.py_version}-slim-bullseye"
 
     def get_mlflow_command(self):
         return ['mlflow', 'models', 'build-docker', f"-m", os.path.abspath(self.path), f"-n", self.name,

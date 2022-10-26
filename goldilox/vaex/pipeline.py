@@ -16,7 +16,6 @@ import pandas as pd
 import pyarrow as pa
 import traitlets
 import vaex
-from vaex.column import Column
 from vaex.ml.state import HasState, serialize_pickle
 
 import goldilox
@@ -60,12 +59,11 @@ class VaexPipeline(HasState, Pipeline):
     def _data_type(cls, data):
         if isinstance(data, np.ndarray):
             data_type = data.dtype
-        elif isinstance(data, Column):
+        elif isinstance(data, vaex.dataset.Column):
             data = pa.array(data.tolist())
             data_type = data.type.to_pandas_dtype()
         else:
             # when we eval constants, let arrow find it out
-
             if isinstance(data, Number):
                 data_type = pa.array([data]).type.to_pandas_dtype()
             else:
@@ -245,22 +243,22 @@ class VaexPipeline(HasState, Pipeline):
                 copy[key] = self.na_column(length)
         return copy
 
-    def transform_state(self, df, keep_columns: bool = None, state: dict = None,
+    def transform_state(self, df, passthrough: bool = None, state: dict = None,
                         set_filter: bool = False) -> vaex.dataframe.DataFrame:
         copy = df.copy()
         state = state or self.state
         if state is not None:
-            if keep_columns is True:
-                keep_columns = list(
+            if passthrough is True:
+                passthrough = list(
                     set(copy.get_column_names()).difference(
                         [k for k in state["column_names"] if not k.startswith("__")]
                     )
                 )
-            if keep_columns is False or (
-                    keep_columns is not None and len(keep_columns) == 0
+            if passthrough is False or (
+                    passthrough is not None and len(passthrough) == 0
             ):
-                keep_columns = None
-            copy.state_set(state, keep_columns=keep_columns, set_filter=set_filter)
+                passthrough = None
+            copy.state_set(state, keep_columns=passthrough, set_filter=set_filter)
         return copy
 
     def transform(self, df: Union[vaex.dataframe.DataFrame, pd.DataFrame], passthrough: bool = False,
@@ -268,7 +266,7 @@ class VaexPipeline(HasState, Pipeline):
                   set_filter: bool = True) -> vaex.dataframe.DataFrame:
         copy = self.preprocess_transform(df)
         copy = self.transform_state(
-            copy, keep_columns=passthrough, state=state, set_filter=set_filter
+            copy, passthrough=passthrough, state=state, set_filter=set_filter
         )
         return copy
 
@@ -291,7 +289,7 @@ class VaexPipeline(HasState, Pipeline):
             columns = [columns]
         copy = self.preprocess_transform(df)
         ret = self.transform_state(
-            copy, set_filter=set_filter, keep_columns=passthrough
+            copy, set_filter=set_filter, passthrough=passthrough
         )
         # ret = self.fill_columns(copy, columns=columns)
         if columns is not None:
@@ -428,7 +426,7 @@ class VaexPipeline(HasState, Pipeline):
                 raise ValueError(
                     f"'fit_func' should return a vaex dataset or a state, got {type(trained)} instead"
                 )
-        self.variables.update(self.state.get(VARIABLES, {}))
+        self.variables.update(self.state.get(CONSTANTS.VARIABLES, {}))
         self.updated = int(time())
         return self
 
