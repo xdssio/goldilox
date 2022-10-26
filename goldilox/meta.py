@@ -76,6 +76,8 @@ class Meta:
                 env = subprocess.check_output(["micromamba env export"], shell=True).decode()
             env = yaml.safe_load(env)
             env['dependencies'] = [f"python={self.py_version}"] + env['dependencies']
+            env['name'] = 'base'
+            env['prefix'] = 'base'
             return 'environment.yml', json.dumps(env)
         ret = subprocess.check_output([sys.executable, '-m', 'pip',
                                        'freeze']).decode()

@@ -72,6 +72,7 @@ def test_export_gunicorn():
 
 
 def test_mlflow():
+    pipeline = _pipeline()
     path = str(TemporaryDirectory().name) + '/pipeline'
     pipeline.export_mlflow(path)
 
