@@ -113,12 +113,42 @@ def test_app_example(client):
     assert response['prediction'] == 0
 
 
-def test_server_param_extract():
-    params = ('-b ', '--bind=')
+def test_server_validate_params():
+    def default():
+        return 'default'
 
-    assert goldilox.app.GoldiloxServer._extract_params('python -m goldilox.app --bind=0.0.0.0:5000',
-                                                       params) == '0.0.0.0:5000'
-    assert goldilox.app.GoldiloxServer._extract_params('python -m goldilox.app -b 0.0.0.0:5000',
-                                                       params) == '0.0.0.0:5000'
+    assert goldilox.app.GoldiloxServer._extract_params('python -m goldilox.app --bind=0.0.0.0:5000', default,
+                                                       ['-b ', '--bind='])[
+               1] == '0.0.0.0:5000'
+    assert \
+        goldilox.app.GoldiloxServer._extract_params('python -m goldilox.app -b 0.0.0.0:5000', default,
+                                                    ['-b ', '--bind='])[
+            1] == '0.0.0.0:5000'
+    assert goldilox.app.GoldiloxServer._extract_params('python -m goldilox.app', default, ['-b ', '--bind='])[
+               1] == 'default'
 
+    assert goldilox.app.GoldiloxServer._extract_params('python -m goldilox.app -t 60', default, ['-t ', '--timeout='])[
+               1] == '60'
+    assert \
+        goldilox.app.GoldiloxServer._extract_params('python -m goldilox.app --timeout=60', default,
+                                                    ['-t ', '--timeout='])[
+            1] == '60'
+    assert goldilox.app.GoldiloxServer._extract_params('python -m goldilox.app ', default, ['t ', '--timeout='])[
+               1] == 'default'
 
+    assert goldilox.app.GoldiloxServer._extract_params('python -m goldilox.app -w 1', default, ['-w ', '--workers='])[
+               1] == '1'
+    assert \
+        goldilox.app.GoldiloxServer._extract_params('python -m goldilox.app --workers=1', default,
+                                                    ['-w ', '--workers='])[
+            1] == '1'
+    assert goldilox.app.GoldiloxServer._extract_params('python -m goldilox.app ', default, ['-w ', '--workers='])[
+               1] == 'default'
+
+    pipeline = _pipeline()
+    path = str(TemporaryDirectory().name) + '/pipeline.pkl'
+    pipeline.save(path)
+    server = goldilox.app.GoldiloxServer(path, options=['python -m goldilox.app --workers=1 -b 0.0.0.0:5001 -t 60'])
+    assert server.workers == '1'
+    assert server.bind == '0.0.0.0:5001'
+    assert server.timeout == '60'

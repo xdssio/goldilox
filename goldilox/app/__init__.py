@@ -8,7 +8,7 @@ import re
 import signal
 import subprocess
 import sys
-from typing import List, Union
+from typing import List, Union, Callable
 
 from pydantic import create_model
 
@@ -196,6 +196,7 @@ class GoldiloxServer:
         self.nginx_config = nginx_config or os.getenv('NGINX_CONFIG')
         self.bind = None
         self.timeout = None
+        self.workers = None
         self.cmd_options = self._validate_params(options)
         self.parameters = self._to_parameters(options)
         self.app = get_app(path=path)
@@ -208,40 +209,36 @@ class GoldiloxServer:
     def _get_workers_count():
         return int(os.getenv('WORKERS', os.getenv('MODEL_SERVER_WORKERS', multiprocessing.cpu_count())))
 
+    def _get_bind(self):
+        default = '-b 0.0.0.0:5000' if self.is_docker else '-b 127.0.0.1:5000'
+        return int(os.getenv('BIND', default))
+
     @staticmethod
-    def _extract_params(cmd: str, params: List[str]) -> str:
-        if all([p not in cmd for p in params]):
-            return None
+    def _get_timeout():
+        return int(os.getenv('TIMEOUT', os.getenv('MODEL_SERVER_TIMEOUT', 60)))
+
+    @staticmethod
+    def _extract_params(cmd: str, default: Callable, params: List[str]) -> str:
+        if not params:
+            raise ValueError('No params provided')
         pattern = '|'.join([f'{p}([^ ]+)' for p in params])
-        for value in re.findall(pattern, cmd)[0]:
-            if value:
-                return re.sub(pattern, '', value)
+        result = None
+        for i in re.findall(pattern, cmd):
+            for value in i:
+                if value:
+                    result = re.sub(pattern, '', value)
+                    break
+        if not result:
+            result = default()
+            cmd = cmd + f" {params[0]}{result}"
+        return cmd, result
 
     def _validate_params(self, options):
         cmd = ' '.join(options)
-        if '-b ' not in cmd and '--bind ':
-            bind = '-b 0.0.0.0:5000' if self.is_docker else '-b 127.0.0.1:5000'
-            cmd = cmd + ' ' + os.getenv('BIND', bind)
-        else:
-            bind = re.findall('-b \S+|--bind=[\S]*', cmd)[0]
-            if bind.startswith('--bind='):
-                bind = bind.replace('--bind=', '')
-            else:
-                bind = bind.replace('-b ', '')
-        self.bind = bind
-        if '-w' not in cmd and '--workers' not in cmd:
-            default_workers = self._get_workers_count()
-            cmd = cmd + f" -w {default_workers}"
-        if '-t' not in cmd and '--timeout' not in cmd:
-            timeout = int(os.getenv('TIMEOUT', os.getenv('MODEL_SERVER_TIMEOUT', 60)))
-            cmd = cmd + f" -t {timeout}"
-        else:
-            timeout = re.findall('-t \S+|--timeout=[\S]*', cmd)[0]
-            if timeout.startswith('--timeout='):
-                timeout = timeout.replace('--bind=', '')
-            else:
-                timeout = timeout.replace('-t ', '')
-        self.timeout = timeout
+        cmd, self.bind = self._extract_params(cmd, self._get_bind, ['-b ', '--bind='])
+        cmd, self.timeout = self._extract_params(cmd, self._get_timeout, ['-t ', '--timeout='])
+        cmd, self.workers = self._extract_params(cmd, self._get_workers_count, ['-w ', '--workers='])
+
         return cmd
 
     def _to_parameters(self, options):
@@ -267,15 +264,9 @@ class GoldiloxServer:
                 params[clean_key(option)] = options[i + 1]
                 skip = True
 
-        bind = params.get('bind', os.getenv('BIND', ''))
-        if not bind:
-            default_host = '0.0.0.0' if self.is_docker else '127.0.01'
-            host = params.pop('host', os.getenv('HOST', default_host))
-            port = int(params.pop('port', os.getenv('PORT', 5000)))
-            bind = f"{host}:{port}"
-
-        params['bind'] = bind
-        params['workers'] = params.get('workers', self._get_workers_count())
+        params['bind'] = self.bind
+        params['workers'] = self.workers
+        params['timeout'] = self.timeout
         params["worker_class"] = params.get("worker_class", GoldiloxServer.UVICORN_WORKER)
         return params
 

@@ -44,7 +44,9 @@ def _pipeline():
     pipeline = Pipeline.from_vaex(df, predict_column='lgbm')
     pipeline.set_variable('b', 2)
     pipeline.set_variable('description', 'description')
-    pipeline.meta.set_requirements(['sklearn', 'lightgbm', 'vaex-ml', 'vaex-core', 'goldilox', 'pyyaml'])
+
+    requirements = ['sklearn', 'lightgbm', 'vaex-ml', 'vaex-core', 'goldilox', 'pyyaml']
+    pipeline.meta.set_requirements(requirements)
     return pipeline
 
 
