@@ -277,10 +277,13 @@ class Pipeline(TransformerMixin):
         """Return data as records: [{key: value, ...}, ...]"""
         if isinstance(items, pd.DataFrame):
             return items.to_dict(orient="records")
-        elif isinstance(items, (list, dict)):
-            return items
         if hasattr(items, "to_records"):  # vaex
             return items.to_records()
+        if isinstance(items, list):
+            return items
+        elif isinstance(items, dict):
+            return [items]
+
         return list(items)
 
     @classmethod

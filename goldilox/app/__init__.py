@@ -89,7 +89,6 @@ def get_app(path: str):
         try:
             columns = None if not columns else columns.split(",")
             ret = get_pipeline().inference(data, columns=columns)
-
         except Exception as e:
             logger.error(e)
             raise HTTPException(status_code=400, detail=str(
