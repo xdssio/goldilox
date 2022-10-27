@@ -21,15 +21,10 @@ RUN mkdir -p $WORK_DIR
 
 WORKDIR $WORK_DIR
 
-ARG GOLDILOX_VERSION='0.0.16'
-
-# TODO REMOVE ################
-ADD . $WORK_DIR/goldilox
+ARG GOLDILOX_VERSION='0.0.19'
 
 RUN --mount=type=cache,target=/root/.cache pip3 install -U pip \
-    &&  pip3 install -e $WORK_DIR/goldilox # TODO pip3 install goldilox==$GOLDILOX_VERSION
-
-# TODO REMOVE UNTIL ################
+    &&  pip3 install goldilox==$GOLDILOX_VERSION
 
 ARG PIPELINE_FILE
 
@@ -67,15 +62,10 @@ RUN mkdir -p $WORK_DIR
 
 WORKDIR $WORK_DIR
 
-ARG GOLDILOX_VERSION='0.0.16'
-
-# TODO REMOVE ################
-ADD . $WORK_DIR/goldilox
+ARG GOLDILOX_VERSION='0.0.19'
 
 RUN --mount=type=cache,target=/root/.cache pip3 install -U pip \
-    &&  pip3 install -e $WORK_DIR/goldilox # TODO pip3 install goldilox==$GOLDILOX_VERSION
-
-# TODO REMOVE UNTIL ################
+    &&  pip3 install goldilox==$GOLDILOX_VERSION
 
 ARG PIPELINE_FILE
 
@@ -94,8 +84,7 @@ RUN  --mount=type=cache,mode=0755,target=/opt/conda/pkgs micromamba install -y -
 
 ARG MAMBA_DOCKERFILE_ACTIVATE=1
 
-RUN --mount=type=cache,target=/root/.cache pip3 install -U pip \
-    &&  pip3 install --no-deps -e $WORK_DIR/goldilox # TODO pip3 install goldilox==$GOLDILOX_VERSION
+RUN --mount=type=cache,target=/root/.cache pip3 install goldilox==$GOLDILOX_VERSION
 
 ARG USE_NGINX
 

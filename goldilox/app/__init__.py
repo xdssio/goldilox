@@ -20,7 +20,6 @@ RAW = "raw"
 GUNICORN = "gunicorn"
 UVICORN = "uvicorn"
 PATH = "path"
-
 logger = logging.getLogger(__name__)
 
 from .docker import DockerFactory
@@ -50,18 +49,25 @@ def get_query_class(raw):
     )
 
 
+class AppPipeline:
+    pipeline: goldilox.Pipeline
+    meta: goldilox.Meta
+
+
+app_pipeline = AppPipeline()
+
+
 def get_app(path: str):
     import io
     import pandas as pd
     from fastapi import FastAPI, HTTPException
     from starlette.requests import Request
     from goldilox.config import ALLOW_CORS, CORS_ORIGINS, ALLOW_HEADERS, ALLOW_METHODS, ALLOW_CREDENTIALS
+
     logger = logging.getLogger(__name__)
 
-    PIPELINE = "pipeline"
-
-    pipeline = goldilox.Pipeline.from_file(path)
-    fastapi_params = pipeline.meta.fastapi_params or {}
+    meta = goldilox.Meta.from_file(path)
+    fastapi_params = meta.fastapi_params or {}
     app = FastAPI(**fastapi_params)
 
     if ALLOW_CORS:
@@ -74,11 +80,14 @@ def get_app(path: str):
             allow_headers=ALLOW_HEADERS,
         )
     # A dynamic way to create a pydanic model based on the raw data
-    raw = process_response(pipeline.raw)[0]
+    raw = process_response(meta.raw)[0]
     Query = get_query_class(raw)
 
-    def get_pipeline():
-        return app.state._state.get(PIPELINE, pipeline)
+    @app.on_event('startup')
+    async def load_model():
+        app_pipeline.pipeline = goldilox.Pipeline.from_file(path)
+        app_pipeline.meta = app_pipeline.pipeline.meta
+        app_pipeline.pipeline.example  # warmup and load packages
 
     @app.post("/inference", response_model=List[dict])
     def inference(data: List[Query], columns: str = ""):
@@ -88,7 +97,7 @@ def get_app(path: str):
             raise HTTPException(status_code=400, detail="No data provided")
         try:
             columns = None if not columns else columns.split(",")
-            ret = get_pipeline().inference(data, columns=columns)
+            ret = app_pipeline.pipeline.inference(data, columns=columns)
         except Exception as e:
             logger.error(e)
             raise HTTPException(status_code=400, detail=str(
@@ -113,7 +122,7 @@ def get_app(path: str):
         if isinstance(data, dict) and "data" in data:  # mlflow format
             data = data["data"]
         columns = None if not columns else columns.split(",")
-        ret = get_pipeline().inference(data, columns=columns)
+        ret = app_pipeline.pipeline.inference(data, columns=columns)
         if content_type == "text/csv":
             if hasattr(ret, 'to_pandas_df'):
                 ret = ret.to_pandas_df()
@@ -126,21 +135,21 @@ def get_app(path: str):
     @app.get("/variables", response_model=dict)
     def variables():
         logger.info("/variables")
-        return process_variables(get_pipeline().variables)
+        return process_variables(app_pipeline.meta.variables)
 
     @app.get("/description", response_model=str)
     def description():
         logger.info("/description")
-        return get_pipeline().description
+        return app_pipeline.meta.description
 
     @app.get("/example", response_model=List[dict])
     def example():
         logger.info("/example")
-        return process_response(get_pipeline().example)
+        return process_response(app_pipeline.pipeline.example)
 
     @app.get("/ping", response_model=str)
     def ping():
-        health = get_pipeline() is not None
+        health = app_pipeline.pipeline is not None
         if not health:
             raise HTTPException(status_code=404, detail="Pipeline not found")
         return 'pong'
@@ -166,9 +175,6 @@ def get_wsgi_application(path: str):
             }
             for key, value in config.items():
                 self.cfg.set(key.lower(), value)
-            pipeline = goldilox.Pipeline.from_file(path)
-            self.application.state._state[PIPELINE] = pipeline
-            self.application.state._state[RAW] = pipeline.raw.copy()
 
         def load(self):
             return self.application
@@ -199,10 +205,6 @@ class GoldiloxServer:
         self.cmd_options = self._validate_params(options)
         self.parameters = self._to_parameters(options)
         self.app = get_app(path=path)
-
-        pipeline = goldilox.Pipeline.from_file(path)
-        if not pipeline.validate():
-            raise RuntimeError(f"Pipeline in {path} is invalid")
 
     @staticmethod
     def _get_workers_count():
