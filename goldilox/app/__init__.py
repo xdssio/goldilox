@@ -90,7 +90,7 @@ def get_app(path: str):
         app_pipeline.pipeline.example  # warmup and load packages
 
     @app.post("/inference", response_model=List[dict])
-    def inference(data: List[Query], columns: str = ""):
+    def inference(data: Union[List[Query], Query], columns: str = ""):
         logger.info("/inference")
         data = parse_query(data)
         if not data:

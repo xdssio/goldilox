@@ -65,6 +65,11 @@ def test_app_inference():
         assert prediction['prediction'] == 0
         assert prediction['target'] is None
 
+    with TestClient(app) as client:
+        prediction = client.post('/inference?columns=prediction,target', json=raw).json()[0]
+        assert prediction['prediction'] == 0
+        assert prediction['target'] is None
+
 
 def test_app_invocations():
     # standard
