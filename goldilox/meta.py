@@ -128,7 +128,9 @@ class Meta:
     def get_conda_environment(self):
         if self.env_type == CONSTANTS.CONDA:
             return yaml.safe_load(self.env_file)
-        raise Exception("Not a conda environment")
+        
+        return {"name": "base", "channels": ["conda-forge"], "prefix": "base",
+                "dependencies": [f"python={self.py_version}", {"pip": self.env_file.split('\n')}]}
 
     def write_environment_file(self, output):
         if output is None:
