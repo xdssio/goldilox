@@ -48,8 +48,8 @@ def get_query_class(raw):
 
 
 class AppPipeline:
-    pipeline: goldilox.Pipeline
-    meta: goldilox.Meta
+    pipeline: goldilox.Pipeline = None
+    meta: goldilox.Meta = None
 
 
 app_pipeline = AppPipeline()
@@ -66,7 +66,6 @@ def get_app(path: str):
     meta = goldilox.Meta.from_file(path)
     fastapi_params = meta.fastapi_params or {}
     app = FastAPI(**fastapi_params)
-
     if ALLOW_CORS:
         from fastapi.middleware.cors import CORSMiddleware
         app.add_middleware(
@@ -82,10 +81,11 @@ def get_app(path: str):
 
     @app.on_event('startup')
     async def load_model():
-        app_pipeline.pipeline = goldilox.Pipeline.from_file(path)
-        app_pipeline.meta = app_pipeline.pipeline.meta
-        app_pipeline.pipeline.example  # warmup and load packages
-        print(f"Model loaded from {path}")
+        if app_pipeline.pipeline is None:
+            app_pipeline.pipeline = goldilox.Pipeline.from_file(path)
+            app_pipeline.meta = app_pipeline.pipeline.meta
+            app_pipeline.pipeline.example  # warmup and load packages
+            print(f"Model loaded from {path}")
 
     @app.post("/inference", response_model=List[dict])
     async def inference(data: Union[List[Query], Query], columns: str = ""):
@@ -209,7 +209,7 @@ class GoldiloxServer:
         return int(os.getenv('WORKERS', os.getenv('MODEL_SERVER_WORKERS', multiprocessing.cpu_count())))
 
     def _get_bind(self):
-        default = '0.0.0.0:5000' if self.is_docker else '127.0.0.1:5000'
+        default = '0.0.0.0:8080' if self.is_docker else '127.0.0.1:8080'
         return os.getenv('BIND', default)
 
     @staticmethod
@@ -332,7 +332,7 @@ class SimpleServer:
     def serve(self):
         command = self._get_command()
         logger.info(f"Serving {self.name} as follow: {' '.join(command)}")
-        subprocess.check_call(command)
+        subprocess.check_call(command, cwd=self.path)
 
 
 class GunicornServer(SimpleServer):
@@ -348,8 +348,10 @@ class MLFlowServer(SimpleServer):
     def _get_command(self):
         meta = goldilox.Meta.from_file(os.path.join(self.path, 'artifacts', 'pipeline.pkl'))
         environment_param = ['--no-conda'] if meta.env_type == goldilox.config.CONSTANTS.VENV else []
-        return ['mlflow', 'models', 'serve', f"-m", os.path.abspath(self.path)] + environment_param + list(
-            self.options['options'])
+        options = list(self.options['options'])
+        if all(['-p ' not in option and '--port' not in option for option in options]):
+            options.append(f"-p 8080")
+        return ['mlflow', 'models', 'serve', f"-m", '.'] + environment_param + options
 
 
 class RayServer(SimpleServer):

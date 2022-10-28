@@ -51,7 +51,7 @@ def is_ray_dir(path: str) -> bool:
 
 
 @main.command(context_settings=dict(ignore_unknown_options=True))
-@click.argument("path", type=click.Path(exists=True))
+@click.argument("path", type=click.Path())
 @click.option('--nginx', type=bool, is_flag=True, default=False, help="Make nginx the default when docker run")
 @click.option('--nginx-config', type=bool, is_flag=True, default=False, help="Make nginx the default when docker run")
 @click.argument("options", nargs=-1, type=click.UNPROCESSED)
@@ -103,7 +103,7 @@ def export(path: str, output: str, framework: str, **options):
         click.echo(f"Export to {output} as gunicorn")
     elif framework == 'ray':
         from goldilox.mlops.ray import export_ray
-        export_ray(path, output, options)
+        export_ray(path, output)
         click.echo(f"Export to {output} as ray")
     elif framework == 'lambda':
         from goldilox.mlops.aws_lambda import export_lambda
@@ -166,7 +166,7 @@ def freeze(path: str, output: str = None):
 
 
 @main.command()
-@click.argument("path", type=click.Path(exists=True))
+@click.argument("path", type=click.Path())
 @click.option("--name", type=str, default=None, help="name of the docker image")
 @click.option('--image', type=str, default=None,
               help="docker base image to use. default - infer from pipeline environment")
@@ -197,17 +197,17 @@ def build(path: str,
     platform_str = f" --platform={platform}" if platform is not None else ''
 
     if framework == 'lambda':
-        run_command = f"docker run -it --rm -p 9000:8080 -v ~/.aws/:/root/.aws:ro {factory.name}"
+        run_command = f"docker run -it --rm -p 9000:8080 -v ~/.aws:/root/.aws:ro {factory.name}"
         goldilox_path = pathlib.Path(goldilox.__file__)
         query_file = os.path.join(str(goldilox_path.parent.absolute()), 'mlops', 'aws_lambda', 'query.json')
         with open(query_file, 'r') as f:
             query = json.load(f)
         query['body'] = json.dumps(factory.meta.raw)
-        query_command = f"""query.json:\n{json.dumps(query, indent=4)}\ncurl -XPOST -H 'x-api-key: goldiloxgoldiloxgoldilox' "http://localhost:9000/2015-03-31/functions/function/invocations" -d @query.json"""
+        query_command = f"""query.json:\n{json.dumps(query, indent=4)}\ncurl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" -d @query.json"""
     else:
-        bind = "8080:8080" if nginx else "127.0.0.1:5000:5000"
-        run_command = f"docker run --rm -it{platform_str} -p {bind} {factory.name}"
-        query_command = f"curl get http://127.0.0.1:5000/inference -d {json.dumps(factory.meta.raw)}"
+        run_command = f"docker run --rm -it{platform_str} -p 127.0.0.1:8080:8080 -e WORKERS=1  -v ~/.aws:/root/.aws:ro {factory.name}"
+        query_command = f"curl -H 'Content-Type: application/json' -XPOST http://127.0.0.1:8080/inference -d '{json.dumps(factory.meta.raw)}'"
+
     click.echo(f"Query with\n{query_command}\n")
     click.echo(f"Image {factory.name} created - run with: '{run_command}'")
 

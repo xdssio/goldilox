@@ -98,7 +98,7 @@ if __name__ == '__main__':
                         default=None)
     parser.add_argument('--port',
                         help='Port for HTTP server. Defaults to 8000',
-                        default=5000)
+                        default=8080)
     parser.add_argument('--num_cpus',
                         help='The number of CPU cores to reserve for each internal Serve HTTP proxy actor',
                         default=0)

@@ -28,8 +28,7 @@ def export_mlflow(pipeline: Union[goldilox.Pipeline, str], path: str, artifacts:
         def predict(self, context, model_input):
             return self.pipeline.predict(model_input)
 
-    if input_example is None:
-        input_example = input_example or pipeline.raw
+    input_example = input_example or pipeline.raw
 
     if signature is None:
         data = pipeline.infer(pipeline.raw)

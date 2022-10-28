@@ -31,7 +31,7 @@ ARG PIPELINE_FILE
 
 COPY $PIPELINE_FILE $WORK_DIR/pipeline.pkl
 
-RUN glx export $WORK_DIR/pipeline.pkl $WORK_DIR --framework='gunicorn' --nginx
+RUN glx export $WORK_DIR/pipeline.pkl $WORK_DIR --framework='gunicorn'
 
 RUN --mount=type=cache,target=/root/.cache pip3 install -r $WORK_DIR/requirements.txt
 
