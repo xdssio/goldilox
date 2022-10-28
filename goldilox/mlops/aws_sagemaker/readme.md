@@ -6,13 +6,13 @@ Test training locally
 
 ```bash
 # training
-python goldilox/mlops/sagemaker/program/training.py --training tests/mlops/sagemaker/training \
-  --pipeline tests/mlops/sagemaker/pipeline.pkl \
-  --model-dir tests/mlops/sagemaker/output/
+python goldilox/mlops/aws_sagemaker/program/training.py --training tests/mlops/aws_sagemaker/training \
+  --pipeline tests/mlops/aws_sagemaker/pipeline.pkl \
+  --model-dir tests/mlops/aws_sagemaker/output/
 
 
 # inference
-glx serve tests/mlops/sagemaker/output/pipeline.pkl
+glx serve tests/mlops/aws_sagemaker/output/pipeline.pkl
 ```
 
 ```
@@ -49,13 +49,13 @@ aws ecr batch-delete-image --region eu-central-1 --repository-name goldilocks --
 Delete algorithm
 
 ```bash
-aws sagemaker delete-algorithm --algorithm-name goldilocks-v2 --region eu-central-1
+aws aws_sagemaker delete-algorithm --algorithm-name goldilocks-v2 --region eu-central-1
 ```
 
 Create algorithm
 
 ```bash
-aws sagemaker create-algorithm --algorithm-name goldilocks-v2 --region eu-central-1 --algorithm-description "Behaviors and mitre tag classifiers" \
+aws aws_sagemaker create-algorithm --algorithm-name goldilocks-v2 --region eu-central-1 --algorithm-description "Behaviors and mitre tag classifiers" \
    --training-specification file://sm/program/configuration/algorithm_configuration.json 
 
 ```
@@ -67,8 +67,8 @@ Create training job
 ```bash
 
 NOW=220220211243
-aws sagemaker create-training-job --region eu-central-1 --training-job-name "goldilocks-v2-dev-$NOW" \
-  --role-arn arn:aws:iam::856378554515:role/sagemaker-role --enable-managed-spot-training \
+aws aws_sagemaker create-training-job --region eu-central-1 --training-job-name "goldilocks-v2-dev-$NOW" \
+  --role-arn arn:aws:iam::856378554515:role/aws_sagemaker-role --enable-managed-spot-training \
   --output-data-config "S3OutputPath=s3://cybear-models/goldilocks/v2/dev" \
   --stopping-condition MaxRuntimeInSeconds=600,MaxWaitTimeInSeconds=600 \
   --input-data-config file://sm/program/configuration/training_channels.json --resource-config file://sm/program/configuration/training_resource.json --algorithm-specification file://sm/program/configuration/training_configuration.json

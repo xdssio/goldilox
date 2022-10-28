@@ -18,7 +18,7 @@ from sagemaker.session import Session
 from sagemaker.utils import to_string
 from sagemaker.workflow.entities import PipelineVariable
 
-logger = logging.getLogger("sagemaker")
+logger = logging.getLogger("aws_sagemaker")
 
 
 class GoldiloxPredictor(Predictor):
@@ -92,7 +92,7 @@ class GoldiloxModel(FrameworkModel):
                 default image for PyTorch will be used. If ``framework_version``
                 or ``py_version`` are ``None``, then ``image_uri`` is required. If
                 also ``None``, then a ``ValueError`` will be raised.
-            predictor_cls (callable[str, sagemaker.session.Session]): A function
+            predictor_cls (callable[str, aws_sagemaker.session.Session]): A function
                 to call to create a predictor with an endpoint name and
                 SageMaker ``Session``. If specified, ``deploy()`` returns the
                 result of invoking this function on the created endpoint name.
@@ -100,14 +100,14 @@ class GoldiloxModel(FrameworkModel):
                 used by the inference server. If None, server will use one
                 worker per vCPU.
             **kwargs: Keyword arguments passed to the superclass
-                :class:`~sagemaker.model.FrameworkModel` and, subsequently, its
-                superclass :class:`~sagemaker.model.Model`.
+                :class:`~aws_sagemaker.model.FrameworkModel` and, subsequently, its
+                superclass :class:`~aws_sagemaker.model.Model`.
 
         .. tip::
 
             You can find additional parameters for initializing this class at
-            :class:`~sagemaker.model.FrameworkModel` and
-            :class:`~sagemaker.model.Model`.
+            :class:`~aws_sagemaker.model.FrameworkModel` and
+            :class:`~aws_sagemaker.model.Model`.
         """
         self.py_version = 'py3'
         super(GoldiloxModel, self).__init__(
@@ -183,15 +183,15 @@ class GoldiloxModel(FrameworkModel):
                 endpoint.
             wait (bool): Whether the call should wait until the deployment of
                 this model completes (default: True).
-            data_capture_config (sagemaker.model_monitor.DataCaptureConfig): Specifies
+            data_capture_config (aws_sagemaker.model_monitor.DataCaptureConfig): Specifies
                 configuration related to Endpoint data capture for use with
                 Amazon SageMaker Model Monitoring. Default: None.
-            async_inference_config (sagemaker.model_monitor.AsyncInferenceConfig): Specifies
+            async_inference_config (aws_sagemaker.model_monitor.AsyncInferenceConfig): Specifies
                 configuration related to async endpoint. Use this configuration when trying
                 to create async endpoint and make async inference. If empty config object
                 passed through, will use default config to deploy async endpoint. Deploy a
                 real-time endpoint if it's None. (default: None)
-            serverless_inference_config (sagemaker.serverless.ServerlessInferenceConfig):
+            serverless_inference_config (aws_sagemaker.serverless.ServerlessInferenceConfig):
                 Specifies configuration related to serverless endpoint. Use this configuration
                 when trying to create serverless endpoint and make serverless inference. If
                 empty object passed through, will use pre-defined values in
@@ -205,7 +205,7 @@ class GoldiloxModel(FrameworkModel):
                 - If a wrong type of object is provided as serverless inference config or async
                     inference config
         Returns:
-            callable[string, sagemaker.session.Session] or None: Invocation of
+            callable[string, aws_sagemaker.session.Session] or None: Invocation of
                 ``self.predictor_cls`` on the created endpoint name, if ``self.predictor_cls``
                 is not None. Otherwise, return None.
         """
@@ -299,7 +299,7 @@ class GoldiloxModel(FrameworkModel):
             data_input_configuration (str): Input object for the model (default: None).
 
         Returns:
-            A `sagemaker.model.ModelPackage` instance.
+            A `aws_sagemaker.model.ModelPackage` instance.
         """
         instance_type = inference_instances[0] if inference_instances else None
         self._init_sagemaker_session_if_does_not_exist(instance_type)
@@ -345,7 +345,7 @@ class GoldiloxModel(FrameworkModel):
             accelerator_type (str): The Elastic Inference accelerator type to
                 deploy to the instance for loading and making inferences to the
                 model.
-            serverless_inference_config (sagemaker.serverless.ServerlessInferenceConfig):
+            serverless_inference_config (aws_sagemaker.serverless.ServerlessInferenceConfig):
                 Specifies configuration related to serverless endpoint. Instance type is
                 not provided in serverless inference. So this is used to find image URIs.
 
@@ -397,7 +397,7 @@ class GoldiloxModel(FrameworkModel):
             accelerator_type (str): The Elastic Inference accelerator type to
                 deploy to the instance for loading and making inferences to the
                 model.
-            serverless_inference_config (sagemaker.serverless.ServerlessInferenceConfig):
+            serverless_inference_config (aws_sagemaker.serverless.ServerlessInferenceConfig):
                 Specifies configuration related to serverless endpoint. Instance type is
                 not provided in serverless inference. So this is used used to determine device type.
 
