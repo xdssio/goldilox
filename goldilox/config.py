@@ -25,6 +25,7 @@ class CONSTANTS:
     VARIABLES = "variables"
     DESCRIPTION = "description"
     RAW = "raw"
+    EXAMPLE = "example"
     ENVIRONMENT_FILENAME = "environment_filename"
     PIPELINE = "pipeline"
     PIPELINE_TYPE = "pipeline_type"
@@ -54,4 +55,4 @@ ALLOW_CREDENTIALS = bool(strtobool(os.getenv('ALLOW_CREDENTIALS', 'True')))
 ALLOW_CORS = bool(strtobool(os.getenv('ALLOW_CORS', 'True')))
 
 # package
-GOLDILOX_VERSION = "0.0.19"
+GOLDILOX_VERSION = "0.0.20"

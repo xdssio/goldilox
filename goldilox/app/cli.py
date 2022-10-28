@@ -9,7 +9,7 @@ import click
 import cloudpickle
 
 import goldilox
-import goldilox.app
+import goldilox.app.docker
 from goldilox.config import CONSTANTS
 from goldilox.utils import process_variables, unpickle
 
@@ -80,7 +80,7 @@ def serve(path: str,
 @main.command(context_settings=dict(ignore_unknown_options=True))
 @click.argument("path", type=click.Path(exists=True))
 @click.argument("output", type=str)
-@click.option('-f', '--framework', type=click.Choice(['gunicorn', 'mlflow', 'ray'], case_sensitive=False),
+@click.option('-f', '--framework', type=click.Choice(['gunicorn', 'mlflow', 'ray', 'lambda'], case_sensitive=False),
               default='gunicorn')
 @click.argument('options', nargs=-1, type=click.UNPROCESSED)
 def export(path: str, output: str, framework: str, **options):
@@ -88,7 +88,7 @@ def export(path: str, output: str, framework: str, **options):
     Export a pipeline to a directory that can be served with gunicorn, ray or mlflow
     @param path: location of the pipeline
     @param output_path: locaiton of the output directory
-    @param framework: framework to use for serving. can be wither 'gunicorn', 'ray' or 'mlflow'. default is 'gunicorn'
+    @param framework: framework to use for serving. can be wither 'gunicorn', 'ray', 'mlflow' or lambda (docker). default is 'gunicorn'
     @param nginx: To generate in the case of gunicorn.
     @return:
     """
@@ -105,6 +105,10 @@ def export(path: str, output: str, framework: str, **options):
     elif framework == 'ray':
         from goldilox.mlops.ray import export_ray
         export_ray(path, output, options)
+        click.echo(f"Export to {output} as ray")
+    elif framework == 'lambda':
+        from goldilox.mlops.aws_lambda import export_lambda
+        export_lambda(path, output)
         click.echo(f"Export to {output} as ray")
 
 
@@ -164,32 +168,49 @@ def freeze(path: str, output: str = None):
 
 @main.command()
 @click.argument("path", type=click.Path(exists=True))
-@click.option("--name", type=str, default="goldilox")
-@click.option('--image', type=str, default=None)
-@click.option('--dockerfile', type=click.Path(), default=None)
-@click.option('--nginx', type=bool, is_flag=True, default=False)
-@click.option('--buildx', type=bool, is_flag=True, default=False)
-@click.option('--platform', type=str, default=None)
-def build(path: str, name: str = "goldilox", image: str = None,
+@click.option("--name", type=str, default=None, help="name of the docker image")
+@click.option('--image', type=str, default=None,
+              help="docker base image to use. default - infer from pipeline environment")
+@click.option('--dockerfile', type=click.Path(), default=None, help="path to dockerfile to override the default")
+@click.option('--nginx', type=bool, is_flag=True, default=False, help="create a docker which runs nginx as default")
+@click.option('--platform', type=str, default=None, help="docker platform to build for")
+@click.option('--framework', type=click.Choice(['gunicorn', 'lambda'], case_sensitive=False), default='gunicorn',
+              help="framework to use for serving. can be wither 'gunicorn' or 'lambda'. default is 'gunicorn'")
+def build(path: str,
+          name: str = None,
+          image: str = None,
           dockerfile: str = None,
           nginx: str = False,
-          buildx: str = False,
-          platform: str = None):
+          platform: str = None,
+          framework: str = "gunicorn"):
     """ build a docker server image"""
-    import goldilox.app.docker
-    factory = goldilox.app.docker.DockerFactory(path, name, image, dockerfile)
-    command = factory._get_build_command(nginx=nginx, buildx=buildx, platform=platform)
+    if framework == 'lambda':
+        factory_class = goldilox.app.docker.LambdaFactory
+    else:
+        factory_class = goldilox.app.docker.GunicornFactory
+    factory = factory_class(path, name, image, dockerfile)
+    command = factory._get_build_command(nginx=nginx, platform=platform)
 
     click.echo(f"Running docker build as follow:")
     click.echo(f"{' '.join(command)}")
     click.echo(f" ")
     subprocess.check_call(command)
     platform_str = f" --platform={platform}" if platform is not None else ''
-    if nginx:
-        run_command = f"docker run --rm -it{platform_str} -p 8080:8080 {name}"
+
+    if framework == 'lambda':
+        run_command = f"docker run -it --rm -p 9000:8080 -v ~/.aws/:/root/.aws:ro {factory.name}"
+        goldilox_path = pathlib.Path(goldilox.__file__)
+        query_file = os.path.join(str(goldilox_path.parent.absolute()), 'mlops', 'aws_lambda', 'query.json')
+        with open(query_file, 'r') as f:
+            query = json.load(f)
+        query['body'] = json.dumps(factory.meta.raw)
+        query_command = f"""query.json:\n{json.dumps(query, indent=4)}\ncurl -XPOST -H 'x-api-key: goldiloxgoldiloxgoldilox' "http://localhost:9000/2015-03-31/functions/function/invocations" -d @query.json"""
     else:
-        run_command = f"docker run --rm -it{platform_str} -p 127.0.0.1:5000:5000 {name}"
-    click.echo(f"Image {name} created - run with: '{run_command}'")
+        bind = "8080:8080" if nginx else "127.0.0.1:5000:5000"
+        run_command = f"docker run --rm -it{platform_str} -p {bind} {factory.name}"
+        query_command = f"curl get http://127.0.0.1:5000/inference -d {json.dumps(factory.meta.raw)}"
+    click.echo(f"Query with\n{query_command}\n")
+    click.echo(f"Image {factory.name} created - run with: '{run_command}'")
 
 
 @main.command()

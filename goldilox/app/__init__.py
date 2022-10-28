@@ -22,8 +22,6 @@ UVICORN = "uvicorn"
 PATH = "path"
 logger = logging.getLogger(__name__)
 
-from .docker import DockerFactory
-
 
 def parse_query(query):
     if not isinstance(query, list):

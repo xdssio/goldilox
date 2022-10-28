@@ -89,9 +89,12 @@ class VaexPipeline(HasState, Pipeline):
     def virtual_columns(self) -> List[str]:
         return self.state.get("virtual_columns")
 
+    def _example(self):
+        return self.inference(self.raw).to_records(0)
+
     @property
     def example(self) -> dict:
-        return self.inference(self.raw).to_records(0)
+        return self.meta.example
 
     @property
     def functions(self):
@@ -170,7 +173,7 @@ class VaexPipeline(HasState, Pipeline):
             meta=goldilox.Meta(VAEX, raw=raw, variables=process_variables(variables)),
             predict_column=predict_column
         )
-
+        pipeline.meta.example = pipeline._example()
         return pipeline
 
     def add_function(self, name: str, func: Callable) -> VaexPipeline:
@@ -428,6 +431,7 @@ class VaexPipeline(HasState, Pipeline):
                 )
         self.variables.update(self.state.get(CONSTANTS.VARIABLES, {}))
         self.updated = int(time())
+        self.meta.example = self._example()
         return self
 
     @staticmethod

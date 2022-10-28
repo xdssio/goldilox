@@ -40,6 +40,7 @@ class Meta:
 
     def __init__(self, pipeline_type,
                  raw: dict = {},
+                 example: dict = {},
                  variables: dict = {},
                  goldilox_version: str = goldilox.__version__,
                  py_version: str = None,
@@ -51,6 +52,7 @@ class Meta:
         self.created = current_time
         self.updated = current_time
         self.raw = raw
+        self.example = example
         self.fastapi_params = fastapi_params
         self.pipeline_type = pipeline_type
         self.variables = variables
@@ -103,6 +105,7 @@ class Meta:
             CONSTANTS.VARIABLES: self.variables.copy(),
             CONSTANTS.DESCRIPTION: self.description,
             CONSTANTS.RAW: self.raw,
+            CONSTANTS.EXAMPLE: self.example,
             CONSTANTS.FASTAPI_PARAMS: self.fastapi_params,
             CONSTANTS.ENVIRONMENT_FILENAME: self.environment_filename,
 
@@ -117,6 +120,7 @@ class Meta:
                     env_file=meta_dict.get(CONSTANTS.REQUIREMEMTS, ""),
                     variables=meta_dict.get(CONSTANTS.VARIABLES, {}),
                     raw=meta_dict.get(CONSTANTS.RAW, {}),
+                    example=meta_dict.get(CONSTANTS.EXAMPLE, {}),
                     fastapi_params=meta_dict.get(CONSTANTS.FASTAPI_PARAMS, {}),
                     environment_filename=meta_dict.get(CONSTANTS.ENVIRONMENT_FILENAME, ""))
 
@@ -128,7 +132,7 @@ class Meta:
     def get_conda_environment(self):
         if self.env_type == CONSTANTS.CONDA:
             return yaml.safe_load(self.env_file)
-        
+
         return {"name": "base", "channels": ["conda-forge"], "prefix": "base",
                 "dependencies": [f"python={self.py_version}", {"pip": self.env_file.split('\n')}]}
 

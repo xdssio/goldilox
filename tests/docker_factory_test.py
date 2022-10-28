@@ -19,8 +19,8 @@ def test_docker_factory():
     pipeline = _pipeline()
     path = 'pipeline.pkl'
     pipeline.save(path)
-    from goldilox.app.docker import DockerFactory
-    factory = DockerFactory(path=path, name='test')
+    from goldilox.app.docker import GunicornFactory
+    factory = GunicornFactory(path=path, name='test')
     print(' '.join(factory._get_build_command()))
     platform = 'linux/arm64'
     platform = 'linux/amd64'
