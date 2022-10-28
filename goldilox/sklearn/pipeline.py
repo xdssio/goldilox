@@ -70,8 +70,7 @@ class SklearnPipeline(traitlets.HasTraits, goldilox.Pipeline, TransformerMixin):
         if hasattr(pipeline, 'predict') and not hasattr(pipeline, 'transform') and (
                 output_columns is None or len(output_columns) == 0):
             output_columns = [DEFAULT_OUTPUT_COLUMN]
-
-        return SklearnPipeline(
+        pipeline = SklearnPipeline(
             pipeline=pipeline,
             features=features,
             target=target,
@@ -80,10 +79,17 @@ class SklearnPipeline(traitlets.HasTraits, goldilox.Pipeline, TransformerMixin):
             fit_params=fit_params,
             variables=variables
         )
+        pipeline.meta.example = pipeline._example()
+        return pipeline
+
+    def _example(self):
+        if not self._is_sklearn_fitted(self):
+            return self.raw
+        return self.inference(self.raw).to_dict(orient='records')[0]
 
     @property
     def example(self) -> dict:
-        return self.inference(self.raw).to_dict(orient='records')[0]
+        return self.meta.example
 
     @property
     def fitted(self) -> bool:

@@ -175,3 +175,4 @@ pipeline.pkl
 /tests/venvs
 .venv*
 /tests/mlops/
+/goldilox/mlops/aws_lambda/readme.md

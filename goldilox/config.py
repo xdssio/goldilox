@@ -25,6 +25,7 @@ class CONSTANTS:
     VARIABLES = "variables"
     DESCRIPTION = "description"
     RAW = "raw"
+    EXAMPLE = "example"
     ENVIRONMENT_FILENAME = "environment_filename"
     PIPELINE = "pipeline"
     PIPELINE_TYPE = "pipeline_type"
