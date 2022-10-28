@@ -7,7 +7,7 @@ setup(
     include_package_data=True,
     install_requires=["scikit-learn", "pandas", "numpy", "cloudpickle", "traitlets",
                       "gunicorn", "Click", "fastapi", "uvicorn", "pickle5", "starlette", "pyyaml"],
-    version="0.0.21",
+    version="0.0.22",
     url="https://github.com/xdssio/goldilox",
     description="A tool for deploying machine learning",
     author="Yonatan Alexander",
