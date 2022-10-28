@@ -19,7 +19,7 @@ ARG GOLDILOX_VERSION='0.0.23'
 
 RUN --mount=type=cache,target=/root/.cache pip3 install -U pip setuptools \
     && pip3 install goldilox==$GOLDILOX_VERSION \
-    && pip3 install awslambdaric mangum
+    && pip3 install awslambdaric mangum 'cloudpathlib[s3]'
 
 ARG PIPELINE_FILE
 
@@ -34,7 +34,7 @@ RUN --mount=type=cache,target=/root/.cache pip3 install -r $WORK_DIR/requirement
 
 RUN glx hackvaex
 
-ENV PYTHONPATH="${PYTHONPATH}:${WORK_DIR}" PATH=/opt/program:${PATH} HOME='/tmp'
+ENV PYTHONPATH="${PYTHONPATH}:${WORK_DIR}" PATH=/opt/program:${PATH} HOME='/tmp' PIPELINE_PATH=$WORK_DIR/pipeline.pkl
 
 ENV PYTHONUNBUFFERED=TRUE PYTHONDONTWRITEBYTECODE=TRUE PYTHONUNBUFFERED=1  PYTHONIOENCODING=UTF-8 OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
 

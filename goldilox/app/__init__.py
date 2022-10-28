@@ -63,7 +63,6 @@ def get_app(path: str):
     from goldilox.config import ALLOW_CORS, CORS_ORIGINS, ALLOW_HEADERS, ALLOW_METHODS, ALLOW_CREDENTIALS
 
     logger = logging.getLogger(__name__)
-    path = os.getenv('PIPELINE_PATH', path)
     meta = goldilox.Meta.from_file(path)
     fastapi_params = meta.fastapi_params or {}
     app = FastAPI(**fastapi_params)

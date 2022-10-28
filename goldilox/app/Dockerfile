@@ -21,10 +21,11 @@ RUN mkdir -p $WORK_DIR
 
 WORKDIR $WORK_DIR
 
-ARG GOLDILOX_VERSION='0.0.19'
+ARG GOLDILOX_VERSION='0.0.24'
 
 RUN --mount=type=cache,target=/root/.cache pip3 install -U pip \
-    &&  pip3 install goldilox==$GOLDILOX_VERSION
+    &&  pip3 install goldilox==$GOLDILOX_VERSION \
+    && pip3 install 'cloudpathlib[all]'
 
 ARG PIPELINE_FILE
 
@@ -34,7 +35,7 @@ RUN glx export $WORK_DIR/pipeline.pkl $WORK_DIR --framework='gunicorn' --nginx
 
 RUN --mount=type=cache,target=/root/.cache pip3 install -r $WORK_DIR/requirements.txt
 
-RUN ln -s $WORK_DIR/pipeline.pkl pipeline
+ENV PIPELINE_PATH $WORK_DIR/pipeline.pkl
 
 RUN glx hackvaex
 
@@ -44,7 +45,7 @@ ENV NGINX_CONFIG=/opt/program/nginx.conf USE_NGINX=$USE_NGINX PATH=/program:${PA
 
 EXPOSE 5000 8080
 
-CMD glx serve pipeline $USE_NGINX
+CMD glx serve $PIPELINE_PATH $USE_NGINX
 
 ARG PYTHON_IMAGE="conda-forge/mambaforge-pypy3"
 
@@ -62,7 +63,7 @@ RUN mkdir -p $WORK_DIR
 
 WORKDIR $WORK_DIR
 
-ARG GOLDILOX_VERSION='0.0.19'
+ARG GOLDILOX_VERSION='0.0.24'
 
 RUN --mount=type=cache,target=/root/.cache pip3 install -U pip \
     &&  pip3 install goldilox==$GOLDILOX_VERSION
@@ -75,7 +76,7 @@ ENV REQUIRMENTS "/opt/program/environment.yml"
 
 COPY $PIPELINE_FILE $WORK_DIR/pipeline.pkl
 
-RUN ln -s $WORK_DIR/pipeline.pkl pipeline
+ENV PIPELINE_PATH $WORK_DIR/pipeline.pkl
 
 RUN glx export pipeline $WORK_DIR --framework='gunicorn' --nginx
 
@@ -92,5 +93,5 @@ ENV NGINX_CONFIG=/opt/program/nginx.conf USE_NGINX=$USE_NGINX PATH=/program:${PA
 
 EXPOSE 5000 8080
 
-CMD glx serve pipeline $USE_NGINX
+CMD glx serve $PIPELINE_PATH $USE_NGINX
 

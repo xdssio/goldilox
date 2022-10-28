@@ -16,19 +16,20 @@ logger = logging.getLogger(__name__)
 from goldilox.meta import Meta
 from goldilox.app import get_app
 
-app = get_app(os.getenv('PIPELINE_PATH', 'pipeline.pkl'))
-meta = Meta.from_file('/opt/program/pipeline.pkl')
+path = os.getenv('PIPELINE_PATH')
+app = get_app(path)
+meta = Meta.from_file(path)
 
 
 @app.get("/bootstrap", response_model=dict)
 def bootstrap():
     logger.info("/bootstrap")
     try:
-
         ret = {
             'raw': meta.raw.copy(),
             'example': meta.example.copy(),
-            'description': meta.description
+            'description': meta.description,
+            'variables': meta.variables.copy(),
         }
     except Exception as e:
         logger.error(e)
