@@ -15,7 +15,7 @@ RUN mkdir -p $WORK_DIR
 
 WORKDIR $WORK_DIR
 
-ARG GOLDILOX_VERSION='0.0.19'
+ARG GOLDILOX_VERSION='0.0.20'
 
 RUN --mount=type=cache,target=/root/.cache pip3 install -U pip setuptools \
     && pip3 install goldilox==$GOLDILOX_VERSION \
@@ -24,12 +24,6 @@ RUN --mount=type=cache,target=/root/.cache pip3 install -U pip setuptools \
 ARG PIPELINE_FILE
 
 COPY $PIPELINE_FILE $WORK_DIR/pipeline.pkl
-
-##### TODO remove  #####
-COPY . $WORK_DIR/goldilox
-
-RUN pip3 install --no-dependencies -e $WORK_DIR/goldilox
-###### TODO remove til here ####
 
 RUN glx export $WORK_DIR/pipeline.pkl $WORK_DIR --framework='lambda'
 
@@ -46,7 +40,7 @@ ENV PYTHONUNBUFFERED=TRUE PYTHONDONTWRITEBYTECODE=TRUE PYTHONUNBUFFERED=1  PYTHO
 
 EXPOSE 5000 8080
 
-#ENTRYPOINT [ "/opt/program/entrypoint.sh" ]
+ENTRYPOINT [ "/opt/program/entrypoint.sh" ]
 
-#CMD ["/opt/program/handler.handler" ]
+CMD ["handler.handler" ]
 

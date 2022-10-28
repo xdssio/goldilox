@@ -9,7 +9,7 @@ import click
 import cloudpickle
 
 import goldilox
-import goldilox.app
+import goldilox.app.docker
 from goldilox.config import CONSTANTS
 from goldilox.utils import process_variables, unpickle
 
@@ -184,7 +184,6 @@ def build(path: str,
           platform: str = None,
           framework: str = "gunicorn"):
     """ build a docker server image"""
-    import goldilox.app.docker
     if framework == 'lambda':
         factory_class = goldilox.app.docker.LambdaFactory
     else:
@@ -198,16 +197,20 @@ def build(path: str,
     subprocess.check_call(command)
     platform_str = f" --platform={platform}" if platform is not None else ''
 
-    if framework == 'aws_lambda':
+    if framework == 'lambda':
         run_command = f"docker run -it --rm -p 9000:8080 -v ~/.aws/:/root/.aws:ro {factory.name}"
-        query_command = ""
+        goldilox_path = pathlib.Path(goldilox.__file__)
+        query_file = os.path.join(str(goldilox_path.parent.absolute()), 'mlops', 'aws_lambda', 'query.json')
+        with open(query_file, 'r') as f:
+            query = json.load(f)
+        query['body'] = json.dumps(factory.meta.raw)
+        query_command = f"""query.json:\n{json.dumps(query, indent=4)}\ncurl -XPOST -H 'x-api-key: goldiloxgoldiloxgoldilox' "http://localhost:9000/2015-03-31/functions/function/invocations" -d @query.json"""
     else:
-        if nginx:
-            bind = "8080:8080" if nginx else "127.0.0.1:5000:5000"
+        bind = "8080:8080" if nginx else "127.0.0.1:5000:5000"
         run_command = f"docker run --rm -it{platform_str} -p {bind} {factory.name}"
-        query_command = ""
+        query_command = f"curl get http://127.0.0.1:5000/inference -d {json.dumps(factory.meta.raw)}"
+    click.echo(f"Query with\n{query_command}\n")
     click.echo(f"Image {factory.name} created - run with: '{run_command}'")
-    click.echo(f"Query with {query_command}")
 
 
 @main.command()
