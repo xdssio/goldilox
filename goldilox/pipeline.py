@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-import pathlib
 from copy import deepcopy as _copy
 from hashlib import sha256
 from tempfile import TemporaryDirectory
@@ -16,7 +15,8 @@ from sklearn.utils.validation import check_is_fitted
 
 import goldilox
 from goldilox.config import CONSTANTS
-from goldilox.utils import is_s3_url, unpickle, validate_path, read_meta_bytes, remove_signeture, add_signeture
+from goldilox.utils import is_cloud_url, unpickle, validate_path, read_meta_bytes, remove_signeture, add_signeture, \
+    read_bytes, write_bytes
 
 logger = logging.getLogger()
 
@@ -155,7 +155,7 @@ class Pipeline(TransformerMixin):
 
     @classmethod
     def _read_pipeline_file(cls, path: str) -> tuple:
-        state_bytes = pathlib.Path(path).read_bytes()
+        state_bytes = read_bytes(path)
         return Pipeline._split_meta(state_bytes)
 
     @classmethod
@@ -165,16 +165,7 @@ class Pipeline(TransformerMixin):
         @param path: path to pipeline file.
         @return: SkleranPipeline or VaexPipeline.
         """
-        meta_bytes, state_bytes = Pipeline._read_pipeline_file(path)
-        state = unpickle(state_bytes)
-        meta = unpickle(meta_bytes)
-        pipeline_type = meta.get(CONSTANTS.PIPELINE_TYPE)
-        if pipeline_type == CONSTANTS.SKLEARN:
-            return state
-        elif pipeline_type == CONSTANTS.VAEX:
-            from goldilox.vaex.pipeline import VaexPipeline
-            return VaexPipeline.load_state(state)
-        raise RuntimeError(f"Cannot load pipeline of type {pipeline_type} from {path}")
+        return Pipeline.from_bytes(read_bytes(path))
 
     @classmethod
     def load(cls, path: str) -> Pipeline:
@@ -202,9 +193,25 @@ class Pipeline(TransformerMixin):
 
     @classmethod
     def _save_state(cls, path: str, state: dict) -> str:
-        if not is_s3_url(path):
+        if not is_cloud_url(path):
             validate_path(path)
-        return pathlib.Path(path).write_bytes(state)
+        return write_bytes(path, state)
+
+    def to_bytes(self) -> bytes:
+        return add_signeture(self._meta_bytes) + CONSTANTS.BYTE_DELIMITER + self._dumps()
+
+    @classmethod
+    def from_bytes(cls, data: bytes) -> Pipeline:
+        meta_bytes, state_bytes = Pipeline._split_meta(data)
+        state = unpickle(state_bytes)
+        meta = unpickle(meta_bytes)
+        pipeline_type = meta.get(CONSTANTS.PIPELINE_TYPE)
+        if pipeline_type == CONSTANTS.SKLEARN:
+            return state
+        elif pipeline_type == CONSTANTS.VAEX:
+            from goldilox.vaex.pipeline import VaexPipeline
+            return VaexPipeline.load_state(state)
+        raise RuntimeError(f"Cannot load pipeline of type {pipeline_type}")
 
     def save(self, path: str) -> str:
         """
@@ -212,8 +219,7 @@ class Pipeline(TransformerMixin):
         @param kwargs: Extra parameters to pass
         @return: same path the pipeline was saved to
         """
-
-        state_to_write = add_signeture(self._meta_bytes) + CONSTANTS.BYTE_DELIMITER + self._dumps()
+        state_to_write = self.to_bytes()
         self._save_state(path, state_to_write)
         return path
 

@@ -1,4 +1,5 @@
 import logging
+import os
 
 from fastapi import HTTPException
 
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 from goldilox.meta import Meta
 from goldilox.app import get_app
 
-app = get_app('pipeline.pkl')
+app = get_app(os.getenv('PIPELINE_PATH', 'pipeline.pkl'))
 meta = Meta.from_file('/opt/program/pipeline.pkl')
 
 

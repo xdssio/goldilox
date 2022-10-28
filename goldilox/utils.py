@@ -4,9 +4,10 @@ import json
 import logging
 import mmap
 import os
+import pathlib
+import re
 import shutil
 import sys
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -16,10 +17,10 @@ from goldilox.config import CONSTANTS
 valida_types = {type(None), dict, list, int, float, str, bool}
 
 
-def is_s3_url(path):
+def is_cloud_url(path):
     if hasattr(path, 'dirname'):
         path = path.dirname
-    return path.startswith('s3://')
+    return re.match("^s3:\/\/|^az:\/\/|^gs:\/\/", path) is not None
 
 
 logger = logging.getLogger()
@@ -56,6 +57,22 @@ def open_many(paths):
     return concat_vaex
 
 
+def read_bytes(path: str):
+    return get_pathlib_path(path).read_bytes()
+
+
+def write_bytes(path: str, data: bytes):
+    return get_pathlib_path(path).write_bytes(data)
+
+
+def read_text(path: str):
+    return get_pathlib_path(path).read_text()
+
+
+def write_text(path: str, data: bytes):
+    return get_pathlib_path(path).write_text(data)
+
+
 def read_file(path):
     if path.endswith('.csv'):
         read = pd.read_csv
@@ -75,7 +92,7 @@ def read_file(path):
         except Exception as e:
             return None
     elif path.endswith('txt'):
-        path = Path(path).read_text()
+        path = read_text(path)
         read = pd.read_json
     else:
         return None
@@ -196,11 +213,6 @@ def get_git_info():
             'remote': Git().remote(verbose=True).split('\t')[1].split(' ')[0]}
 
 
-def get_goldilox_path():
-    import goldilox
-    return Path(goldilox.__file__)
-
-
 def validate_path(path):
     """
     Make sure there is an empty dir there
@@ -226,26 +238,26 @@ def add_signeture(s):
     return CONSTANTS.BYTES_SIGNETURE + s
 
 
+def get_pathlib_path(path):
+    if is_cloud_url(path):
+        import cloudpathlib
+        return cloudpathlib.CloudPath(path)
+
+    return pathlib.Path(path)
+
+
 def read_meta_bytes(path):
-    open_fs = get_open(path)
-    with open_fs(path, 'r+') as f:
+    path = get_pathlib_path(path)
+
+    with path.open('r+') as f:
         with mmap.mmap(f.fileno(), 0) as mf:
             offset = mf.find(CONSTANTS.BYTE_DELIMITER)
             if offset == -1:
                 raise Exception(f"{CONSTANTS.BYTE_DELIMITER} not found")
         f.seek(offset)
-    with open_fs(path, 'rb') as f:
+    with path.open('rb') as f:
         meta_bytes = f.read(offset)
     return meta_bytes
-
-
-def get_open(path):
-    open_fs = open
-    if is_s3_url(path):
-        import s3fs
-        fs = s3fs.S3FileSystem(profile=CONSTANTS.AWS_PROFILE)
-        open_fs = fs.open
-    return open_fs
 
 
 def unpickle(b):

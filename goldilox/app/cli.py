@@ -1,7 +1,6 @@
 import json
 import os.path
 import pathlib
-import shutil
 import subprocess
 import sys
 
@@ -11,7 +10,7 @@ import cloudpickle
 import goldilox
 import goldilox.app.docker
 from goldilox.config import CONSTANTS
-from goldilox.utils import process_variables, unpickle
+from goldilox.utils import process_variables, unpickle, read_text, get_pathlib_path
 
 
 def process_option(s: str) -> tuple:
@@ -235,16 +234,16 @@ def update(path: str, key: str, value: str, variable: bool, file: bool):
     $ glx update pipeline.pkl requirements requirements.txt --file # Read the requirements.txt and update the pipeline.pkl file
     $ glx update pipeline.pkl accuracy 0.8 --variable # update the 'accuracy' variable to 0.8 in the pipeline.pkl file
     """
-
     meta_bytes, state_bytes = goldilox.Pipeline._read_pipeline_file(path)
     meta = unpickle(meta_bytes)
     tmp_value = value
-    if file and not os.path.isfile(value):
+    pathlib = get_pathlib_path(path)
+    if file and not pathlib.is_file():
         click.echo(f"{value} is not a file - skip")
-    if file and os.path.isfile(value):
-        tmp_value = pathlib.Path(value).read_text()
+    if file and pathlib.is_file():
+        tmp_value = pathlib.read_text()
         click.echo(f"{value} is considered as a file")
-    if os.path.isfile(value) and not file:
+    if not file and pathlib.is_file():
         click.echo(f"{value} is a file - if you want to load it as such, use the '--file' flag")
         click.echo(f"{value} is considered as a string")
     if variable:
@@ -253,24 +252,22 @@ def update(path: str, key: str, value: str, variable: bool, file: bool):
         meta[key] = tmp_value
     else:
         click.echo(f"{key} was invalid and ignored - for updating a variable use the '--variable' flag")
+    state_to_write = CONSTANTS.BYTES_SIGNETURE + cloudpickle.dumps(
+        meta) + CONSTANTS.BYTE_DELIMITER + state_bytes
+    pathlib.write_bytes(state_to_write)
     click.echo(f"{key} was update to {value}")
-
-    state_to_write = goldilox.Pipeline.BYTES_SIGNETURE + cloudpickle.dumps(
-        meta) + goldilox.Pipeline.BYTE_DELIMITER + state_bytes
-    goldilox.Pipeline._save_state(path, state_to_write)
+    click.echo(f"You can check with 'glx meta {path}'")
 
 
 @main.command()
 @click.option('-o', '--output', type=str, default=None)
-def dockerfile(output: str):
+def dockerfile(output: str = './Dockerfile'):
     """Create a Dockerfile for you to work with"""
-    goldilox_path = pathlib.Path(goldilox.__file__)
-    docker_file_path = str(goldilox_path.parent.absolute().joinpath('app').joinpath('Dockerfile'))
-    docker_output = output or './Dockerfile'
-    shutil.copyfile(docker_file_path, docker_output)
-    content = pathlib.Path(dockerfile).read_text()
+    goldilox_path = get_pathlib_path(goldilox.__file__).parent.absolute()
+    docker_file_path = os.path.join(str(goldilox_path), 'app', 'Dockerfile')
+    content = read_text(docker_file_path)
     click.echo(content)
-    click.echo("##################\nDockerfile was writen to './dockerfile'\n")
+    click.echo(f"##################\nDockerfile was writen to '{output}'\n")
     click.echo(
         "Run 'docker build -f=Dockerfile -t=<image-name> \
             --build-arg PIPELINE_FILE=<pipeline-path> \

@@ -7,7 +7,7 @@ import goldilox
 from goldilox.mlops.gunicorn import export_gunicorn
 from goldilox.mlops.mlflow import export_mlflow
 from goldilox.mlops.ray import export_ray
-from goldilox.utils import is_s3_url
+from goldilox.utils import is_cloud_url
 
 MLOPS = 'mlops'
 PIPELINE_FILE = 'pipeline.pkl'
@@ -30,7 +30,7 @@ def write_pipeline(pipeline, path):
 
 
 def setup_environment(pipeline, path):
-    if not is_s3_url(path):
+    if not is_cloud_url(path):
         os.makedirs(path, exist_ok=True)
     meta = goldilox.Meta.from_file(pipeline) if isinstance(pipeline, str) else pipeline.meta
     pathlib.Path(os.path.join(path, meta.environment_filename)).write_text(meta.env_file)
