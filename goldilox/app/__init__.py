@@ -63,7 +63,7 @@ def get_app(path: str):
     from goldilox.config import ALLOW_CORS, CORS_ORIGINS, ALLOW_HEADERS, ALLOW_METHODS, ALLOW_CREDENTIALS
 
     logger = logging.getLogger(__name__)
-
+    path = os.getenv('PIPELINE_PATH', path)
     meta = goldilox.Meta.from_file(path)
     fastapi_params = meta.fastapi_params or {}
     app = FastAPI(**fastapi_params)
@@ -86,9 +86,10 @@ def get_app(path: str):
         app_pipeline.pipeline = goldilox.Pipeline.from_file(path)
         app_pipeline.meta = app_pipeline.pipeline.meta
         app_pipeline.pipeline.example  # warmup and load packages
+        print(f"Model loaded from {path}")
 
     @app.post("/inference", response_model=List[dict])
-    def inference(data: Union[List[Query], Query], columns: str = ""):
+    async def inference(data: Union[List[Query], Query], columns: str = ""):
         logger.info("/inference")
         data = parse_query(data)
         if not data:

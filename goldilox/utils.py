@@ -247,15 +247,19 @@ def get_pathlib_path(path):
 
 
 def read_meta_bytes(path):
+    args = {'mode': 'r+'}
+    if is_cloud_url(path):
+        args['force_overwrite_to_cloud'] = True
     path = get_pathlib_path(path)
 
-    with path.open('r+') as f:
+    with path.open(**args) as f:
         with mmap.mmap(f.fileno(), 0) as mf:
             offset = mf.find(CONSTANTS.BYTE_DELIMITER)
             if offset == -1:
                 raise Exception(f"{CONSTANTS.BYTE_DELIMITER} not found")
         f.seek(offset)
-    with path.open('rb') as f:
+
+    with path.open(mode='rb') as f:
         meta_bytes = f.read(offset)
     return meta_bytes
 
