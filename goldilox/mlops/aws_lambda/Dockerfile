@@ -15,7 +15,7 @@ RUN mkdir -p $WORK_DIR
 
 WORKDIR $WORK_DIR
 
-ARG GOLDILOX_VERSION='0.0.22'
+ARG GOLDILOX_VERSION='0.0.23'
 
 RUN --mount=type=cache,target=/root/.cache pip3 install -U pip setuptools \
     && pip3 install goldilox==$GOLDILOX_VERSION \
