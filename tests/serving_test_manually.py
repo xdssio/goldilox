@@ -60,11 +60,11 @@ def _pipeline():
 @pytest.mark.skip("running locally")
 def manually_test_docker():
     pipeline = _pipeline()
-    import json
-    json.dumps(pipeline.raw)
+
     pipeline.save('pipeline.pkl')
-    pipeline.predict(pipeline.raw)
+    pipeline.export_gunicorn('tests/mlops/gunicorn')
     pipeline.export_mlflow('tests/mlops/mlflow')
+    pipeline.export_ray('tests/mlops/ray')
 
     # docker with nginx
     print(requests.get('http://127.0.0.1:8080/ping', json=[pipeline.raw]).json())
