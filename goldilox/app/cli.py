@@ -205,7 +205,7 @@ def build(path: str,
         query['body'] = json.dumps(factory.meta.raw)
         query_command = f"""query.json:\n{json.dumps(query, indent=4)}\ncurl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" -d @query.json"""
     else:
-        run_command = f"docker run --rm -it{platform_str} -p 127.0.0.1:8080:8080 -e WORKERS=1  -v ~/.aws:/root/.aws:ro {factory.name}"
+        run_command = f"docker run --rm -it{platform_str} -p 127.0.0.1:8080:8080 -e WORKERS=1 -v ~/.aws:/root/.aws:ro {factory.name}"
         query_command = f"curl -H 'Content-Type: application/json' -XPOST http://127.0.0.1:8080/inference -d '{json.dumps(factory.meta.raw)}'"
 
     click.echo(f"Query with\n{query_command}\n")

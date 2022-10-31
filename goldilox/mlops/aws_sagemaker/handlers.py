@@ -7,8 +7,6 @@ try:  # noqa: FURB107
     from sagemaker_inference import content_types, decoder, default_inference_handler, encoder, errors
     from sagemaker_inference.default_handler_service import DefaultHandlerService
     from sagemaker_inference.transformer import Transformer
-
-
 except:
     pass
 
