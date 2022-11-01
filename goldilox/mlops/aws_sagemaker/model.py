@@ -427,5 +427,5 @@ class ConfigurationFactory:
     def create_training_configuration(self):
         raise NotImplementedError()
 
-    def create_metric_defenistions(self):
+    def create_metric_definitions(self):
         raise NotImplementedError()

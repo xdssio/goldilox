@@ -1,3 +1,3 @@
 #!/bin/bash
 
-glx serve pipeline --nginx
+glx serve $PIPELINE_PATH --nginx

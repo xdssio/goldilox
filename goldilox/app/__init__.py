@@ -300,7 +300,7 @@ class GoldiloxServer:
             subprocess.check_call(['ln', '-sf', '/dev/stdout', '/var/log/nginx/access.log'])
             subprocess.check_call(['ln', '-sf', '/dev/stderr', '/var/log/nginx/error.log'])
         if not self.nginx_config or not pathlib.Path(self.nginx_config).exists():
-            raise RuntimeError(f"NGINX config {self.nginx_config} not found")
+            raise RuntimeError(f"nginx config not found in {self.nginx_config}")
         print(f"Starting nginx with {self.nginx_config}")
         return subprocess.Popen(['nginx', '-c', self.nginx_config]).pid
 

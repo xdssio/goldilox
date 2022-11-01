@@ -176,3 +176,4 @@ pipeline.pkl
 .venv*
 /tests/mlops/
 /goldilox/mlops/aws_lambda/readme.md
+/goldilox/mlops/aws_sagemaker/readme.md

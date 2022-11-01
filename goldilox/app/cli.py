@@ -215,12 +215,9 @@ def build(path: str,
         query['body'] = json.dumps(factory.meta.raw)
         query_command = f"""query.json:\n{json.dumps(query, indent=4)}\ncurl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" -d @query.json"""
     elif framework == 'sagemaker':
-        query_command = "docker run -it --rm -p 8080:8080 -v ~/.aws:/root/.aws:ro {factory.name}"
-        train_command = """
-        Try it out locally with sagemaker SDK\n
-        # python
+        test_command = """
+        # python        
         from sagemaker.estimator import Estimator
-        
         Estimator(image_uri=<image name>, # the image you just built
                           role=<valid-role>, # a valid aws role with sagemaker permissions
                           instance_count=1,
@@ -232,9 +229,9 @@ def build(path: str,
                             })
         """
         click.echo(f"Image {factory.name} created")
-        click.echo(f"Train locally with {train_command}")
-        run_command = ""
-
+        click.echo(f"Test locally with {test_command}")
+        run_command = f"docker run -it --rm -p 8080:8080 -v ~/.aws:/root/.aws:ro --platform=linux/amd64 {factory.name} serve"
+        query_command = f"curl -H 'Content-Type: application/json' -XPOST http://127.0.0.1:8080/inference -d '{json.dumps(factory.meta.raw)}'"
     else:
         run_command = f"docker run --rm -it{platform_str} -p 127.0.0.1:8080:8080 -e WORKERS=1 -v ~/.aws:/root/.aws:ro {factory.name}"
         query_command = f"curl -H 'Content-Type: application/json' -XPOST http://127.0.0.1:8080/inference -d '{json.dumps(factory.meta.raw)}'"

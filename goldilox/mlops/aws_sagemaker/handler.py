@@ -11,7 +11,6 @@ except:
     pass
 
 import goldilox
-import pathlib
 
 ENABLE_MULTI_MODEL = os.getenv("SAGEMAKER_MULTI_MODEL", "false") == "true"
 
@@ -27,9 +26,17 @@ class InferenceHandler(default_inference_handler.DefaultInferenceHandler):
 
         Returns: A goldilox.Pipeline.
         """
-        if pathlib.Path(model_dir).is_file():
+        pathlib_path = goldilox.utils.get_pathlib_path(model_dir)
+        if pathlib_path.is_file():
             return goldilox.Pipeline.from_file(model_dir)
-        return goldilox.Pipeline.from_file(os.path.join(model_dir, 'pipeline.pkl'))
+        files = []
+        for suffix in ('pickle', 'pkl', 'tar.gz'):
+            files.extend([str(path) for path in pathlib_path.rglob(f"*.{suffix}")])
+        if not files:
+            raise FileNotFoundError(f"Could not find any model files in {model_dir}")
+        if len(files) > 1:
+            print("Found multiple model files, using the first one")
+        return goldilox.Pipeline.from_file(os.path.join(model_dir, files[0]))
 
     def default_input_fn(self, input_data, content_type, context=None):
         """A default input_fn that can handle JSON, CSV and NPZ formats.
@@ -76,8 +83,20 @@ class PipelineHandlerService(DefaultHandlerService):
 
     def __init__(self):
         """Initialize a PipelineHandlerService."""
-        self._model = None
-        self._initialized = False
+        self.model = None
+        self.initialized = False
+
+    def initialize(self, context):
+        """
+        Initialize model. This will be called during model loading time
+        :param context: Initial context contains model server system properties.
+        :return:
+        """
+        properties = context.system_properties
+        # Contains the url parameter passed to the load request
+        model_dir = properties.get("model_dir")
+        self.model = self.default_model_fn(model_dir)
+        self.initialized = True
 
     def handle(self, data, context):
         """Handle an inference request.
@@ -89,12 +108,12 @@ class PipelineHandlerService(DefaultHandlerService):
         Returns:
             (bytes, string): data to return to client, response content type.
         """
-        if not self._initialized:
+        if not self.initialized:
             self.initialize(context)
 
         try:
             request_content_type = context.request_content_type
-            return self._model.inference(data)
+            return self.model.inference(data)
             # transformer = Transformer(self._model, self._input_fn, self._predict_fn, self._output_fn)
             # return transformer.transform(data, request_content_type, accept)
         except errors.UnsupportedFormatError as e:
