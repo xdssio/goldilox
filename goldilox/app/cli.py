@@ -224,9 +224,10 @@ def build(path: str,
         Estimator(image_uri=<image name>, # the image you just built
                           role=<valid-role>, # a valid aws role with sagemaker permissions
                           instance_count=1,
-                          instance_type="local").fit(
+                          instance_type="local",
+                          output_path='file://<where the model is saved too>',
+                          ).fit(
                             {'training': 'file://<data dir or file>',
-                            'model_dir': 'file://<where to save the trained pipeline>,
                             'pipeline: 'file://<pipeline path>'}) # optional - default take from build
                             })
         """

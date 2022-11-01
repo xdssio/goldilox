@@ -25,8 +25,25 @@ def is_cloud_url(path):
 logger = logging.getLogger()
 
 
+def is_tar(path):
+    return re.match(r".*\.tar[\.]*(gz|bz2|xz|)$", path)
+
+
+def read_tar_bytes(b):
+    import tarfile, io
+    file_like_object = io.BytesIO(b)
+    tar = tarfile.open(fileobj=file_like_object, mode="r:*")
+    for member in tar.getmembers():
+        f = tar.extractfile(member)
+        if f is not None:
+            return f.read()
+
+
 def read_bytes(path: str):
-    return get_pathlib_path(path).read_bytes()
+    ret = get_pathlib_path(path).read_bytes()
+    if is_tar(path):
+        ret = read_tar_bytes(ret)
+    return ret
 
 
 def write_bytes(path: str, data: bytes):
@@ -225,6 +242,7 @@ def get_pathlib_path(path):
 
 
 def read_meta_bytes(path):
+    # TODO deal with tar files
     args = {'mode': 'r+'}
     if is_cloud_url(path):
         args['force_overwrite_to_cloud'] = True
