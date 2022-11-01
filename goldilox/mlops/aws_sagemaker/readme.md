@@ -6,7 +6,7 @@ Test training locally
 
 ```bash
 # training
-python goldilox/mlops/aws_sagemaker/program/training.py --training tests/mlops/aws_sagemaker/training \
+python goldilox/mlops/aws_sagemaker/program/train.py --training tests/mlops/aws_sagemaker/training \
   --pipeline tests/mlops/aws_sagemaker/pipeline.pkl \
   --model-dir tests/mlops/aws_sagemaker/output/
 

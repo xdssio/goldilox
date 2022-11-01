@@ -7,80 +7,45 @@ FROM $PYTHON_IMAGE AS venv-image
 
 RUN echo 'export PS1="\[\e[36m\]goldilox>\[\e[m\] "' >> /root/.bashrc
 
-ENV PYTHONUNBUFFERED=TRUE PYTHONDONTWRITEBYTECODE=TRUE PYTHONUNBUFFERED=1  PYTHONIOENCODING=UTF-8
+RUN apt-get update && apt update && apt install -y git gcc python3-pip nano
 
-RUN apt-get update && apt update && apt install -y git gcc python3-pip
+ENV WORK_DIR "/opt/program"
 
-ARG GOLDILOX_VERSION='0.0.15'
+RUN mkdir -p $WORK_DIR \
+    && mkdir -p /opt/ml/code
 
-RUN --mount=type=cache,mode=0755,target=/root/.cache pip3 install goldilox==$GOLDILOX_VERSION
+WORKDIR $WORK_DIR
 
-RUN mkdir -p /home/app
+ARG GOLDILOX_VERSION='0.0.24'
 
-WORKDIR /home/app
-
-ARG PIPELINE_FILE
-
-ENV PIPELINE_PATH "/home/app/pipeline.pkl"
-
-ENV REQUIRMENTS "/home/app/requirements.txt"
-
-COPY $PIPELINE_FILE $PIPELINE_PATH
-
-RUN glx freeze $PIPELINE_PATH --output $REQUIRMENTS
-
-RUN --mount=type=cache,mode=0755,target=/root/.cache pip3 install -r $REQUIRMENTS
-
-RUN ln -s /home/app/pipeline.pkl pipeline
-
-EXPOSE 8000 5000
-
-CMD ["glx", "serve", "pipeline"]
-
-ARG PYTHON_IMAGE="conda-forge/mambaforge-pypy3"
-
-FROM $PYTHON_IMAGE AS conda-image
-
-RUN echo 'export PS1="\[\e[36m\]goldilox>\[\e[m\] "' >> /root/.bashrc
-
-RUN apt-get update && apt update && apt install -y git gcc python3-pip
-
-ARG GOLDILOX_VERSION='0.0.15'
-
-RUN --mount=type=cache,mode=0755,target=/root/.cache pip3 install goldilox==$GOLDILOX_VERSION
-
-RUN mkdir -p /home/app
-
-WORKDIR /home/app
+RUN --mount=type=cache,target=/root/.cache pip3 install -U pip setuptools \
+    && pip3 install goldilox==$GOLDILOX_VERSION \
+    && pip3 install awslambdaric mangum 'cloudpathlib[s3]' sagemaker-training multi-model-server sagemaker-inference smdebug
 
 ARG PIPELINE_FILE
 
-ARG PYTHON_VERSION="3.8"
-
-ENV PIPELINE_PATH "/home/app/pipeline.pkl"
-
-ENV REQUIRMENTS "/home/app/environment.yaml"
+ENV PIPELINE_PATH $WORK_DIR/pipeline.pkl
 
 COPY $PIPELINE_FILE $PIPELINE_PATH
 
-RUN glx freeze $PIPELINE_PATH --output $REQUIRMENTS
 
-RUN --mount=type=cache,mode=0755,target=/opt/conda/pkgs conda env create --name=conda_env python=$PYTHON_VERSION -f $REQUIRMENTS
+##### TODO remove #####
+COPY . $WORK_DIR/goldilox
 
-SHELL ["/bin/bash","-c"]
+RUN pip3 install --no-deps -e $WORK_DIR/goldilox
+### TODO remove #####
 
-RUN conda init
+RUN glx export $PIPELINE_PATH $WORK_DIR --framework='sagemaker'
 
-RUN echo 'conda activate conda_env' >> ~/.bashrc
+RUN --mount=type=cache,target=/root/.cache pip3 install -r $WORK_DIR/requirements.txt
 
-SHELL ["conda", "run", "-n", "conda_env", "/bin/bash", "-c"]
+RUN glx hackvaex
 
-ARG GOLDILOX_VERSION='0.0.15'
+RUN ln -s $WORK_DIR/train.py /opt/ml/code/train.py && chmod 755 /opt/ml/code/train.py
 
-RUN --mount=type=cache,mode=0755,target=/root/.cache pip3 install goldilox==$GOLDILOX_VERSION
+ENV PYTHONPATH="${PYTHONPATH}:${WORK_DIR}" PATH=/opt/ml/code:${PATH} PIPELINE_PATH=$WORK_DIR/pipeline.pkl SAGEMAKER_PROGRAM=/opt/ml/code/train.py
 
-RUN ln -s /home/app/pipeline.pkl pipeline
+ENV PYTHONUNBUFFERED=TRUE PYTHONDONTWRITEBYTECODE=TRUE PYTHONUNBUFFERED=1  PYTHONIOENCODING=UTF-8 OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
 
-EXPOSE 8000 5000
+EXPOSE 5000 8080
 
-CMD ["conda", "run", "--no-capture-output", "-n", "conda_env", "glx", "serve", "pipeline"]

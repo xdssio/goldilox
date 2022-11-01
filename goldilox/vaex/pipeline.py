@@ -122,9 +122,9 @@ class VaexPipeline(HasState, Pipeline):
         try:
             sample = df[0:1]
             self._original_columns = self._get_original_columns(df)
-            self.raw = {
+            self.set_raw({
                 key: values.tolist()[0] for key, values in sample.dataset._columns.items()
-            }
+            })
             return True
         except Exception as e:
             logger.error(f"could not sample first: {e}")
@@ -417,20 +417,29 @@ class VaexPipeline(HasState, Pipeline):
         fit_func = self.get_function(VaexPipeline.FIT)
         if fit_func is None:
             raise RuntimeError("'fit()' was not set for this pipeline")
-        self.set_raw(copy.to_records(0))
+        raw = copy.to_records(0)
         trained = fit_func(copy)
-        if VaexPipeline.is_vaex_dataset(trained):
+        if isinstance(trained, goldilox.pipeline.Pipeline):
+            if not trained.raw:
+                trained.set_raw(raw)
+            if trained.get_function(VaexPipeline.FIT) is None:
+                trained.add_function(VaexPipeline.FIT, fit_func)
+            if trained.meta.requirements:
+                pass
+            trained.meta.updated = int(time())
+            return trained
+        elif VaexPipeline.is_vaex_dataset(trained):
             trained.add_function(VaexPipeline.FIT, fit_func)
             self.state = trained.state_get()
+        elif isinstance(trained, dict):
+            self.state = trained
         else:
-            if isinstance(trained, dict):
-                self.state = trained
-            else:
-                raise ValueError(
-                    f"'fit_func' should return a vaex dataset or a state, got {type(trained)} instead"
-                )
+            raise ValueError(
+                f"'fit_func' should return a vaex dataset or a state, got {type(trained)} instead"
+            )
         self.variables.update(self.state.get(CONSTANTS.VARIABLES, {}))
         self.updated = int(time())
+        self.set_raw(raw)
         self.meta.example = self._example()
         return self
 

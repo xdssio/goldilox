@@ -315,3 +315,11 @@ class Pipeline(TransformerMixin):
     def export_ray(self, path: str, **kwargs) -> str:
         from goldilox.mlops import export_ray
         return export_ray(self, path=path, **kwargs)
+
+    def export_lambda(self, path: str, **kwargs) -> str:
+        from goldilox.mlops import export_ray
+        return export_ray(self, path=path, **kwargs)
+
+    def export_sagemaker(self, path: str, **kwargs) -> str:
+        from goldilox.mlops import export_sagemaker
+        return export_sagemaker(self, path=path, **kwargs)

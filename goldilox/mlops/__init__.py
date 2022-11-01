@@ -4,6 +4,8 @@ import pathlib
 import shutil
 
 import goldilox
+from goldilox.mlops.aws_lambda import export_lambda
+from goldilox.mlops.aws_sagemaker import export_sagemaker
 from goldilox.mlops.gunicorn import export_gunicorn
 from goldilox.mlops.mlflow import export_mlflow
 from goldilox.mlops.ray import export_ray

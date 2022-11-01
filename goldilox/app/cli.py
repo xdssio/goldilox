@@ -10,7 +10,7 @@ import cloudpickle
 import goldilox
 import goldilox.app.docker
 from goldilox.config import CONSTANTS
-from goldilox.utils import process_variables, unpickle, read_text, get_pathlib_path
+from goldilox.utils import process_variables, unpickle, read_text, get_pathlib_path, write_text
 
 
 def process_option(s: str) -> tuple:
@@ -79,7 +79,8 @@ def serve(path: str,
 @main.command(context_settings=dict(ignore_unknown_options=True))
 @click.argument("path", type=click.Path(exists=True))
 @click.argument("output", type=str)
-@click.option('-f', '--framework', type=click.Choice(['gunicorn', 'mlflow', 'ray', 'lambda'], case_sensitive=False),
+@click.option('-f', '--framework',
+              type=click.Choice(['gunicorn', 'mlflow', 'ray', 'lambda', 'sagemaker'], case_sensitive=False),
               default='gunicorn')
 @click.argument('options', nargs=-1, type=click.UNPROCESSED)
 def export(path: str, output: str, framework: str, **options):
@@ -109,6 +110,12 @@ def export(path: str, output: str, framework: str, **options):
         from goldilox.mlops.aws_lambda import export_lambda
         export_lambda(path, output)
         click.echo(f"Export to {output} as ray")
+    elif framework == 'sagemaker':
+        from goldilox.mlops.aws_sagemaker import export_sagemaker
+        export_sagemaker(path, output)
+        click.echo(f"Export to {output} as sagemaker")
+    else:
+        raise ValueError(f"framework {framework} is not supported")
 
 
 def arguments():
@@ -173,7 +180,8 @@ def freeze(path: str, output: str = None):
 @click.option('--dockerfile', type=click.Path(), default=None, help="path to dockerfile to override the default")
 @click.option('--nginx', type=bool, is_flag=True, default=False, help="create a docker which runs nginx as default")
 @click.option('--platform', type=str, default=None, help="docker platform to build for")
-@click.option('--framework', type=click.Choice(['gunicorn', 'lambda'], case_sensitive=False), default='gunicorn',
+@click.option('--framework', type=click.Choice(['gunicorn', 'lambda', 'sagemaker'], case_sensitive=False),
+              default='gunicorn',
               help="framework to use for serving. can be wither 'gunicorn' or 'lambda'. default is 'gunicorn'")
 def build(path: str,
           name: str = None,
@@ -185,6 +193,8 @@ def build(path: str,
     """ build a docker server image"""
     if framework == 'lambda':
         factory_class = goldilox.app.docker.LambdaFactory
+    elif framework == 'sagemaker':
+        factory_class = goldilox.app.docker.SageMakerFactory
     else:
         factory_class = goldilox.app.docker.GunicornFactory
     factory = factory_class(path, name, image, dockerfile)
@@ -204,6 +214,26 @@ def build(path: str,
             query = json.load(f)
         query['body'] = json.dumps(factory.meta.raw)
         query_command = f"""query.json:\n{json.dumps(query, indent=4)}\ncurl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" -d @query.json"""
+    elif framework == 'sagemaker':
+        query_command = "docker run -it --rm -p 8080:8080 -v ~/.aws:/root/.aws:ro {factory.name}"
+        train_command = """
+        Try it out locally with sagemaker SDK\n
+        # python
+        from sagemaker.estimator import Estimator
+        
+        Estimator(image_uri=<image name>, # the image you just built
+                          role=<valid-role>, # a valid aws role with sagemaker permissions
+                          instance_count=1,
+                          instance_type="local").fit(
+                            {'training': 'file://<data dir or file>',
+                            'model_dir': 'file://<where to save the trained pipeline>,
+                            'pipeline: 'file://<pipeline path>'}) # optional - default take from build
+                            })
+        """
+        click.echo(f"Image {factory.name} created")
+        click.echo(f"Train locally with {train_command}")
+        run_command = ""
+
     else:
         run_command = f"docker run --rm -it{platform_str} -p 127.0.0.1:8080:8080 -e WORKERS=1 -v ~/.aws:/root/.aws:ro {factory.name}"
         query_command = f"curl -H 'Content-Type: application/json' -XPOST http://127.0.0.1:8080/inference -d '{json.dumps(factory.meta.raw)}'"
@@ -261,11 +291,18 @@ def update(path: str, key: str, value: str, variable: bool, file: bool):
 
 @main.command()
 @click.option('-o', '--output', type=str, default=None)
-def dockerfile(output: str = './Dockerfile'):
+@click.option('--framework', type=click.Choice(['gunicorn', 'lambda'], case_sensitive=False), default='gunicorn',
+              help="framework to use for serving. can be wither 'gunicorn' or 'lambda'. default is 'gunicorn'")
+def dockerfile(output: str = './Dockerfile', framework: str = "gunicorn"):
     """Create a Dockerfile for you to work with"""
-    goldilox_path = get_pathlib_path(goldilox.__file__).parent.absolute()
-    docker_file_path = os.path.join(str(goldilox_path), 'app', 'Dockerfile')
-    content = read_text(docker_file_path)
+    if framework == 'lambda':
+        factory_class = goldilox.app.docker.LambdaFactory
+    elif framework == 'sagemaker':
+        factory_class = goldilox.app.docker.SageMakerFactory
+    else:
+        factory_class = goldilox.app.docker.GunicornFactory
+    content = read_text(factory_class._get_dockerfile())
+    write_text(output, content)
     click.echo(content)
     click.echo(f"##################\nDockerfile was writen to '{output}'\n")
     click.echo(

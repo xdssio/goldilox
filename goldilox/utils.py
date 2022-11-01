@@ -1,5 +1,4 @@
 import contextlib
-import gc
 import json
 import logging
 import mmap
@@ -24,37 +23,6 @@ def is_cloud_url(path):
 
 
 logger = logging.getLogger()
-
-
-def open_many(paths):
-    import vaex
-    dfs = [vaex.open(path) for path in paths]
-    valid_eips = set()
-    info_columns = set()
-    for df in dfs:
-        eips = df.get_column_names(regex='eip')
-        for column in eips:
-            if len(df[column].as_numpy().unique()) > 1:
-                valid_eips.add(column)
-        info_columns.update(df.get_column_names(regex='^(?!eip_).+'))
-    columns = list(info_columns) + list(valid_eips)
-
-    for column in columns:
-        for df, p in zip(dfs, paths):
-            if column not in df:
-                logger.info(f"added missing column {column} to {p}")
-                df[column] = np.full(shape=len(df), fill_value=None)
-    pandas = [df[columns].to_pandas_df() for df in dfs]
-    for df in pandas:
-        for column in valid_eips:
-            df[column] = df[column].astype(str)
-    concat = pd.concat(pandas)
-    concat_vaex = vaex.from_pandas(concat)
-    del concat
-    del dfs
-    del pandas
-    gc.collect()
-    return concat_vaex
 
 
 def read_bytes(path: str):
@@ -101,6 +69,12 @@ def read_file(path):
     return None
 
 
+def list_files(path, prefix='', suffix=''):
+    pathlib_path = get_pathlib_path(path)
+    files = [str(path) for path in pathlib_path.rglob(f"{prefix}*{suffix}")]
+    return files
+
+
 def read_pandas_files(files):
     if len(files) == 0:
         logger.error(f"found no data files")
@@ -121,7 +95,7 @@ def read_pandas_files(files):
 
 
 def read_sklearn_data(path, prefix='', suffix='', shuffle=True):
-    files = [str(path) for path in Path(path).rglob(f"{prefix}*{suffix}")]
+    files = list_files(path, prefix, suffix)
     logger.info(f"relevant files: {files}")
     logger.info(f"found {len(files)} files")
     df = read_pandas_files(files)
@@ -135,8 +109,9 @@ def read_sklearn_data(path, prefix='', suffix='', shuffle=True):
 def read_vaex_data(path, prefix='', suffix='', shuffle=True):
     import vaex
     logger.info(f"read data from {path} and prefix {prefix} and suffix {suffix}")
+
     if os.path.isdir(path):
-        files = [str(path) for path in Path(path).rglob(f"{prefix}*{suffix}")]
+        files = list_files(path, prefix, suffix)
         logger.info(f"relevant files: {files}")
         logger.info(f"found {len(files)} files")
         if len(files) == 0:
@@ -175,7 +150,10 @@ def read_vaex_data(path, prefix='', suffix='', shuffle=True):
         try:
             df = vaex.open(path, shuffle=shuffle)
         except:
-            df = vaex.from_pandas(read_file(path))
+            data = read_file(path)
+            if data is None:
+                raise ValueError(f"could not read data from {path}")
+            df = vaex.from_pandas(data)
             if shuffle:
                 df = df.shuffle()
     logger.info(f"data shape {df.shape}")
