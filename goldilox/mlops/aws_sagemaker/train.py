@@ -9,13 +9,14 @@ filterwarnings('ignore')
 
 logger = logging.getLogger()
 
-SM_CHANNEL_TRAIN = os.environ.get('SM_TRAIN_CHANNEL', '/opt/ml/input/data/training')
-PIPELINE_PATH = os.environ.get('PIPELINE_PATH', '/opt/program/pipeline.pkl')
-HYPERPARAMETERS_PATH = os.environ.get('SM_CHANNEL_HYPERPARAMETERS', '/opt/ml/input/config/hyperparameters.json')
-SM_MODEL_DIR = os.environ.get('SM_MODEL_DIR', '/opt/ml/model')
+SM_CHANNEL_TRAIN = os.getenv('SM_TRAIN_CHANNEL', '/opt/ml/input/data/training')
+PIPELINE_PATH = os.getenv('PIPELINE_PATH', '/opt/program/pipeline.pkl')
+SM_MODEL_DIR = os.getenv('MODEL_DIR', os.getenv('SM_MODEL_DIR', '/opt/ml/model'))
 CHECKPOINTS_DIR = os.environ.get('CHECKPOINTS_DIR', '/opt/ml/checkpoints')
+HYPERPARAMETERS_PATH = os.getenv('SM_CHANNEL_HYPERPARAMETERS', '/opt/ml/input/config/hyperparameters.json')
 
 
+# for sagemaker hyperparameter tuning
 def cast(value):
     def isfloat(x):
         try:
@@ -51,7 +52,6 @@ def main():
     parser.add_argument('--hyperparameters', type=str, default=HYPERPARAMETERS_PATH)
     parser.add_argument('--checkpoints', type=str, default=CHECKPOINTS_DIR)
     args, _ = parser.parse_known_args()
-    training_path = os.path.join(args.training)
     pipeline_path = os.getenv('PIPELINE_PATH', args.pipeline)
     try:
         logger.info(f"load pipeline from {pipeline_path}")
@@ -59,7 +59,7 @@ def main():
     except FileNotFoundError as e:
         raise RuntimeError(f"Pipeline was not found on {pipeline_path}")
     try:
-        pipeline.fit(training_path)
+        pipeline.fit(args.training)
     except Exception as e:
         raise RuntimeError(f"Pipeline failed to fit:\n{e}")
 

@@ -161,7 +161,10 @@ flaml.log
 /.vscode/
 goldilox/__pycache__/
 /venvs
-.venv10
-.venv
-tests
+.venv*
 Dockerfile
+models
+.pytest_cache/
+.mypy_cache
+.idea
+.ipynb_checkpoints
