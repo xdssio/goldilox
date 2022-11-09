@@ -264,7 +264,7 @@ Export to [Lambda](https://aws.amazon.com/lambda/)
 pipeline.export_lambda(path, **kwargs)
 ```
 
-Export to [SageMaker](https://aws.amazon.com/sagemaker/) (in process)
+Export to [SageMaker](https://aws.amazon.com/sagemaker/) (work in process)
 
 ```python
 pipeline.export_sageamker(path, **kwargs)
