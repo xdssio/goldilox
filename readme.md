@@ -19,6 +19,7 @@ Goldilox is a tool to empower data scientists to build machine learning solution
     * Output validation
     * I/O examples
     * Variables and description queries
+    * Read-write pipeline straight to AWS/GCP/AZURE
 
 # Installing
 
@@ -31,7 +32,7 @@ $ pip install goldilox
 # Pandas + Sklearn support
 
 Any [Sklearn](https://scikit-learn.org/) + [Pandas](https://pandas.pydata.org/) pipeline/transformer/estimator works can
-turn to a pipeline with one line of code, which tou can save and run as a server with the CLI. well.
+turn to a pipeline with one line of code, which you can save and run as a server with the CLI. well.
 
 # Vaex native
 
@@ -46,7 +47,7 @@ have a tool that works on big data.
 
 **[1. Data science](https://docs.goldilox.io/reference/data-science-examples)**
 
-SKlearn
+**Sklearn**
 
 ```python
 import pandas as pd
@@ -60,7 +61,7 @@ df, features, target = load_iris()
 model = XGBClassifier().fit(df[features], df[target])
 ```
 
-Vaex
+**Vaex**
 
 ```python
 import vaex
@@ -92,7 +93,7 @@ df["label"] = df["prediction"].map({0: "setosa", 1: "versicolor", 2: "virginica"
 
 **2. [Build a production ready pipeline](https://docs.goldilox.io/reference/api-reference/pipeline)**
 
-* In one line (-:
+* One line (-:
 
 ```python
 from goldilox import Pipeline
@@ -111,7 +112,7 @@ pipeline = Pipeline.from_file( < path >)
 **3. [Deploy](https://docs.goldilox.io/reference/api-reference/cli/serve)**
 
 ```
-glx serve <path>
+glx serve <path-to-file>
 
 [2021-11-16 18:54:44 +0100] [74906] [INFO] Starting gunicorn 20.1.0
 [2021-11-16 18:54:44 +0100] [74906] [INFO] Listening at: http://127.0.0.1:5000 (74906)
@@ -130,15 +131,16 @@ automations, etc,.
 With *Vaex*, you put everything you want to do to a function which receives and returns a Vaex DataFrame
 
 ```python
-from vaex.ml.datasets import load_iris
+from goldilox.datasets import load_iris
 from goldilox import Pipeline
+
+df, features, target = load_iris()
+df = vaex.from_pandas(df)
 
 
 def fit(df):
     from vaex.ml.xgboost import XGBoostModel
     import numpy as np
-
-    df = load_iris()
 
     # feature engineering example
     df["petal_ratio"] = df["petal_length"] / df["petal_width"]
@@ -167,13 +169,10 @@ With *Sklearn* the fit would be the standard X and y.
 
 ```python
 import pandas as pd
-from sklearn.datasets import load_iris
+from goldilox.datasets import load_iris
 from xgboost.sklearn import XGBClassifier
 
-iris = load_iris()
-features = iris.feature_names
-df = pd.DataFrame(iris.data, columns=features)
-df['target'] = iris.target
+df, features, target = load_iris()
 
 # we don't need to provide raw example if we do the training from the Goldilox Pipeline - it would be taken automatically from the first row.
 classifier = XGBClassifier(n_estimators=10, verbosity=0, use_label_encoder=False)
@@ -205,26 +204,27 @@ pipeline = Pipeline.from_sklearn(sk_pipeline).fit(df[features], df[target])
 
 # [CLI](https://docs.goldilox.io/reference/api-reference/cli)
 
-Some tools
+Tooling to use the pipeline file.
 
 ```bash
 # Serve model
 glx serve <pipeline-path>
 
-# get the variables straight from the file.
-glx variables <pipeline-path>
+# get pipeline metadata
+glx meta <pipeline-path>
 
-# get the description straight from the file.
-glx description <pipeline-path>
+# build a docker image to use as server
+glx build <pipeline-path> --name <image-name> --image <base-image> --nginx --framework [gunicorn|lambda|sagemaker]
 
-# get the raw data example from the file.
-glx raw <pipeline-path>
+# export to another mlops framework
+glx export <pipeline-path> --framework [gunicorn|mlflow|ray|lambda|sagemaker]
 
 # Get the pipeline requirements
 glx freeze <pipeline-path> <path-to-requirements-file-output.txt>
 
 # Update a pipeline file metadata or variables 
 glx udpate <pipeline-path> key value --file --variable
+
 
 ```
 
@@ -250,6 +250,24 @@ Export to [Gunicorn](http://gunicorn.org)
 
 ```python
 pipeline.export_gunicorn(path, **kwargs)
+```
+
+Export to [Ray](https://www.ray.io)
+
+```python
+pipeline.export_ray(path, **kwargs)
+```
+
+Export to [Lambda](https://aws.amazon.com/lambda/)
+
+```python
+pipeline.export_lambda(path, **kwargs)
+```
+
+Export to [SageMaker](https://aws.amazon.com/sagemaker/) (in process)
+
+```python
+pipeline.export_sageamker(path, **kwargs)
 ```
 
 # [Data science examples](https://docs.goldilox.io/reference/data-science-examples)
